@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Create account — Qahoot{% endblock %}
+
+{% block content %}
+<div class="auth-shell">
+  <div class="auth-card">
+    <h1 class="auth-heading">Create your account</h1>
+    <p class="auth-sub">You'll set up your team after signing up.</p>
+    <div id="clerk-component" data-mode="sign-up"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='auth.js') }}"></script>
+{% endblock %}

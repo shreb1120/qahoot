@@ -1,29 +1,28 @@
-"""Production WSGI server using Waitress. Run with: python serve.py
+"""Production WSGI server (Waitress). Run with: python serve.py
 
-HOST defaults to 127.0.0.1 — listen only on loopback unless an admin explicitly
-opts in to LAN binding via the HOST env var. Combined with the Windows Firewall
-rule documented in the README, this keeps the service off any public interface.
+In Phase 1-3, bind to 127.0.0.1 and sit behind a reverse proxy for
+local/staging use. Phase 4 will add nginx + TLS for public exposure.
 """
 import os
 import sys
+
 from waitress import serve
-from app import app, init_db
+from app import create_app
 
-if __name__ == '__main__':
-    init_db()
-    host = os.getenv('HOST', '127.0.0.1')
-    port = int(os.getenv('PORT', '5000'))
-    threads = int(os.getenv('THREADS', '8'))
+if __name__ == "__main__":
+    application = create_app()
 
-    if host == '0.0.0.0':
+    host = os.getenv("HOST", "127.0.0.1")
+    port = int(os.getenv("PORT", "5000"))
+    threads = int(os.getenv("THREADS", "8"))
+
+    if host == "0.0.0.0":
         print(
-            "WARNING: HOST=0.0.0.0 binds to every interface on this machine,\n"
-            "         including any public or VPN interface. Set HOST to the\n"
-            "         server's specific LAN IP, or rely on the Windows Firewall\n"
-            "         rule from README.md to restrict access.",
+            "WARNING: HOST=0.0.0.0 exposes this server on all network interfaces.\n"
+            "         This is not recommended until Phase 4 (TLS + hardening) is complete.",
             file=sys.stderr,
         )
 
-    print(f"Call QA Analyzer listening on http://{host}:{port} (threads={threads})")
+    print(f"Qahoot listening on http://{host}:{port} (threads={threads})")
     print("Press Ctrl+C to stop.")
-    serve(app, host=host, port=port, threads=threads)
+    serve(application, host=host, port=port, threads=threads)

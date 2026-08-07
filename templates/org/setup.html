@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Set up your organization — Qahoot{% endblock %}
+
+{% block content %}
+<div class="auth-shell">
+  <div class="auth-card auth-card--wide">
+    <h1 class="auth-heading">Set up your organization</h1>
+    <p class="auth-sub">
+      Your org is the container for your team's calls, reports, and compliance
+      checklist. You can invite teammates after setup.
+    </p>
+
+    {% if error %}
+      <div class="flash flash-error">{{ error }}</div>
+    {% endif %}
+
+    <form method="POST" action="{{ url_for('org.setup_post') }}" class="setup-form">
+      <div class="form-group">
+        <label for="org_name" class="form-label">Organization name</label>
+        <input
+          type="text"
+          id="org_name"
+          name="org_name"
+          class="form-input"
+          placeholder="e.g. Acme Debt Solutions"
+          required
+          autofocus
+          maxlength="255"
+        >
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Compliance checklist starting point</label>
+
+        <label class="radio-option">
+          <input type="radio" name="template" value="debt_settlement" checked>
+          <span>
+            <strong>Debt settlement starter template</strong><br>
+            <small>Pre-loaded with 18 approval-script items, 15 post-enrollment items,
+            and 11 auto-fail phrases. You can edit everything after setup.</small>
+          </span>
+        </label>
+
+        <label class="radio-option">
+          <input type="radio" name="template" value="blank">
+          <span>
+            <strong>Blank profile</strong><br>
+            <small>Start from scratch and define your own checklist.</small>
+          </span>
+        </label>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-full">
+        Create organization
+      </button>
+    </form>
+  </div>
+</div>
+{% endblock %}

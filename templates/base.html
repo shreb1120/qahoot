@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Qahoot{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  {% block head %}{% endblock %}
+</head>
+<body class="app-body">
+
+  <header class="app-header">
+    <div class="app-header-inner">
+      <a href="{{ url_for('dashboard.index') }}" class="app-logo">Qahoot</a>
+
+      <nav class="app-nav">
+        {% if g.user %}
+          {% if g.org %}
+            <span class="app-nav-org">{{ g.org.name }}</span>
+            {% if g.user.role == 'admin' %}
+              <a href="{{ url_for('org.settings') }}" class="app-nav-link">Team Settings</a>
+            {% endif %}
+          {% endif %}
+          <a href="{{ url_for('auth.logout') }}" class="app-nav-link">Sign out</a>
+        {% endif %}
+      </nav>
+    </div>
+  </header>
+
+  <main class="app-main">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, message in messages %}
+        <div class="flash flash-{{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </main>
+
+  {# Clerk JS — loaded on every page so user button and session work everywhere #}
+  <script async
+    src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@5/dist/clerk.browser.js"
+    data-clerk-publishable-key="{{ clerk_key | default('') }}"
+    crossorigin="anonymous">
+  </script>
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>

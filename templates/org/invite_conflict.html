@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Already in an organization — Qahoot{% endblock %}
+
+{% block content %}
+<div class="auth-shell">
+  <div class="auth-card">
+    <h1 class="auth-heading">You're already in an organization</h1>
+    <p class="auth-sub">
+      Your account ({{ g.user.email }}) already belongs to
+      <strong>{{ org.name }}</strong>.
+      A user can only belong to one organization.
+    </p>
+    <a href="{{ url_for('dashboard.index') }}" class="btn btn-primary">Go to dashboard</a>
+  </div>
+</div>
+{% endblock %}

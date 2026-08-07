@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Invite link expired — Qahoot{% endblock %}
+
+{% block content %}
+<div class="auth-shell">
+  <div class="auth-card">
+    <h1 class="auth-heading">This invite link is no longer valid</h1>
+    <p class="auth-sub">
+      It may have expired (links are valid for 7 days) or already been used.
+      Ask your team admin to generate a new one.
+    </p>
+    <a href="{{ url_for('auth.login') }}" class="btn btn-primary">Back to sign in</a>
+  </div>
+</div>
+{% endblock %}
