@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Processing Call — Qahoot{% endblock %}
+
+{% block content %}
+<div class="page-shell processing-shell">
+  <h1 class="page-heading">Analyzing Call</h1>
+  <p class="processing-filename">{{ call.filename }}</p>
+
+  <div class="processing-status" id="status-display">
+    {% if call.status == 'pending' %}
+      <span class="status-badge status-pending">Queued</span>
+    {% elif call.status == 'transcribing' %}
+      <span class="status-badge status-transcribing">Transcribing…</span>
+    {% elif call.status == 'analyzing' %}
+      <span class="status-badge status-analyzing">Analyzing…</span>
+    {% elif call.status == 'error' %}
+      <span class="status-badge status-error">Error</span>
+      {% if call.error_message %}
+        <p class="processing-error">{{ call.error_message }}</p>
+      {% endif %}
+    {% endif %}
+  </div>
+
+  {% if call.status == 'error' %}
+    <p><a href="{{ url_for('calls.upload_form') }}" class="btn btn-secondary">Try Again</a></p>
+  {% else %}
+    <p class="processing-note">This usually takes 1–3 minutes depending on call length. This page will update automatically.</p>
+    <div class="spinner"></div>
+  {% endif %}
+
+  <p class="back-link"><a href="{{ url_for('calls.history') }}">← Call history</a></p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if call.status not in ('error', 'complete') %}
+<script>
+  (function poll() {
+    fetch("{{ url_for('calls.status_json', call_id=call.id) }}")
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.status === "complete") {
+          window.location.href = "{{ url_for('calls.report', call_id=call.id) }}";
+        } else if (data.status === "error") {
+          var el = document.getElementById("status-display");
+          el.innerHTML = '<span class="status-badge status-error">Error</span>' +
+            (data.error ? '<p class="processing-error">' + data.error + '</p>' : '');
+        } else {
+          var labels = {
+            pending: "Queued",
+            transcribing: "Transcribing\u2026",
+            analyzing: "Analyzing\u2026"
+          };
+          var el = document.getElementById("status-display");
+          var label = labels[data.status] || data.status;
+          el.innerHTML = '<span class="status-badge status-' + data.status + '">' + label + '</span>';
+          setTimeout(poll, 4000);
+        }
+      })
+      .catch(function() { setTimeout(poll, 6000); });
+  })();
+</script>
+{% endif %}
+{% endblock %}

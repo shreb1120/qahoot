@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}Report — {{ call.filename }} — Qahoot{% endblock %}
+
+{% block content %}
+<div class="page-shell">
+  {% set r = report.report_json %}
+  {% set det = r.get('final_determination', '') %}
+
+  <div class="report-header">
+    <div>
+      <h1 class="page-heading">Call Report</h1>
+      <p class="report-meta">
+        {{ call.filename }}
+        {% if call.duration %}
+          &nbsp;·&nbsp; {{ (call.duration // 60) }}m {{ (call.duration % 60) }}s
+        {% endif %}
+        &nbsp;·&nbsp; {{ call.upload_date.strftime('%b %d, %Y') }}
+      </p>
+    </div>
+    <div>
+      {% if 'PASS' in det and 'FAIL' not in det %}
+        <span class="result-badge result-pass">PASS</span>
+      {% elif 'CRITICAL' in det %}
+        <span class="result-badge result-critical">CRITICAL FAIL</span>
+      {% else %}
+        <span class="result-badge result-fail">FAIL</span>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if r.get('summary') %}
+    <p class="report-summary">{{ r.summary }}</p>
+  {% endif %}
+
+  {# ── Sections ── #}
+  {% for section in r.get('sections', []) %}
+    <div class="report-section">
+      <div class="report-section-header">
+        <h2 class="report-section-title">{{ section.name }}</h2>
+        <span class="section-score
+          {% if section.covered_count == section.total_count %}score-pass{% else %}score-fail{% endif %}">
+          {{ section.covered_count }} / {{ section.total_count }} covered
+        </span>
+      </div>
+
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th>Status</th>
+            <th>Timestamp</th>
+            <th>Evidence</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in section.get('items', []) %}
+            <tr class="{{ 'row-pass' if item.status == 'covered' else 'row-fail' }}">
+              <td>{{ item.name }}</td>
+              <td>
+                {% if item.status == 'covered' %}
+                  <span class="item-badge item-covered">✓ Covered</span>
+                {% else %}
+                  <span class="item-badge item-missing">✗ Missing</span>
+                {% endif %}
+              </td>
+              <td class="ts-cell">{{ item.timestamp or '—' }}</td>
+              <td class="evidence-cell">{{ item.evidence or '' }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endfor %}
+
+  {# ── Auto-fail phrases ── #}
+  {% set af = r.get('auto_fail_phrases', {}) %}
+  {% if af.get('detected') and af.get('phrases') %}
+    <div class="report-section report-section-critical">
+      <div class="report-section-header">
+        <h2 class="report-section-title">Auto-Fail Phrases Detected</h2>
+        <span class="result-badge result-critical">CRITICAL FAIL</span>
+      </div>
+      <table class="report-table">
+        <thead>
+          <tr><th>Phrase</th><th>Timestamp</th><th>Speaker</th><th>Quote</th><th>Violation</th></tr>
+        </thead>
+        <tbody>
+          {% for p in af.phrases %}
+            <tr class="row-fail">
+              <td><strong>{{ p.phrase }}</strong></td>
+              <td class="ts-cell">{{ p.timestamp or '—' }}</td>
+              <td>{{ p.speaker or '—' }}</td>
+              <td class="evidence-cell">{{ p.quote or '' }}</td>
+              <td>{{ p.violation or '' }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+
+  <p class="back-link"><a href="{{ url_for('calls.history') }}">← Call history</a></p>
+</div>
+{% endblock %}

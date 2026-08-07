@@ -2,25 +2,47 @@
 {% block title %}Dashboard — Qahoot{% endblock %}
 
 {% block content %}
-<div class="page-container">
+<div class="page-shell">
   <div class="dashboard-welcome">
-    <h1 class="page-title">Welcome to {{ org.name }}</h1>
+    <h1 class="page-heading">{{ org.name }}</h1>
     <p class="page-sub">
-      You're signed in as <strong>{{ user.email }}</strong>
-      with role <span class="badge badge-{{ user.role }}">{{ user.role }}</span>.
+      Signed in as <strong>{{ user.email }}</strong>
+      &nbsp;·&nbsp; <span class="badge badge-{{ user.role }}">{{ user.role }}</span>
     </p>
   </div>
 
-  <div class="placeholder-panel">
-    <div class="placeholder-icon">📋</div>
-    <h2>Phase 1 complete</h2>
-    <p>
-      Your account, organization, and data model are all set up.
-      Call upload and analysis will be available in Phase 2.
-    </p>
+  <div class="dashboard-actions">
+    <a href="{{ url_for('calls.upload_form') }}" class="action-card">
+      <div class="action-card-icon">↑</div>
+      <div>
+        <div class="action-card-title">Upload a Call</div>
+        <div class="action-card-sub">Transcribe and analyze a recording</div>
+      </div>
+    </a>
+
+    <a href="{{ url_for('calls.history') }}" class="action-card">
+      <div class="action-card-icon">☰</div>
+      <div>
+        <div class="action-card-title">Call History</div>
+        <div class="action-card-sub">View past calls and reports</div>
+      </div>
+    </a>
+
+    <a href="{{ url_for('profile.view') }}" class="action-card">
+      <div class="action-card-icon">✓</div>
+      <div>
+        <div class="action-card-title">Compliance Checklist</div>
+        <div class="action-card-sub">View{% if user.role == 'admin' %} or edit{% endif %} your checklist</div>
+      </div>
+    </a>
+
     {% if user.role == 'admin' %}
-    <a href="{{ url_for('org.settings') }}" class="btn btn-primary">
-      Invite teammates →
+    <a href="{{ url_for('org.settings') }}" class="action-card">
+      <div class="action-card-icon">⚙</div>
+      <div>
+        <div class="action-card-title">Team Settings</div>
+        <div class="action-card-sub">Manage members and invite links</div>
+      </div>
     </a>
     {% endif %}
   </div>

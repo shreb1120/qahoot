@@ -15,6 +15,7 @@ from flask import (
     url_for,
 )
 
+
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 
 
@@ -40,8 +41,10 @@ def signup():
 
 @auth_bp.get("/logout")
 def logout():
-    # Belt-and-suspenders: delete the __session cookie server-side.
-    # Clerk's JS UserButton component also clears it on the frontend.
-    resp = make_response(redirect(url_for("auth.login")))
-    resp.delete_cookie("__session")
-    return resp
+    # Do NOT delete the cookie here — Clerk needs the session cookie intact
+    # so its JS can detect and revoke the session on Clerk's servers.
+    # The logout.html page calls Clerk.signOut() which clears everything.
+    return render_template(
+        "auth/logout.html",
+        clerk_key=current_app.config["CLERK_PUBLISHABLE_KEY"],
+    )

@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Upload Call — Qahoot{% endblock %}
+
+{% block content %}
+<div class="page-shell">
+  <h1 class="page-heading">Upload a Call</h1>
+
+  {% if not has_profile %}
+    <div class="notice notice-warn">
+      <strong>No compliance profile set up yet.</strong>
+      {% if g.user.role == 'admin' %}
+        <a href="{{ url_for('profile.view') }}">Set up your checklist</a> before uploading calls.
+      {% else %}
+        Ask your org admin to set up a compliance checklist first.
+      {% endif %}
+    </div>
+  {% else %}
+    {% if error %}
+      <div class="notice notice-error">{{ error }}</div>
+    {% endif %}
+
+    <form method="post" action="{{ url_for('calls.upload') }}" enctype="multipart/form-data" class="upload-form">
+      <div class="form-field">
+        <label class="form-label" for="file">Call recording</label>
+        <p class="form-hint">Audio or video file — MP3, MP4, WAV, M4A, OGG, WEBM, etc. Up to 500 MB.</p>
+        <input type="file" id="file" name="file" class="form-file-input"
+               accept="audio/*,video/*"
+               required>
+      </div>
+      <button type="submit" class="btn btn-primary">Upload &amp; Analyze</button>
+    </form>
+  {% endif %}
+
+  <p class="back-link"><a href="{{ url_for('calls.history') }}">← Call history</a></p>
+</div>
+{% endblock %}

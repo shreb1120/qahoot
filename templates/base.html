@@ -17,8 +17,11 @@
         {% if g.user %}
           {% if g.org %}
             <span class="app-nav-org">{{ g.org.name }}</span>
+            <a href="{{ url_for('calls.upload_form') }}" class="app-nav-link">Upload</a>
+            <a href="{{ url_for('calls.history') }}" class="app-nav-link">History</a>
+            <a href="{{ url_for('profile.view') }}" class="app-nav-link">Checklist</a>
             {% if g.user.role == 'admin' %}
-              <a href="{{ url_for('org.settings') }}" class="app-nav-link">Team Settings</a>
+              <a href="{{ url_for('org.settings') }}" class="app-nav-link">Team</a>
             {% endif %}
           {% endif %}
           <a href="{{ url_for('auth.logout') }}" class="app-nav-link">Sign out</a>

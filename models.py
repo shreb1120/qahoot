@@ -197,6 +197,7 @@ class Call(Base):
         String(20), nullable=False, default="pending"
     )
     duration: Mapped[int | None] = mapped_column(Integer, nullable=True)  # seconds
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     org: Mapped["Organization"] = relationship(
         "Organization", back_populates="calls"

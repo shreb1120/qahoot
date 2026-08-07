@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Call History — Qahoot{% endblock %}
+
+{% block content %}
+<div class="page-shell">
+  <div class="page-header-row">
+    <h1 class="page-heading">Call History</h1>
+    <a href="{{ url_for('calls.upload_form') }}" class="btn btn-primary">+ Upload Call</a>
+  </div>
+
+  {% if not calls %}
+    <div class="empty-state">
+      <p>No calls uploaded yet.</p>
+      <a href="{{ url_for('calls.upload_form') }}" class="btn btn-primary">Upload your first call</a>
+    </div>
+  {% else %}
+    <table class="history-table">
+      <thead>
+        <tr>
+          <th>File</th>
+          <th>Uploaded</th>
+          <th>Duration</th>
+          <th>Status</th>
+          <th>Result</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for call in calls %}
+          <tr>
+            <td class="filename-cell">{{ call.filename }}</td>
+            <td>{{ call.upload_date.strftime('%b %d, %Y %H:%M') }}</td>
+            <td>
+              {% if call.duration %}
+                {{ call.duration // 60 }}m {{ call.duration % 60 }}s
+              {% else %}
+                —
+              {% endif %}
+            </td>
+            <td>
+              {% if call.status == 'complete' %}
+                <span class="status-badge status-complete">Complete</span>
+              {% elif call.status == 'error' %}
+                <span class="status-badge status-error">Error</span>
+              {% elif call.status == 'transcribing' %}
+                <span class="status-badge status-transcribing">Transcribing</span>
+              {% elif call.status == 'analyzing' %}
+                <span class="status-badge status-analyzing">Analyzing</span>
+              {% else %}
+                <span class="status-badge status-pending">Pending</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if call.report %}
+                {% set det = call.report.pass_fail_status or '' %}
+                {% if 'PASS' in det and 'FAIL' not in det %}
+                  <span class="result-badge result-pass">PASS</span>
+                {% elif 'CRITICAL' in det %}
+                  <span class="result-badge result-critical">CRITICAL FAIL</span>
+                {% elif 'FAIL' in det %}
+                  <span class="result-badge result-fail">FAIL</span>
+                {% endif %}
+              {% else %}
+                —
+              {% endif %}
+            </td>
+            <td>
+              {% if call.status == 'complete' %}
+                <a href="{{ url_for('calls.report', call_id=call.id) }}" class="table-link">View report →</a>
+              {% elif call.status in ('pending', 'transcribing', 'analyzing') %}
+                <a href="{{ url_for('calls.status', call_id=call.id) }}" class="table-link">View status →</a>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+</div>
+{% endblock %}

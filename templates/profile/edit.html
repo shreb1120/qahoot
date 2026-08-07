@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}Compliance Profile — Qahoot{% endblock %}
+
+{% block content %}
+<div class="page-shell">
+  <h1 class="page-heading">Compliance Checklist</h1>
+
+  {% if not profile %}
+    <div class="notice notice-warn">No compliance profile found for this org.</div>
+  {% else %}
+    <p class="profile-name">Profile: <strong>{{ profile.name }}</strong></p>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for cat, msg in messages %}
+        <div class="notice notice-{{ cat }}">{{ msg }}</div>
+      {% endfor %}
+    {% endwith %}
+
+    {# ── Sections ── #}
+    {% set sections = profile.script_sections_json.get('sections', []) %}
+    {% for section in sections %}
+      {% set si = loop.index0 %}
+      <div class="profile-section">
+        <div class="profile-section-header">
+          <h2 class="profile-section-title">{{ section.name }}</h2>
+          {% if g.user.role == 'admin' %}
+            <form method="post" action="{{ url_for('profile.delete_section', section_idx=si) }}"
+                  onsubmit="return confirm('Delete this entire section and all its items?')">
+              <button type="submit" class="btn-danger-sm">Delete section</button>
+            </form>
+          {% endif %}
+        </div>
+
+        {% set items = section.get('items', []) %}
+        {% if items %}
+          <table class="profile-table">
+            <thead>
+              <tr><th>Item</th><th>Required</th><th>Notes</th>{% if g.user.role == 'admin' %}<th></th>{% endif %}</tr>
+            </thead>
+            <tbody>
+              {% for item in items %}
+                <tr>
+                  <td>{{ item.name }}</td>
+                  <td>{{ 'Yes' if item.get('required', True) else 'Optional' }}</td>
+                  <td class="notes-cell">{{ item.get('notes', '') or '—' }}</td>
+                  {% if g.user.role == 'admin' %}
+                    <td>
+                      <form method="post"
+                            action="{{ url_for('profile.delete_item', section_idx=si, item_idx=loop.index0) }}">
+                        <button type="submit" class="btn-danger-sm">Remove</button>
+                      </form>
+                    </td>
+                  {% endif %}
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <p class="empty-section">No items yet.</p>
+        {% endif %}
+
+        {% if g.user.role == 'admin' %}
+          <details class="add-item-toggle">
+            <summary>+ Add item</summary>
+            <form method="post"
+                  action="{{ url_for('profile.add_item', section_idx=si) }}"
+                  class="inline-form">
+              <input type="text" name="name" placeholder="Item name" required class="form-input">
+              <label class="checkbox-label">
+                <input type="checkbox" name="required" value="true" checked> Required
+              </label>
+              <input type="text" name="notes" placeholder="Notes for Claude (optional)" class="form-input">
+              <button type="submit" class="btn btn-secondary btn-sm">Add</button>
+            </form>
+          </details>
+        {% endif %}
+      </div>
+    {% endfor %}
+
+    {# ── Add section ── #}
+    {% if g.user.role == 'admin' %}
+      <div class="profile-section profile-section-add">
+        <details class="add-item-toggle">
+          <summary>+ Add section</summary>
+          <form method="post" action="{{ url_for('profile.add_section') }}" class="inline-form">
+            <input type="text" name="name" placeholder="Section name (e.g. Post-Enrollment Script)"
+                   required class="form-input">
+            <button type="submit" class="btn btn-secondary btn-sm">Add section</button>
+          </form>
+        </details>
+      </div>
+    {% endif %}
+
+    {# ── Auto-fail phrases ── #}
+    <div class="profile-section">
+      <div class="profile-section-header">
+        <h2 class="profile-section-title">Auto-Fail Phrases</h2>
+        <span class="section-hint">If any of these appear in a call, it's an automatic failure.</span>
+      </div>
+
+      {% set phrases = profile.script_sections_json.get('auto_fail_phrases', []) %}
+      {% if phrases %}
+        <table class="profile-table">
+          <thead>
+            <tr><th>Phrase</th><th>Description</th>{% if g.user.role == 'admin' %}<th></th>{% endif %}</tr>
+          </thead>
+          <tbody>
+            {% for p in phrases %}
+              <tr>
+                <td><code>{{ p.phrase }}</code></td>
+                <td>{{ p.get('description', '') or '—' }}</td>
+                {% if g.user.role == 'admin' %}
+                  <td>
+                    <form method="post"
+                          action="{{ url_for('profile.delete_phrase', phrase_idx=loop.index0) }}">
+                      <button type="submit" class="btn-danger-sm">Remove</button>
+                    </form>
+                  </td>
+                {% endif %}
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p class="empty-section">No auto-fail phrases defined.</p>
+      {% endif %}
+
+      {% if g.user.role == 'admin' %}
+        <details class="add-item-toggle">
+          <summary>+ Add phrase</summary>
+          <form method="post" action="{{ url_for('profile.add_phrase') }}" class="inline-form">
+            <input type="text" name="phrase" placeholder='e.g. "0% interest"'
+                   required class="form-input">
+            <input type="text" name="description" placeholder="Why it's prohibited (optional)"
+                   class="form-input">
+            <button type="submit" class="btn btn-secondary btn-sm">Add phrase</button>
+          </form>
+        </details>
+      {% endif %}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

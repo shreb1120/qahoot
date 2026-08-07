@@ -60,11 +60,12 @@ def create_app(config_class: type = Config) -> Flask:
         # this will be tightened with a nonce in Phase 4.
         csp = (
             "default-src 'self'; "
-            "script-src 'self' https://cdn.jsdelivr.net https://*.clerk.accounts.dev https://*.clerk.com; "
+            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://*.clerk.accounts.dev https://*.clerk.com; "
             "style-src 'self' 'unsafe-inline' https://*.clerk.accounts.dev; "
             "img-src 'self' data: https://*.clerk.accounts.dev https://img.clerk.com; "
-            "connect-src 'self' https://*.clerk.accounts.dev https://*.clerk.com https://*.clerkinc.com; "
+            "connect-src 'self' https://*.clerk.accounts.dev https://*.clerk.com https://*.clerkinc.com wss://*.clerk.accounts.dev wss://*.clerk.com; "
             "frame-src https://*.clerk.accounts.dev https://*.clerk.com; "
+            "font-src 'self' https://*.clerk.accounts.dev; "
             "object-src 'none'; "
             "base-uri 'self'; "
             "frame-ancestors 'none'"
@@ -82,14 +83,22 @@ def create_app(config_class: type = Config) -> Flask:
     def inject_clerk_key():
         return {"clerk_key": app.config.get("CLERK_PUBLISHABLE_KEY", "")}
 
+    # ── Upload directory ──────────────────────────────────────────────────
+    import os as _os
+    _os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+
     # ── Blueprints ────────────────────────────────────────────────────────
     from blueprints.auth_bp import auth_bp
     from blueprints.org_bp import org_bp
     from blueprints.dashboard_bp import dashboard_bp
+    from blueprints.calls_bp import calls_bp
+    from blueprints.profile_bp import profile_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(org_bp)
     app.register_blueprint(dashboard_bp)
+    app.register_blueprint(calls_bp)
+    app.register_blueprint(profile_bp)
 
     # Convenience redirect: /login → /auth/login
     @app.get("/login")

@@ -24,3 +24,7 @@ class Config:
     # API keys used in Phase 2 (not required for Phase 1 to start)
     ASSEMBLYAI_API_KEY: str = os.environ.get("ASSEMBLYAI_API_KEY", "")
     ANTHROPIC_API_KEY: str = os.environ.get("ANTHROPIC_API_KEY", "")
+
+    # File uploads
+    UPLOAD_FOLDER: str = os.environ.get("UPLOAD_FOLDER", "/srv/qahoot/uploads")
+    MAX_CONTENT_LENGTH: int = 500 * 1024 * 1024  # 500 MB
