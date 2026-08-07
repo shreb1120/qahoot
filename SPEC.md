@@ -109,7 +109,7 @@ Not needed yet. Stripe integration comes later once there's a real paying
 customer ready to onboard. Don't build this now.
 
 ### 7. Domain and hosting target
-The product will be hosted at **qahoot.ai** (domain being purchased), and
+The product will be hosted at **qaboom.io** (domain purchased), and
 will run on this same machine you are currently working in. This doesn't
 change anything about Phases 1-3, but it matters for Phase 4
 (production hardening/deploy): TLS/cert setup, CORS/allowed-origin config,

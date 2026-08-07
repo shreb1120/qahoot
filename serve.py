@@ -23,6 +23,6 @@ if __name__ == "__main__":
             file=sys.stderr,
         )
 
-    print(f"Qahoot listening on http://{host}:{port} (threads={threads})")
+    print(f"Qaboom listening on http://{host}:{port} (threads={threads})")
     print("Press Ctrl+C to stop.")
     serve(application, host=host, port=port, threads=threads)

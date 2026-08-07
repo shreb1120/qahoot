@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}Qahoot{% endblock %}</title>
+  <title>{% block title %}Qaboom{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   {% block head %}{% endblock %}
 </head>
@@ -11,7 +11,7 @@
 
   <header class="app-header">
     <div class="app-header-inner">
-      <a href="{{ url_for('dashboard.index') }}" class="app-logo">Qahoot</a>
+      <a href="{{ url_for('dashboard.index') }}" class="app-logo">Qaboom</a>
 
       <nav class="app-nav">
         {% if g.user %}

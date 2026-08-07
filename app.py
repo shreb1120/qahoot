@@ -1,5 +1,5 @@
 """
-Qahoot — multi-tenant call compliance QA (SaaS rewrite).
+Qaboom — multi-tenant call compliance QA (SaaS rewrite).
 
 This file is the application factory.  Run via serve.py (Waitress) in
 production, or `flask run` for local development.

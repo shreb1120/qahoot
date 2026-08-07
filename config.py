@@ -26,5 +26,5 @@ class Config:
     ANTHROPIC_API_KEY: str = os.environ.get("ANTHROPIC_API_KEY", "")
 
     # File uploads
-    UPLOAD_FOLDER: str = os.environ.get("UPLOAD_FOLDER", "/srv/qahoot/uploads")
+    UPLOAD_FOLDER: str = os.environ.get("UPLOAD_FOLDER", "/srv/qaboom/uploads")
     MAX_CONTENT_LENGTH: int = 500 * 1024 * 1024  # 500 MB

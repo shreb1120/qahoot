@@ -1,5 +1,5 @@
 """
-SQLAlchemy models for the qahoot multi-tenant schema.
+SQLAlchemy models for the qaboom multi-tenant schema.
 
 All tenant-owned tables carry an org_id FK to organizations. Every query
 that touches these tables MUST filter by org_id — enforcement happens in

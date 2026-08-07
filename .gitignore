@@ -40,3 +40,6 @@ writeup_example*
 
 # Brand assets dropped on the server (not source)
 static/bds_logo.png
+
+# Uploaded call recordings (runtime data, not source)
+uploads/

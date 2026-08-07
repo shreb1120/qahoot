@@ -1,0 +1,21 @@
+[Unit]
+Description=Qaboom — call compliance QA backend
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=claude
+WorkingDirectory=/srv/qaboom
+EnvironmentFile=/srv/qaboom/.env
+ExecStart=/usr/bin/python3 /srv/qaboom/serve.py
+Restart=on-failure
+RestartSec=5
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=qaboom
+
+[Install]
+WantedBy=multi-user.target
