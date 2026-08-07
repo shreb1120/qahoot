@@ -7,11 +7,12 @@ application code (see blueprints). The DB-level FK + index make accidental
 cross-tenant data leaks loudly wrong even if application code fails.
 """
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
+    Date,
     DateTime,
     ForeignKey,
     Index,
@@ -56,6 +57,34 @@ class Organization(Base):
     calls: Mapped[list["Call"]] = relationship(
         "Call", back_populates="org", cascade="all, delete-orphan"
     )
+    agents: Mapped[list["Agent"]] = relationship(
+        "Agent", back_populates="org", cascade="all, delete-orphan"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Agents
+# ---------------------------------------------------------------------------
+
+class Agent(Base):
+    __tablename__ = "agents"
+    __table_args__ = (
+        Index("ix_agents_org_id", "org_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    org_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_now
+    )
+
+    org: Mapped["Organization"] = relationship("Organization", back_populates="agents")
+    calls: Mapped[list["Call"]] = relationship("Call", back_populates="agent")
 
 
 # ---------------------------------------------------------------------------
@@ -188,10 +217,18 @@ class Call(Base):
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
     )
+    agent_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("agents.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     filename: Mapped[str] = mapped_column(String(500), nullable=False)
     upload_date: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_now
     )
+    alv_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    call_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    client_phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
     audio_file_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(
         String(20), nullable=False, default="pending"
@@ -206,6 +243,7 @@ class Call(Base):
         "ComplianceProfile", back_populates="calls"
     )
     uploader: Mapped["User | None"] = relationship("User", foreign_keys=[uploaded_by_user_id])
+    agent: Mapped["Agent | None"] = relationship("Agent", back_populates="calls")
     transcript: Mapped["Transcript | None"] = relationship(
         "Transcript",
         back_populates="call",
@@ -255,6 +293,7 @@ class Report(Base):
     )
     report_json: Mapped[dict] = mapped_column(JSONB, nullable=False)
     pass_fail_status: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    overrides_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_now
     )

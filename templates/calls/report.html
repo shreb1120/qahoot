@@ -5,35 +5,87 @@
 <div class="page-shell">
   {% set r = report.report_json %}
   {% set det = r.get('final_determination', '') %}
+  {% set overrides = report.overrides_json or {} %}
 
+  {# ── Header ── #}
   <div class="report-header">
     <div>
       <h1 class="page-heading">Call Report</h1>
       <p class="report-meta">
+        {% if call.agent %}<strong>{{ call.agent.name }}</strong> &nbsp;·&nbsp;{% endif %}
+        {% if call.alv_id %}ALV-{{ call.alv_id }} &nbsp;·&nbsp;{% endif %}
         {{ call.filename }}
-        {% if call.duration %}
-          &nbsp;·&nbsp; {{ (call.duration // 60) }}m {{ (call.duration % 60) }}s
-        {% endif %}
-        &nbsp;·&nbsp; {{ call.upload_date.strftime('%b %d, %Y') }}
+        {% if call.call_date %}&nbsp;·&nbsp; {{ call.call_date.strftime('%b %d, %Y') }}{% endif %}
+        {% if call.duration %}&nbsp;·&nbsp; {{ (call.duration // 60) }}m {{ (call.duration % 60) }}s{% endif %}
+        &nbsp;·&nbsp; <span class="muted-label">Uploaded {{ call.upload_date.strftime('%b %d, %Y') }}</span>
       </p>
     </div>
-    <div>
+    <div class="report-header-right">
       {% if 'PASS' in det and 'FAIL' not in det %}
-        <span class="result-badge result-pass">PASS</span>
+        <span class="result-badge result-pass result-badge-lg">PASS</span>
       {% elif 'CRITICAL' in det %}
-        <span class="result-badge result-critical">CRITICAL FAIL</span>
+        <span class="result-badge result-critical result-badge-lg">CRITICAL FAIL</span>
       {% else %}
-        <span class="result-badge result-fail">FAIL</span>
+        <span class="result-badge result-fail result-badge-lg">FAIL</span>
       {% endif %}
     </div>
   </div>
+
+  {# ── Action buttons ── #}
+  <div class="report-actions">
+    <form method="post" action="{{ url_for('calls.writeup', call_id=call.id) }}" style="display:inline">
+      <button type="submit" class="btn btn-secondary">Write-up (.docx)</button>
+    </form>
+    <a href="{{ url_for('calls.report_pdf', call_id=call.id) }}" class="btn btn-secondary">Download PDF</a>
+    <a href="{{ url_for('calls.report_pdf', call_id=call.id, fails_only='1') }}" class="btn btn-secondary">Fails Only PDF</a>
+  </div>
+
+  {# ── Scorecard ── #}
+  {% set sections = r.get('sections', []) %}
+  {% set ns = namespace(total=0, covered=0) %}
+  {% for sec in sections %}
+    {% set ns.total = ns.total + sec.get('total_count', 0) %}
+    {% set ns.covered = ns.covered + sec.get('covered_count', 0) %}
+  {% endfor %}
+  {% if ns.total > 0 %}
+    {% set score_pct = (ns.covered / ns.total * 100) | round | int %}
+  {% else %}
+    {% set score_pct = 0 %}
+  {% endif %}
+
+  <div class="scorecard">
+    <div class="scorecard-overall">
+      <div class="scorecard-score">{{ ns.covered }} / {{ ns.total }}</div>
+      <div class="scorecard-label">items covered</div>
+      <div class="score-bar-wrap">
+        <div class="score-bar" style="width:{{ score_pct }}%;background:{{ '#059669' if score_pct >= 80 else '#dc2626' }}"></div>
+      </div>
+      <div class="scorecard-pct">{{ score_pct }}%</div>
+    </div>
+    <div class="scorecard-sections">
+      {% for sec in sections %}
+        <span class="section-pill {{ 'pill-pass' if sec.covered_count == sec.total_count else 'pill-fail' }}">
+          {{ sec.name }}: {{ sec.covered_count }}/{{ sec.total_count }}
+        </span>
+      {% endfor %}
+    </div>
+  </div>
+
+  {# ── Critical fail alert ── #}
+  {% set af = r.get('auto_fail_phrases', {}) %}
+  {% if af.get('detected') %}
+    <div class="notice notice-critical">
+      <strong>Auto-fail phrase detected in this call.</strong> See details below.
+    </div>
+  {% endif %}
 
   {% if r.get('summary') %}
     <p class="report-summary">{{ r.summary }}</p>
   {% endif %}
 
   {# ── Sections ── #}
-  {% for section in r.get('sections', []) %}
+  {% for section in sections %}
+    {% set sk = section.get('key', section.name | lower | replace(' ', '_')) %}
     <div class="report-section">
       <div class="report-section-header">
         <h2 class="report-section-title">{{ section.name }}</h2>
@@ -48,12 +100,15 @@
           <tr>
             <th>Item</th>
             <th>Status</th>
+            <th>Manager Override</th>
             <th>Timestamp</th>
             <th>Evidence</th>
           </tr>
         </thead>
         <tbody>
           {% for item in section.get('items', []) %}
+            {% set ov_key = sk ~ '::' ~ item.name %}
+            {% set ov = overrides.get(ov_key, '') %}
             <tr class="{{ 'row-pass' if item.status == 'covered' else 'row-fail' }}">
               <td>{{ item.name }}</td>
               <td>
@@ -62,6 +117,22 @@
                 {% else %}
                   <span class="item-badge item-missing">✗ Missing</span>
                 {% endif %}
+              </td>
+              <td class="override-cell">
+                {% if ov == 'approved' %}
+                  <span class="override-badge ov-approved">✓ Approved</span>
+                {% elif ov == 'failed' %}
+                  <span class="override-badge ov-failed">✗ Flagged</span>
+                {% endif %}
+                <div class="override-btns" data-section-key="{{ sk }}" data-item-name="{{ item.name }}">
+                  <button class="ov-btn ov-approve {{ 'ov-active' if ov == 'approved' }}"
+                          onclick="setOverride(this, 'approved')">Approve</button>
+                  <button class="ov-btn ov-flag {{ 'ov-active' if ov == 'failed' }}"
+                          onclick="setOverride(this, 'failed')">Flag</button>
+                  {% if ov %}
+                    <button class="ov-btn ov-clear" onclick="setOverride(this, '')">Clear</button>
+                  {% endif %}
+                </div>
               </td>
               <td class="ts-cell">{{ item.timestamp or '—' }}</td>
               <td class="evidence-cell">{{ item.evidence or '' }}</td>
@@ -73,7 +144,6 @@
   {% endfor %}
 
   {# ── Auto-fail phrases ── #}
-  {% set af = r.get('auto_fail_phrases', {}) %}
   {% if af.get('detected') and af.get('phrases') %}
     <div class="report-section report-section-critical">
       <div class="report-section-header">
@@ -101,4 +171,23 @@
 
   <p class="back-link"><a href="{{ url_for('calls.history') }}">← Call history</a></p>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function setOverride(btn, status) {
+  const cell = btn.closest('.override-btns');
+  const sectionKey = cell.dataset.sectionKey;
+  const itemName = cell.dataset.itemName;
+
+  fetch('{{ url_for("calls.override", call_id=call.id) }}', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({section_key: sectionKey, item_name: itemName, status: status}),
+  })
+  .then(r => r.json())
+  .then(() => window.location.reload())
+  .catch(e => console.error(e));
+}
+</script>
 {% endblock %}

@@ -3,8 +3,13 @@
 
 {% block content %}
 <div class="page-container">
-  <h1 class="page-title">Team Settings</h1>
-  <p class="page-sub">Organization: <strong>{{ g.org.name }}</strong></p>
+  <div class="page-header-row">
+    <div>
+      <h1 class="page-title">Team Settings</h1>
+      <p class="page-sub">Organization: <strong>{{ g.org.name }}</strong></p>
+    </div>
+    <a href="{{ url_for('agents.list_agents') }}" class="btn btn-secondary">Manage Agents</a>
+  </div>
 
   {# ── Members ─────────────────────────────────────────────────────────── #}
   <section class="settings-section">

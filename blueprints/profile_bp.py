@@ -117,6 +117,39 @@ def add_item(section_idx: int):
     return redirect(url_for("profile.view"))
 
 
+@profile_bp.post("/sections/<int:section_idx>/items/<int:item_idx>/edit")
+@admin_required
+def edit_item(section_idx: int, item_idx: int):
+    profile = _get_active_profile(g.db, g.org.id)
+    if not profile:
+        abort(404)
+
+    name = request.form.get("name", "").strip()
+    if not name:
+        flash("Item name is required.", "error")
+        return redirect(url_for("profile.view"))
+
+    required = request.form.get("required") == "true"
+    notes = request.form.get("notes", "").strip()
+
+    data = profile.script_sections_json
+    sections = data.get("sections", [])
+    if section_idx < 0 or section_idx >= len(sections):
+        abort(400)
+    items = sections[section_idx].get("items", [])
+    if item_idx < 0 or item_idx >= len(items):
+        abort(400)
+
+    items[item_idx]["name"] = name
+    items[item_idx]["required"] = required
+    items[item_idx]["notes"] = notes
+    sections[section_idx]["items"] = items
+    data["sections"] = sections
+    profile.script_sections_json = data
+    _save_profile(g.db, profile)
+    return redirect(url_for("profile.view"))
+
+
 @profile_bp.post("/sections/<int:section_idx>/items/<int:item_idx>/delete")
 @admin_required
 def delete_item(section_idx: int, item_idx: int):

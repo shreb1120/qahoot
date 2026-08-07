@@ -20,6 +20,7 @@
     {% endif %}
 
     <form method="post" action="{{ url_for('calls.upload') }}" enctype="multipart/form-data" class="upload-form">
+
       <div class="form-field">
         <label class="form-label" for="file">Call recording</label>
         <p class="form-hint">Audio or video file — MP3, MP4, WAV, M4A, OGG, WEBM, etc. Up to 500 MB.</p>
@@ -27,10 +28,70 @@
                accept="audio/*,video/*"
                required>
       </div>
+
+      <div class="form-field">
+        <label class="form-label" for="agent_id">Agent <span class="required-star">*</span></label>
+        {% if agents %}
+          <select id="agent_id" name="agent_id" class="form-input" required>
+            <option value="">— Select agent —</option>
+            {% for agent in agents %}
+              <option value="{{ agent.id }}">{{ agent.name }}</option>
+            {% endfor %}
+          </select>
+        {% else %}
+          <p class="form-hint notice notice-warn" style="margin:0">
+            No agents added yet.
+            {% if g.user.role == 'admin' %}
+              <a href="{{ url_for('agents.list_agents') }}">Add agents</a> first.
+            {% else %}
+              Ask your admin to add agents.
+            {% endif %}
+          </p>
+          <input type="hidden" name="agent_id" value="">
+        {% endif %}
+      </div>
+
+      <div class="form-field">
+        <label class="form-label" for="alv_id">ALV / ID # <span class="required-star">*</span></label>
+        <input type="text" id="alv_id" name="alv_id" class="form-input"
+               placeholder="e.g. 12345" maxlength="50" required>
+      </div>
+
+      <div class="form-field">
+        <label class="form-label" for="call_date">Call date <span class="required-star">*</span></label>
+        <input type="date" id="call_date" name="call_date" class="form-input" required>
+      </div>
+
+      <div class="form-field">
+        <label class="form-label" for="client_phone">Client phone <span class="muted-label">(optional)</span></label>
+        <input type="text" id="client_phone" name="client_phone" class="form-input"
+               placeholder="e.g. 8005551234" maxlength="30">
+      </div>
+
       <button type="submit" class="btn btn-primary">Upload &amp; Analyze</button>
     </form>
   {% endif %}
 
   <p class="back-link"><a href="{{ url_for('calls.history') }}">← Call history</a></p>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Auto-parse filename: YYYYMMDD-HHMMSS_PHONENUMBER (e.g. 20260727-162411_8306607303-all.mp3)
+  document.getElementById('file')?.addEventListener('change', function() {
+    const name = this.files[0]?.name || '';
+    const m = name.match(/^(\d{4})(\d{2})(\d{2})-(\d{6})_(\d{7,15})/);
+    if (m) {
+      const dateField = document.getElementById('call_date');
+      const phoneField = document.getElementById('client_phone');
+      if (dateField && !dateField.value) {
+        dateField.value = `${m[1]}-${m[2]}-${m[3]}`;
+      }
+      if (phoneField && !phoneField.value) {
+        phoneField.value = m[5];
+      }
+    }
+  });
+</script>
 {% endblock %}

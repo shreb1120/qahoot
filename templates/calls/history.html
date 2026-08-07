@@ -8,16 +8,56 @@
     <a href="{{ url_for('calls.upload_form') }}" class="btn btn-primary">+ Upload Call</a>
   </div>
 
+  {# ── Filter bar ── #}
+  <form method="get" action="{{ url_for('calls.history') }}" class="filter-bar">
+    <select name="agent_id" class="form-input form-input-sm">
+      <option value="">All agents</option>
+      {% for agent in agents %}
+        <option value="{{ agent.id }}" {% if filters.agent_id == agent.id %}selected{% endif %}>
+          {{ agent.name }}
+        </option>
+      {% endfor %}
+    </select>
+
+    <select name="status" class="form-input form-input-sm">
+      <option value="">All statuses</option>
+      <option value="pending" {% if filters.status == 'pending' %}selected{% endif %}>Pending</option>
+      <option value="transcribing" {% if filters.status == 'transcribing' %}selected{% endif %}>Transcribing</option>
+      <option value="analyzing" {% if filters.status == 'analyzing' %}selected{% endif %}>Analyzing</option>
+      <option value="complete" {% if filters.status == 'complete' %}selected{% endif %}>Complete</option>
+      <option value="error" {% if filters.status == 'error' %}selected{% endif %}>Error</option>
+    </select>
+
+    <select name="result" class="form-input form-input-sm">
+      <option value="">All results</option>
+      <option value="pass" {% if filters.result == 'pass' %}selected{% endif %}>Pass</option>
+      <option value="fail" {% if filters.result == 'fail' %}selected{% endif %}>Fail</option>
+      <option value="critical" {% if filters.result == 'critical' %}selected{% endif %}>Critical Fail</option>
+    </select>
+
+    <input type="date" name="date_from" value="{{ filters.date_from }}"
+           class="form-input form-input-sm" placeholder="From date" title="Call date from">
+    <input type="date" name="date_to" value="{{ filters.date_to }}"
+           class="form-input form-input-sm" placeholder="To date" title="Call date to">
+
+    <button type="submit" class="btn btn-secondary btn-sm">Apply</button>
+    {% if filters.agent_id or filters.status or filters.result or filters.date_from or filters.date_to %}
+      <a href="{{ url_for('calls.history') }}" class="btn btn-ghost btn-sm">Clear</a>
+    {% endif %}
+  </form>
+
   {% if not calls %}
     <div class="empty-state">
-      <p>No calls uploaded yet.</p>
+      <p>No calls found.</p>
       <a href="{{ url_for('calls.upload_form') }}" class="btn btn-primary">Upload your first call</a>
     </div>
   {% else %}
     <table class="history-table">
       <thead>
         <tr>
+          <th>Agent</th>
           <th>File</th>
+          <th>Call Date</th>
           <th>Uploaded</th>
           <th>Duration</th>
           <th>Status</th>
@@ -28,8 +68,10 @@
       <tbody>
         {% for call in calls %}
           <tr>
+            <td>{{ call.agent.name if call.agent else '—' }}</td>
             <td class="filename-cell">{{ call.filename }}</td>
-            <td>{{ call.upload_date.strftime('%b %d, %Y %H:%M') }}</td>
+            <td>{{ call.call_date.strftime('%b %d, %Y') if call.call_date else '—' }}</td>
+            <td>{{ call.upload_date.strftime('%b %d, %Y') }}</td>
             <td>
               {% if call.duration %}
                 {{ call.duration // 60 }}m {{ call.duration % 60 }}s
@@ -77,4 +119,39 @@
     </table>
   {% endif %}
 </div>
+
+{# Toast #}
+<div id="completion-toast" style="display:none;position:fixed;bottom:1.5rem;right:1.5rem;
+  background:#059669;color:#fff;padding:.75rem 1.25rem;border-radius:.5rem;
+  box-shadow:0 4px 12px rgba(0,0,0,.2);z-index:9999;font-weight:500;transition:opacity .4s">
+  A call finished processing — reloading…
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  const activeIds = {{ active_ids_json|safe }};
+  if (!activeIds.length) return;
+
+  function poll() {
+    fetch('{{ url_for("calls.active_json") }}')
+      .then(r => r.json())
+      .then(data => {
+        const nowActive = new Set(data.map(c => c.id));
+        const completed = activeIds.filter(id => !nowActive.has(id));
+        if (completed.length) {
+          const toast = document.getElementById('completion-toast');
+          toast.style.display = 'block';
+          setTimeout(() => { window.location.reload(); }, 1500);
+        } else {
+          setTimeout(poll, 6000);
+        }
+      })
+      .catch(() => setTimeout(poll, 6000));
+  }
+
+  setTimeout(poll, 6000);
+})();
+</script>
 {% endblock %}

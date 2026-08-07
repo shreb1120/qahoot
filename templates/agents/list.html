@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Agents — Qaboom{% endblock %}
+
+{% block content %}
+<div class="page-shell">
+  <div class="page-header-row">
+    <h1 class="page-heading">Agents</h1>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in messages %}
+      <div class="notice notice-{{ cat }}">{{ msg }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  {% if agents %}
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Added</th>
+          {% if g.user.role == 'admin' %}<th></th>{% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for agent in agents %}
+          <tr>
+            <td>{{ agent.name }}</td>
+            <td>{{ agent.created_at.strftime('%Y-%m-%d') }}</td>
+            {% if g.user.role == 'admin' %}
+              <td>
+                <form method="post"
+                      action="{{ url_for('agents.delete_agent', agent_id=agent.id) }}"
+                      onsubmit="return confirm('Delete agent {{ agent.name }}?')">
+                  <button type="submit" class="btn-danger-sm">Delete</button>
+                </form>
+              </td>
+            {% endif %}
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="empty-section">No agents added yet.</p>
+  {% endif %}
+
+  {% if g.user.role == 'admin' %}
+    <div class="profile-section profile-section-add" style="margin-top:1.5rem">
+      <details class="add-item-toggle" {% if not agents %}open{% endif %}>
+        <summary>+ Add agent</summary>
+        <form method="post" action="{{ url_for('agents.add_agent') }}" class="inline-form">
+          <input type="text" name="name" placeholder="Agent full name" required class="form-input">
+          <button type="submit" class="btn btn-secondary btn-sm">Add agent</button>
+        </form>
+      </details>
+    </div>
+  {% endif %}
+
+  <p class="back-link"><a href="{{ url_for('org.settings') }}">← Team settings</a></p>
+</div>
+{% endblock %}

@@ -93,12 +93,14 @@ def create_app(config_class: type = Config) -> Flask:
     from blueprints.dashboard_bp import dashboard_bp
     from blueprints.calls_bp import calls_bp
     from blueprints.profile_bp import profile_bp
+    from blueprints.agents_bp import agents_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(org_bp)
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(calls_bp)
     app.register_blueprint(profile_bp)
+    app.register_blueprint(agents_bp)
 
     # Convenience redirect: /login → /auth/login
     @app.get("/login")

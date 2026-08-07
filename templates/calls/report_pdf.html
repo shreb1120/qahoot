@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Call Report — {{ call.filename }}</title>
+  <style>
+    body { font-family: Helvetica, Arial, sans-serif; font-size: 10pt; color: #1e293b; margin: 0; }
+    h1 { font-size: 16pt; margin-bottom: 4px; }
+    h2 { font-size: 12pt; margin: 12px 0 4px; border-bottom: 1px solid #e2e8f0; padding-bottom: 2px; }
+    .meta { color: #64748b; font-size: 9pt; margin-bottom: 8px; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 9pt; }
+    .pass { background: #ecfdf5; color: #059669; }
+    .fail { background: #fef2f2; color: #dc2626; }
+    .critical { background: #fff1f2; color: #7c2d12; }
+    .covered { color: #059669; }
+    .missing { color: #dc2626; }
+    .scorecard { background: #f8fafc; border: 1px solid #e2e8f0; padding: 10px; margin-bottom: 12px; border-radius: 4px; }
+    .score-overall { font-size: 20pt; font-weight: bold; }
+    .score-bar-bg { background: #e2e8f0; height: 8px; border-radius: 4px; margin: 4px 0; }
+    .score-bar-fill { height: 8px; border-radius: 4px; }
+    .pills { margin-top: 6px; }
+    .pill { display: inline-block; margin: 2px; padding: 1px 6px; border-radius: 10px; font-size: 8pt;
+            background: #f1f5f9; border: 1px solid #cbd5e1; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 9pt; }
+    th { background: #f1f5f9; text-align: left; padding: 4px 6px; border: 1px solid #e2e8f0; }
+    td { padding: 4px 6px; border: 1px solid #e2e8f0; vertical-align: top; }
+    tr.row-pass { background: #f0fdf4; }
+    tr.row-fail { background: #fef2f2; }
+    .notice-critical { background: #fff1f2; border: 1px solid #fca5a5; color: #7c2d12;
+                        padding: 6px 10px; border-radius: 4px; margin-bottom: 10px; }
+    .summary { color: #334155; margin-bottom: 10px; font-style: italic; }
+    @page { margin: 1.5cm 1.8cm; }
+  </style>
+</head>
+<body>
+  {% set r = report.report_json %}
+  {% set det = r.get('final_determination', '') %}
+  {% set overrides = report.overrides_json or {} %}
+
+  <h1>Call Report</h1>
+  <p class="meta">
+    {% if call.agent %}<strong>{{ call.agent.name }}</strong> &bull; {% endif %}
+    {% if call.alv_id %}ALV-{{ call.alv_id }} &bull; {% endif %}
+    {{ call.filename }}
+    {% if call.call_date %} &bull; {{ call.call_date.strftime('%b %d, %Y') }}{% endif %}
+    {% if call.duration %} &bull; {{ call.duration // 60 }}m {{ call.duration % 60 }}s{% endif %}
+  </p>
+
+  {% if 'PASS' in det and 'FAIL' not in det %}
+    <span class="badge pass">PASS</span>
+  {% elif 'CRITICAL' in det %}
+    <span class="badge critical">CRITICAL FAIL</span>
+  {% else %}
+    <span class="badge fail">FAIL</span>
+  {% endif %}
+
+  {# Scorecard #}
+  {% set sections = r.get('sections', []) %}
+  {% set ns = namespace(total=0, covered=0) %}
+  {% for sec in sections %}
+    {% set ns.total = ns.total + sec.get('total_count', 0) %}
+    {% set ns.covered = ns.covered + sec.get('covered_count', 0) %}
+  {% endfor %}
+  {% if ns.total > 0 %}{% set score_pct = (ns.covered / ns.total * 100) | round | int %}{% else %}{% set score_pct = 0 %}{% endif %}
+
+  <div class="scorecard">
+    <div class="score-overall">{{ ns.covered }} / {{ ns.total }}</div>
+    <div>{{ score_pct }}% covered</div>
+    <div class="score-bar-bg">
+      <div class="score-bar-fill" style="width:{{ score_pct }}%;background:{{ '#059669' if score_pct >= 80 else '#dc2626' }}"></div>
+    </div>
+    <div class="pills">
+      {% for sec in sections %}
+        <span class="pill">{{ sec.name }}: {{ sec.covered_count }}/{{ sec.total_count }}</span>
+      {% endfor %}
+    </div>
+  </div>
+
+  {% set af = r.get('auto_fail_phrases', {}) %}
+  {% if af.get('detected') %}
+    <div class="notice-critical"><strong>Auto-fail phrase detected.</strong></div>
+  {% endif %}
+
+  {% if r.get('summary') %}<p class="summary">{{ r.summary }}</p>{% endif %}
+
+  {# Sections #}
+  {% for section in sections %}
+    {% set sk = section.get('key', section.name | lower | replace(' ', '_')) %}
+    <h2>{{ section.name }} — {{ section.covered_count }}/{{ section.total_count }}</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th>Status</th>
+          {% if not fails_only %}<th>Override</th>{% endif %}
+          <th>Timestamp</th>
+          <th>Evidence</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in section.get('items', []) %}
+          {% if not fails_only or item.status != 'covered' %}
+            {% set ov_key = sk ~ '::' ~ item.name %}
+            {% set ov = overrides.get(ov_key, '') %}
+            <tr class="{{ 'row-pass' if item.status == 'covered' else 'row-fail' }}">
+              <td>{{ item.name }}</td>
+              <td>
+                {% if item.status == 'covered' %}
+                  <span class="covered">✓ Covered</span>
+                {% else %}
+                  <span class="missing">✗ Missing</span>
+                {% endif %}
+              </td>
+              {% if not fails_only %}
+                <td>
+                  {% if ov == 'approved' %}Approved{% elif ov == 'failed' %}Flagged{% else %}—{% endif %}
+                </td>
+              {% endif %}
+              <td>{{ item.timestamp or '—' }}</td>
+              <td>{{ item.evidence or '' }}</td>
+            </tr>
+          {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endfor %}
+
+  {# Auto-fail phrases #}
+  {% if af.get('detected') and af.get('phrases') %}
+    <h2>Auto-Fail Phrases Detected</h2>
+    <table>
+      <thead><tr><th>Phrase</th><th>Timestamp</th><th>Speaker</th><th>Quote</th><th>Violation</th></tr></thead>
+      <tbody>
+        {% for p in af.phrases %}
+          <tr class="row-fail">
+            <td><strong>{{ p.phrase }}</strong></td>
+            <td>{{ p.timestamp or '—' }}</td>
+            <td>{{ p.speaker or '—' }}</td>
+            <td>{{ p.quote or '' }}</td>
+            <td>{{ p.violation or '' }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+</body>
+</html>

@@ -39,14 +39,30 @@
             </thead>
             <tbody>
               {% for item in items %}
+                {% set ii = loop.index0 %}
                 <tr>
                   <td>{{ item.name }}</td>
                   <td>{{ 'Yes' if item.get('required', True) else 'Optional' }}</td>
                   <td class="notes-cell">{{ item.get('notes', '') or '—' }}</td>
                   {% if g.user.role == 'admin' %}
                     <td>
+                      <details class="inline-edit-toggle">
+                        <summary class="btn-link-sm">Edit</summary>
+                        <form method="post"
+                              action="{{ url_for('profile.edit_item', section_idx=si, item_idx=ii) }}"
+                              class="inline-edit-form">
+                          <input type="text" name="name" value="{{ item.name }}" required class="form-input form-input-sm">
+                          <label class="checkbox-label">
+                            <input type="checkbox" name="required" value="true"
+                                   {% if item.get('required', True) %}checked{% endif %}> Required
+                          </label>
+                          <input type="text" name="notes" value="{{ item.get('notes', '') }}"
+                                 placeholder="Notes for Claude" class="form-input form-input-sm">
+                          <button type="submit" class="btn btn-secondary btn-sm">Save</button>
+                        </form>
+                      </details>
                       <form method="post"
-                            action="{{ url_for('profile.delete_item', section_idx=si, item_idx=loop.index0) }}">
+                            action="{{ url_for('profile.delete_item', section_idx=si, item_idx=ii) }}">
                         <button type="submit" class="btn-danger-sm">Remove</button>
                       </form>
                     </td>
