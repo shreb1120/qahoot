@@ -1,0 +1,42 @@
+# Secrets — never commit
+.env
+.env.local
+.env.*.local
+
+# Local database (per-deployment data, not source)
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Internal reference docs / private samples
+writeup_example*
+
+# Brand assets dropped on the server (not source)
+static/bds_logo.png
