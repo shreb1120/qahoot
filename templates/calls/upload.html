@@ -110,7 +110,7 @@
               <div class="rp-metric-label mb-1">Graded against</div>
               <p class="text-xs text-slate-700 font-medium qb-break">{{ profile_summary.name }}</p>
               <p class="text-xs text-slate-600 rp-num">
-                {{ profile_summary.items }} item{{ 's' if profile_summary.items != 1 }} across
+                {{ profile_summary.item_count }} item{{ 's' if profile_summary.item_count != 1 }} across
                 {{ profile_summary.sections }} section{{ 's' if profile_summary.sections != 1 }}{% if profile_summary.phrases %},
                 {{ profile_summary.phrases }} auto-fail phrase{{ 's' if profile_summary.phrases != 1 }}{% endif %}
               </p>

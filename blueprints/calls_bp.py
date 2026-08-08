@@ -220,10 +220,13 @@ def _upload_context(**overrides):
     if profile:
         sections = (profile.script_sections_json or {}).get("sections", []) or []
         phrases = (profile.script_sections_json or {}).get("auto_fail_phrases", []) or []
+        # NOT "items": Jinja resolves obj.items to dict.items (the method) before
+        # the key, which rendered "<built-in method items of dict object at 0x…>"
+        # straight onto the upload page.
         profile_summary = {
             "name": profile.name,
             "sections": len(sections),
-            "items": sum(len(sec.get("items", []) or []) for sec in sections),
+            "item_count": sum(len(sec.get("items", []) or []) for sec in sections),
             "phrases": len(phrases),
         }
 
