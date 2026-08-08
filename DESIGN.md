@@ -12,6 +12,13 @@ colors:
   ground: "#f5f6f8"
   line: "#e4e7ec"
   line-strong: "#d0d5dd"
+  line-hover: "#b8c0cc"
+  track: "#eef1f4"
+  nav-idle: "#a5b0c7"
+  nav-hover: "#e6eaf3"
+  nav-mid: "#172554"
+  showcase-field-a: "#1e2a52"
+  showcase-field-b: "#241d52"
   action: "#4f46e5"
   action-deep: "#4338ca"
   speaker-a: "#4338ca"
@@ -25,12 +32,21 @@ colors:
   critical: "#7f1d1d"
   warn: "#b45309"
   warn-soft: "#fffbeb"
+  busy: "#6d28d9"
+  busy-soft: "#f5f3ff"
+  busy-line: "#ddd6fe"
 typography:
   display:
     fontFamily: "Inter, system-ui, sans-serif"
     fontSize: "1.75rem"
     fontWeight: 800
     lineHeight: 1.1
+    letterSpacing: "-0.02em"
+  metric:
+    fontFamily: "Inter, system-ui, sans-serif"
+    fontSize: "1.5rem"
+    fontWeight: 700
+    lineHeight: 1.15
     letterSpacing: "-0.02em"
   title:
     fontFamily: "Inter, system-ui, sans-serif"
@@ -52,7 +68,16 @@ typography:
     fontSize: "0.75rem"
     fontWeight: 600
     fontFeature: "tnum 1"
+  mono:
+    fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+    fontSize: "0.75rem"
+    fontWeight: 400
+  print:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "10pt"
+    fontWeight: 400
 rounded:
+  micro: "2px"
   sm: "4px"
   md: "6px"
   pill: "999px"
@@ -165,6 +190,8 @@ speaker hues, and a three-step verdict scale that nothing else may borrow.
   from Speaker A at a glance in a horizontal band. Not a general accent.
 
 ### Tertiary
+- **Working Violet** (`#6d28d9` on `#f5f3ff`): a call currently being analysed.
+  Deliberately outside the verdict scale — work in progress is not a result.
 - **Verdict Green** (`#047857` on `#ecfdf5`): a passed call or a covered item.
 - **Verdict Red** (`#b91c1c` on `#fef2f2`): a failed call or a missing item.
 - **Critical Oxblood** (`#7f1d1d`): reserved exclusively for auto-fail — a call
@@ -181,7 +208,12 @@ speaker hues, and a three-step verdict scale that nothing else may borrow.
 - **Decor** (`#94a3b8`): **non-text only.** Empty-state glyphs and rules.
 - **Ground** (`#f5f6f8`), **Panel** (`#ffffff`), **Recessed** (`#fafbfc`):
   the three surface levels. Recessed marks panel headers and inline editors.
-- **Line** (`#e4e7ec`) / **Strong Line** (`#d0d5dd`): dividers and control borders.
+- **Line** (`#e4e7ec`) / **Strong Line** (`#d0d5dd`) / **Hover Line**
+  (`#b8c0cc`): dividers, control borders, and the border a control takes on hover.
+- **Track** (`#eef1f4`): the groove behind every meter, progress bar and the
+  call timeline. One value, so a filled bar reads the same everywhere.
+- **Nav Idle** (`#a5b0c7`) / **Nav Hover** (`#e6eaf3`): sidebar link text on the
+  dark chrome, tinted from the surface hue rather than neutral grey.
 
 ### Named Rules
 
@@ -203,6 +235,9 @@ is not about who was talking does not get to use them as accents.
 a variable font, latin and latin-ext subsets.
 **Mono:** `ui-monospace, SFMono-Regular, Menlo, Consolas, monospace` — used only
 for auto-fail phrase tokens, where exact characters are the point.
+**Print:** Helvetica / Arial in the exported PDF. The PDF renderer (xhtml2pdf)
+cannot embed the web font, so print is a declared second medium rather than
+drift — it inherits the palette and the verdict vocabulary, not the typeface.
 
 **Character:** A workhorse UI face chosen for the job rather than the mood.
 Disambiguated `1/l/I`, a tall x-height and tabular figures are what make a
@@ -211,6 +246,8 @@ personality of this product is in its density and precision, not its lettering.
 
 ### Hierarchy
 - **Display** (800, 28px, 1.1, `-0.02em`): page titles, one per screen.
+- **Metric** (700, 24px, 1.15, `-0.02em`): dashboard readouts and the report
+  score. Always tabular.
 - **Title** (700, 18px, 1.25): panel and card headings.
 - **Body** (400–500, 14px, 1.5): body copy, table cells, controls. Cap evidence
   and prose at ~58ch.
@@ -219,8 +256,10 @@ personality of this product is in its density and precision, not its lettering.
 
 ### Named Rules
 
-**The Four Steps Rule.** 28 / 18 / 14 / 12px. There is no fifth size. A value
-that feels like it needs 16px or 20px is a weight or colour problem.
+**The Five Steps Rule.** 28 / 24 / 18 / 14 / 12px, and no others. 24px exists
+solely for metric readouts, which need to outweigh a panel title without
+competing with the page title. A value that feels like it needs 16px, 20px or
+13px is a weight or colour problem, not a missing size.
 
 **The Tight Floor Rule.** The 14→12px step is 1.17× on purpose. 12px is the
 floor for readable secondary text in a dense table, and below body the
@@ -276,10 +315,11 @@ must overlap content. Decorative elevation on a resting panel is a defect.
 
 ## Shapes
 
-Two radii and nothing between them: **6px** for panels, tables and inline
-editors; **4px** for controls, badges and tags. Pills (`999px`) survive only on
-the speaker/verdict dot and the step numeral, where the shape is a dot rather
-than a container.
+Three radii and nothing between them: **6px** for panels, tables and inline
+editors; **4px** for controls, badges and tags; **2px** for marks under 8px tall
+— meter fills, timeline grooves, sparkline bars, evidence markers — where 4px
+would round them into pills. Pills (`999px`) survive only on the speaker/verdict
+dot and the numeral chips, where the shape is a dot rather than a container.
 
 Borders are 1px. The system uses one thicker mark, and it is load-bearing: a
 missing checklist item carries `inset 2px 0 0` in verdict red on its first cell,
@@ -291,7 +331,9 @@ auto-fail rationale.
 
 ### Named Rules
 
-**The Two Radii Rule.** 6px contains, 4px controls. A third value is drift.
+**The Three Radii Rule.** 6px contains, 4px controls, 2px marks. The 2px tier is
+only available to elements under 8px tall; anything larger takes 4px. A fourth
+value is drift.
 
 ## Components
 

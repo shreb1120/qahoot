@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-08-08T22:22:43.350853+00:00",
+  "generatedAt": "2026-08-08T22:26:19.056833+00:00",
   "title": "Design System: Qaboom",
   "extensions": {
     "colorMeta": {
@@ -138,6 +138,51 @@
           "#f5f6f8",
           "#ffffff"
         ]
+      },
+      "busy": {
+        "role": "tertiary",
+        "displayName": "Working Violet",
+        "canonical": "#6d28d9",
+        "tonalRamp": [
+          "#2e1065",
+          "#4c1d95",
+          "#5b21b6",
+          "#6d28d9",
+          "#7c3aed",
+          "#a78bfa",
+          "#ddd6fe",
+          "#f5f3ff"
+        ]
+      },
+      "track": {
+        "role": "neutral",
+        "displayName": "Track",
+        "canonical": "#eef1f4",
+        "tonalRamp": [
+          "#0f172a",
+          "#334155",
+          "#64748b",
+          "#94a3b8",
+          "#cbd5e1",
+          "#e4e7ec",
+          "#eef1f4",
+          "#ffffff"
+        ]
+      },
+      "nav-idle": {
+        "role": "neutral",
+        "displayName": "Nav Idle",
+        "canonical": "#a5b0c7",
+        "tonalRamp": [
+          "#0f172a",
+          "#172554",
+          "#312e81",
+          "#475569",
+          "#64748b",
+          "#a5b0c7",
+          "#e6eaf3",
+          "#ffffff"
+        ]
       }
     },
     "typographyMeta": {
@@ -160,6 +205,18 @@
       "numeric": {
         "displayName": "Numeric",
         "purpose": "Any figure compared down a column. Always tabular."
+      },
+      "metric": {
+        "displayName": "Metric",
+        "purpose": "Dashboard readouts and the report score. Always tabular."
+      },
+      "mono": {
+        "displayName": "Mono",
+        "purpose": "Auto-fail phrase tokens, where exact characters are the point."
+      },
+      "print": {
+        "displayName": "Print",
+        "purpose": "Exported PDF only. xhtml2pdf cannot embed the web font."
       }
     },
     "shadows": [
@@ -175,7 +232,7 @@
       },
       {
         "name": "showcase",
-        "value": "0 24px 48px -12px rgba(0,0,0,.5)",
+        "value": "0 24px 48px -12px rgba(2,6,23,.5)",
         "purpose": "Sample artifact on the dark auth panel only."
       },
       {
@@ -320,9 +377,9 @@
         "body": "Indigo and teal identify speakers. A surface not about who was talking does not use them as accents."
       },
       {
-        "name": "The Four Steps Rule",
+        "name": "The Five Steps Rule",
         "section": "typography",
-        "body": "28 / 18 / 14 / 12px. There is no fifth size."
+        "body": "28 / 24 / 18 / 14 / 12px, and no others. 24px exists solely for metric readouts. A value that feels like it needs 16px, 20px or 13px is a weight or colour problem, not a missing size."
       },
       {
         "name": "The Tight Floor Rule",
@@ -340,9 +397,9 @@
         "body": "A shadow requires a real z-relationship. Decorative elevation on a resting panel is a defect."
       },
       {
-        "name": "The Two Radii Rule",
+        "name": "The Three Radii Rule",
         "section": "shapes",
-        "body": "6px contains, 4px controls. A third value is drift."
+        "body": "6px contains, 4px controls, 2px marks. The 2px tier is only available to elements under 8px tall; anything larger takes 4px. A fourth value is drift."
       }
     ],
     "dos": [
@@ -355,12 +412,12 @@
     ],
     "donts": [
       "Don't use a colour below 4.5:1 for text. decor exists for glyphs only.",
-      "Don't add a fifth type size or an 11px tier.",
+      "Don't add a sixth type size or a 13px tier.",
       "Don't put green, red or oxblood on anything that is not a verdict.",
       "Don't use speaker indigo or teal as a general accent.",
       "Don't put a thick coloured border on the side or top of a card.",
       "Don't render a chart, waveform or ratio from data the product does not actually have.",
-      "Don't introduce a radius between 4px and 6px, or above 6px on a panel."
+      "Don't introduce a radius between the three steps, or above 6px on a panel."
     ]
   }
 }
