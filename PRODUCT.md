@@ -105,7 +105,20 @@ proving the core idea works before it was turned into a product.
 - **Name:** Qaboom (forked and rebranded from an internal "call-qa-tool" /
   "Qahoot" lineage; the underlying repo and DB retain older names, but the
   product is Qaboom).
-- No other binding voice, logo, or identity constraints have been established.
+- **Visual register (committed 2026-08-08):** the call-intelligence category
+  standard, executed at full fidelity — Qaboom should read as a peer of
+  **Gong, Chorus and Observe.ai** to a buyer comparing tools, not as a
+  distinctive or inventive design. The owner's words: "just want it to look
+  like this is a real SaaS app." Their craft level is the bar. This is a
+  standing preference, not a one-off: future surfaces execute the same canon
+  without irony or smuggled quirk.
+- **What that means concretely:** the graded call is the artifact — a
+  timeline of the call with evidence markers, transcript synced to playback,
+  and the scorecard adjacent to both, because the reviewer's job is read the
+  finding, hear the moment, judge it. Dense over airy; hairlines over heavy
+  cards; tabular figures; semantic colour reserved for verdicts so nothing
+  competes with pass/fail.
+- No logo or wordmark asset has been supplied yet.
 
 ## Evidence on Hand
 

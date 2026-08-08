@@ -1,317 +1,418 @@
 {% extends "base.html" %}
-{% block title %}Report — {{ call.filename }} — Qaboom{% endblock %}
+{% block title %}{{ call.agent.name if call.agent else 'Call' }} — Report — Qaboom{% endblock %}
 
 {% block content %}
-<div>
-  {% set r = report.report_json %}
-  {% set det = r.get('final_determination', '') %}
-  {% set overrides = report.overrides_json or {} %}
+{% set r = report.report_json %}
+{% set det = r.get('final_determination', '') %}
+{% set overrides = report.overrides_json or {} %}
+{% set sections = r.get('sections', []) %}
+{% set af = r.get('auto_fail_phrases', {}) %}
+{% set ns = namespace(total=0, covered=0) %}
+{% for sec in sections %}
+  {% set ns.total = ns.total + sec.get('total_count', 0) %}
+  {% set ns.covered = ns.covered + sec.get('covered_count', 0) %}
+{% endfor %}
+{% set score_pct = (ns.covered / ns.total * 100) | round | int if ns.total else 0 %}
+{% set is_crit = 'CRITICAL' in det %}
+{% set is_pass = 'PASS' in det and 'FAIL' not in det %}
 
-  {# ── Header ── #}
-  <div class="flex flex-wrap items-start justify-between gap-4 mb-5">
-    <div>
-      <h1 class="qb-page-title">Call Report</h1>
-      <p class="text-sm text-slate-500 mt-1">
-        {% if call.agent %}<strong>{{ call.agent.name }}</strong> &nbsp;&middot;&nbsp;{% endif %}
-        {% if call.alv_id %}ALV-{{ call.alv_id }} &nbsp;&middot;&nbsp;{% endif %}
-        <span class="qb-break">{{ call.filename }}</span>
-        {% if call.call_date %}&nbsp;&middot;&nbsp; {{ call.call_date.strftime('%b %d, %Y') }}{% endif %}
-        {% if call.duration %}&nbsp;&middot;&nbsp; {{ (call.duration // 60) }}m {{ (call.duration % 60) }}s{% endif %}
-        &nbsp;&middot;&nbsp; <span class="text-slate-500">Uploaded {{ call.upload_date.strftime('%b %d, %Y') }}</span>
+<div>
+
+  {# ── Call identity + verdict ── #}
+  <div class="flex flex-wrap items-start justify-between gap-4 mb-4">
+    <div class="min-w-0">
+      <div class="flex items-center gap-2 flex-wrap">
+        <h1 class="qb-section-title">{{ call.agent.name if call.agent else 'Unassigned agent' }}</h1>
+        {% if call.alv_id %}
+          <span class="rp-num text-xs font-semibold text-slate-600 bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5">ALV-{{ call.alv_id }}</span>
+        {% endif %}
+      </div>
+      <p class="text-xs text-slate-500 mt-1 rp-num qb-break">
+        {% if call.call_date %}{{ call.call_date.strftime('%b %d, %Y') }} &middot; {% endif %}
+        {% if vm.duration %}{{ vm.duration_label }} &middot; {% endif %}
+        {% if call.client_phone %}{{ call.client_phone }} &middot; {% endif %}
+        {{ call.filename }}
       </p>
     </div>
-    <div>
-      {% if 'PASS' in det and 'FAIL' not in det %}
-        <span class="inline-block px-4 py-1.5 rounded-full text-base font-bold bg-green-50 text-green-700 border border-green-200 shadow-sm">PASS</span>
-      {% elif 'CRITICAL' in det %}
-        <span class="inline-block px-4 py-1.5 rounded-full text-base font-bold bg-red-50 text-red-900 border border-red-200 shadow-sm">CRITICAL FAIL</span>
+
+    <div class="flex items-center gap-3">
+      {% if is_pass %}
+        <span class="rp-verdict rp-verdict--pass"><span class="rp-verdict-dot" aria-hidden="true"></span>PASS</span>
+      {% elif is_crit %}
+        <span class="rp-verdict rp-verdict--crit"><span class="rp-verdict-dot" aria-hidden="true"></span>CRITICAL FAIL</span>
       {% else %}
-        <span class="inline-block px-4 py-1.5 rounded-full text-base font-bold bg-red-50 text-red-700 border border-red-200 shadow-sm">FAIL</span>
+        <span class="rp-verdict rp-verdict--fail"><span class="rp-verdict-dot" aria-hidden="true"></span>FAIL</span>
       {% endif %}
     </div>
   </div>
 
-  {# ── Action buttons ── #}
-  <div class="flex flex-wrap gap-2 mb-5">
-    <form method="post" action="{{ url_for('calls.writeup', call_id=call.id) }}" style="display:inline"
-          data-busy-label="Generating…">
-      <button type="submit" class="px-4 py-2 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50 transition shadow-sm">Write-up (.docx)</button>
-    </form>
-    <a href="{{ url_for('calls.report_pdf', call_id=call.id) }}" class="px-4 py-2 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 no-underline hover:bg-slate-50 transition shadow-sm">Download PDF</a>
-    <a href="{{ url_for('calls.report_pdf', call_id=call.id, fails_only='1') }}" class="px-4 py-2 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 no-underline hover:bg-slate-50 transition shadow-sm">Fails Only PDF</a>
-  </div>
-
-  {# ── Audio player ── #}
+  {# ── Transport: play, scrub, and every piece of evidence on one axis ── #}
   {% if call.audio_file_url %}
-  <div class="mb-5">
-    <audio id="call-audio" controls class="w-full rounded-lg">
+  <div class="rp-transport">
+    <audio id="call-audio" preload="metadata" class="qb-sr-only">
       <source src="{{ url_for('calls.audio', call_id=call.id) }}">
-      Your browser does not support audio playback.
     </audio>
-  </div>
-  {% endif %}
 
-  {# ── Scorecard with circular ring ── #}
-  {% set sections = r.get('sections', []) %}
-  {% set ns = namespace(total=0, covered=0) %}
-  {% for sec in sections %}
-    {% set ns.total = ns.total + sec.get('total_count', 0) %}
-    {% set ns.covered = ns.covered + sec.get('covered_count', 0) %}
-  {% endfor %}
-  {% if ns.total > 0 %}{% set score_pct = (ns.covered / ns.total * 100) | round | int %}{% else %}{% set score_pct = 0 %}{% endif %}
-  {% set ring_color = '#059669' if score_pct >= 80 else '#f59e0b' if score_pct >= 60 else '#dc2626' %}
+    <div class="rp-transport-row">
+      <button type="button" class="rp-play" id="rp-play" aria-label="Play call">
+        <svg id="rp-icon-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.14v13.72a1 1 0 0 0 1.52.85l11.14-6.86a1 1 0 0 0 0-1.7L9.52 4.29A1 1 0 0 0 8 5.14Z"/></svg>
+        <svg id="rp-icon-pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="display:none"><path d="M7 4h3v16H7zM14 4h3v16h-3z"/></svg>
+      </button>
 
-  <div class="bg-white border border-slate-200 rounded-xl p-5 mb-5 flex flex-wrap gap-6 items-center shadow-sm">
-    {# SVG circular progress ring #}
-    <div class="flex-shrink-0 relative" style="width:100px;height:100px">
-      <svg viewBox="0 0 36 36" class="w-full h-full -rotate-90" aria-hidden="true">
-        <circle cx="18" cy="18" r="15.9155" fill="none" stroke="#e2e8f0" stroke-width="2.5"/>
-        <circle cx="18" cy="18" r="15.9155" fill="none"
-                stroke="{{ ring_color }}" stroke-width="2.5"
-                stroke-dasharray="{{ score_pct }}, 100"
-                stroke-linecap="round"
-                class="transition-all duration-700"/>
-      </svg>
-      <div class="absolute inset-0 flex flex-col items-center justify-center">
-        <span class="text-xl font-bold text-slate-900">{{ score_pct }}%</span>
-        <span class="text-xs text-slate-500 uppercase tracking-wide">score</span>
-      </div>
-    </div>
-    <div class="flex-1">
-      <div class="text-sm text-slate-700 font-medium mb-2">{{ ns.covered }} / {{ ns.total }} items covered</div>
-      <div class="flex flex-wrap gap-1.5">
-        {% for sec in sections %}
-          <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold
-            {% if sec.get('covered_count', 0) == sec.get('total_count', 0) %}bg-green-50 text-green-700 border border-green-200{% else %}bg-red-50 text-red-700 border border-red-200{% endif %}">
-            {{ sec.name }}: {{ sec.get('covered_count', 0) }}/{{ sec.get('total_count', 0) }}
-          </span>
-        {% endfor %}
-      </div>
-    </div>
-  </div>
-
-  {# ── Critical fail alert ── #}
-  {% set af = r.get('auto_fail_phrases', {}) %}
-  {% if af.get('detected') %}
-    <div class="bg-red-50 border border-red-300 text-red-900 rounded-lg px-4 py-3 mb-5 text-sm font-medium">
-      <strong>Auto-fail phrase detected in this call.</strong> See details below.
-    </div>
-  {% endif %}
-
-  {% if r.get('summary') %}
-    <p class="bg-white border border-slate-200 rounded-lg px-5 py-4 text-sm text-slate-500 italic mb-5 shadow-sm">{{ r.summary }}</p>
-  {% endif %}
-
-  {# ── Sections with left accent border ── #}
-  {% for section in sections %}
-    {% set sk = section.get('key', section.name | lower | replace(' ', '_')) %}
-    {% set sec_covered = section.get('covered_count', 0) %}
-    {% set sec_total = section.get('total_count', 0) %}
-    {% set sec_pass = sec_covered == sec_total %}
-    <div class="bg-white border border-slate-200 rounded-xl mb-4 overflow-hidden shadow-sm" style="border-left: 3px solid {{ '#059669' if sec_pass else '#dc2626' }}">
-      <div class="flex items-center justify-between px-5 py-3 border-b border-slate-200">
-        <h2 class="qb-section-title">{{ section.name }}</h2>
-        <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full
-          {% if sec_pass %}bg-green-50 text-green-700{% else %}bg-red-50 text-red-700{% endif %}">
-          {{ sec_covered }} / {{ sec_total }} covered
-        </span>
-      </div>
-
-      <div class="overflow-x-auto qb-scroll-x">
-        <table class="w-full text-sm">
-          <thead>
-            <tr class="bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
-              <th class="px-4 py-2">Item</th>
-              <th class="px-4 py-2">Status</th>
-              <th class="px-4 py-2">Manager Override</th>
-              <th class="px-4 py-2">Timestamp</th>
-              <th class="px-4 py-2">Evidence</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100">
-            {% for item in section.get('items', []) %}
-              {% set ov_key = sk ~ '::' ~ item.name %}
-              {% set ov = overrides.get(ov_key, '') %}
-              <tr class="{% if item.status == 'covered' %}bg-white{% else %}bg-red-50/50{% endif %}">
-                <td class="px-4 py-2.5 qb-break">{{ item.name }}</td>
-                <td class="px-4 py-2.5">
-                  {% if item.status == 'covered' %}
-                    <span class="inline-block px-2 py-0.5 rounded text-xs font-semibold bg-green-50 text-green-700">✓ Covered</span>
-                  {% else %}
-                    <span class="inline-block px-2 py-0.5 rounded text-xs font-semibold bg-red-50 text-red-700">✗ Missing</span>
-                  {% endif %}
-                </td>
-                <td class="px-4 py-2.5 min-w-[130px]">
-                  {% if ov == 'approved' %}
-                    <span class="ov-pill inline-block text-xs font-semibold px-2 py-0.5 rounded bg-green-50 text-green-700 mb-1">✓ Approved</span>
-                  {% elif ov == 'failed' %}
-                    <span class="ov-pill inline-block text-xs font-semibold px-2 py-0.5 rounded bg-red-50 text-red-700 mb-1">✗ Flagged</span>
-                  {% endif %}
-                  <div class="override-btns" data-section-key="{{ sk }}" data-item-name="{{ item.name }}">
-                    <button type="button" class="ov-btn ov-approve {{ 'ov-active' if ov == 'approved' }}"
-                            data-idle="Approve" onclick="setOverride(this, 'approved')">Approve</button>
-                    <button type="button" class="ov-btn ov-flag {{ 'ov-active' if ov == 'failed' }}"
-                            data-idle="Flag" onclick="setOverride(this, 'failed')">Flag</button>
-                    {% if ov %}
-                      <button type="button" class="ov-btn ov-clear" data-idle="Clear" onclick="setOverride(this, '')">Clear</button>
-                    {% endif %}
-                  </div>
-                </td>
-                <td class="px-4 py-2.5 font-mono text-slate-500 whitespace-nowrap">
-                  {% if item.timestamp and item.timestamp != '—' %}
-                    <button class="ts-link" onclick="seekTo('{{ item.timestamp }}')">{{ item.timestamp }}</button>
-                  {% else %}—{% endif %}
-                </td>
-                <td class="px-4 py-2.5 text-slate-500 italic qb-break">{{ item.evidence or '' }}</td>
-              </tr>
+      {% if vm.has_timeline %}
+        <div class="rp-timeline" id="rp-timeline" role="slider" tabindex="0"
+             aria-label="Call position" aria-valuemin="0" aria-valuemax="{{ vm.duration }}"
+             aria-valuenow="0" aria-valuetext="0:00">
+          <div class="rp-markers">
+            {% for m in vm.markers %}
+              <button type="button" class="rp-marker rp-marker--{{ m.kind }}"
+                      style="left:{{ m.pct }}%" data-ts="{{ m.ts }}"
+                      title="{{ m.ts }} · {{ m.label }}"
+                      aria-label="Jump to {{ m.ts }} — {{ m.label }}"></button>
             {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  {% endfor %}
-
-  {% if not sections %}
-    <div class="qb-card p-6 text-center mb-4">
-      <h2 class="qb-section-title mb-1">No checklist results in this report</h2>
-      <p class="text-sm text-slate-500">The analysis finished without scoring any checklist sections. Check that your compliance checklist has items, then re-upload the call.</p>
-      <a href="{{ url_for('profile.view') }}" class="qb-btn-secondary mt-4">Open checklist</a>
-    </div>
-  {% endif %}
-
-  {# ── Auto-fail phrases ── #}
-  {% if af.get('detected') and af.get('phrases') %}
-    <div class="bg-white border border-red-300 rounded-xl mb-4 overflow-hidden shadow-sm" style="border-left: 3px solid #dc2626">
-      <div class="flex items-center justify-between px-5 py-3 border-b border-red-200">
-        <h2 class="qb-section-title">Auto-Fail Phrases Detected</h2>
-        <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-50 text-red-900 border border-red-200">CRITICAL FAIL</span>
-      </div>
-      <div class="overflow-x-auto qb-scroll-x">
-        <table class="w-full text-sm">
-          <thead>
-            <tr class="bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
-              <th class="px-4 py-2">Phrase</th><th class="px-4 py-2">Timestamp</th><th class="px-4 py-2">Speaker</th><th class="px-4 py-2">Quote</th><th class="px-4 py-2">Violation</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100">
-            {% for p in af.phrases %}
-              <tr class="bg-red-50/50">
-                <td class="px-4 py-2.5 font-bold qb-break">{{ p.phrase }}</td>
-                <td class="px-4 py-2.5 font-mono text-slate-500 whitespace-nowrap">
-                  {% if p.timestamp and p.timestamp != '—' %}
-                    <button class="ts-link" onclick="seekTo('{{ p.timestamp }}')">{{ p.timestamp }}</button>
-                  {% else %}—{% endif %}
-                </td>
-                <td class="px-4 py-2.5">{{ p.speaker or '—' }}</td>
-                <td class="px-4 py-2.5 text-slate-500 italic qb-break">{{ p.quote or '' }}</td>
-                <td class="px-4 py-2.5 qb-break">{{ p.violation or '' }}</td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  {% endif %}
-
-  {# ── Full transcript ── #}
-  {% if call.transcript %}
-    {% set utterances = (call.transcript.raw_transcript_json or {}).get('utterances', []) %}
-    {% if utterances %}
-    <div class="bg-white border border-slate-200 rounded-xl mb-4 overflow-hidden shadow-sm">
-      <div class="px-5 py-3 border-b border-slate-200">
-        <h2 class="qb-section-title">Full Transcript</h2>
-      </div>
-      <div class="transcript-block px-5 py-4 flex flex-col gap-2 max-h-[480px] overflow-y-auto bg-slate-50/50" style="box-shadow:inset 0 2px 4px rgba(0,0,0,.04)" id="transcript-block">
-        {% for u in utterances %}
-          {% set ts_secs = (u.start // 1000) %}
-          {% set ts_m = ts_secs // 60 %}
-          {% set ts_s = ts_secs % 60 %}
-          {% set ts_str = '%d:%02d' | format(ts_m, ts_s) %}
-          <div class="transcript-line flex gap-2 items-baseline text-sm leading-relaxed px-1.5 py-0.5 rounded transition-colors" data-start="{{ u.start }}" data-end="{{ u.end }}">
-            <button class="ts-link transcript-ts flex-shrink-0" onclick="seekTo('{{ ts_str }}')" title="Jump to {{ ts_str }}">{{ ts_str }}</button>
-            <span class="transcript-speaker font-semibold flex-shrink-0 text-slate-900">{{ u.speaker or 'Speaker' }}:</span>
-            <span class="transcript-text text-slate-700">{{ u.text }}</span>
           </div>
-        {% endfor %}
-      </div>
+          <div class="rp-track">
+            {% for b in vm.bands %}
+              <span class="rp-band rp-band--{{ b.slot }}" style="left:{{ b.left }}%;width:{{ b.width }}%"></span>
+            {% endfor %}
+          </div>
+          <div class="rp-playhead" id="rp-playhead" style="left:0%"></div>
+        </div>
+      {% else %}
+        <div class="flex-1 text-xs text-slate-500">Timeline unavailable — this call has no speaker timing.</div>
+      {% endif %}
+
+      <div class="rp-time"><b id="rp-current">0:00</b> / {{ vm.duration_label }}</div>
     </div>
+
+    {% if vm.has_timeline %}
+      <div class="rp-legend">
+        <span class="rp-legend-item"><span class="rp-swatch" style="background:var(--spk-a)" aria-hidden="true"></span>Speaker A{% if vm.talk_share.a %} · {{ vm.talk_share.a }}% talk{% endif %}</span>
+        {% if vm.speaker_count > 1 %}
+          <span class="rp-legend-item"><span class="rp-swatch" style="background:var(--spk-b)" aria-hidden="true"></span>Speaker B{% if vm.talk_share.b %} · {{ vm.talk_share.b }}% talk{% endif %}</span>
+        {% endif %}
+        {% if 'ok' in vm.marker_kinds %}
+          <span class="rp-legend-item"><span class="rp-swatch" style="background:#94a3b8;transform:rotate(45deg)" aria-hidden="true"></span>Disclosure covered</span>
+        {% endif %}
+        {% if 'miss' in vm.marker_kinds %}
+          <span class="rp-legend-item"><span class="rp-swatch" style="background:#dc2626;transform:rotate(45deg)" aria-hidden="true"></span>Missing disclosure</span>
+        {% endif %}
+        {% if 'crit' in vm.marker_kinds %}
+          <span class="rp-legend-item"><span class="rp-swatch" style="background:#7f1d1d;transform:rotate(45deg)" aria-hidden="true"></span>Auto-fail</span>
+        {% endif %}
+      </div>
     {% endif %}
+  </div>
   {% endif %}
 
-  <p class="mt-6 text-sm"><a href="{{ url_for('calls.history') }}" class="text-slate-500 no-underline hover:text-slate-700">← Call history</a></p>
+  {% if af.get('detected') %}
+    <div class="rp-panel mt-4" style="border-color:#fecaca">
+      <div class="rp-panel-head" style="background:#fef2f2;border-color:#fecaca">
+        <h2 class="rp-panel-title" style="color:#b91c1c">Auto-fail phrase detected</h2>
+        <span class="text-xs font-semibold text-red-800">{{ af.get('phrases', []) | length }} occurrence{{ 's' if af.get('phrases', []) | length != 1 }}</span>
+      </div>
+      <div class="qb-scroll-x">
+        <table class="rp-table">
+          <thead><tr><th>Phrase</th><th>At</th><th>Speaker</th><th>Quote</th><th>Violation</th></tr></thead>
+          <tbody>
+            {% for p in af.get('phrases', []) %}
+              <tr class="rp-row--miss">
+                <td class="font-semibold qb-break">{{ p.phrase }}</td>
+                <td>{% if p.timestamp and p.timestamp != '—' %}<button type="button" class="rp-ts" data-ts="{{ p.timestamp }}">{{ p.timestamp }}</button>{% else %}—{% endif %}</td>
+                <td class="text-slate-600">{{ p.speaker or '—' }}</td>
+                <td class="rp-quote qb-break">{{ p.quote or '' }}</td>
+                <td class="text-slate-600 qb-break">{{ p.violation or '' }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% endif %}
 
-  {# Announces override changes now that the page no longer reloads. #}
+  {# ── Working column + transcript rail ── #}
+  <div class="rp-grid">
+    <div class="min-w-0">
+
+      {# Score #}
+      <div class="rp-panel">
+        <div class="rp-panel-head">
+          <h2 class="rp-panel-title">Compliance score</h2>
+          <div class="rp-actions">
+            <form method="post" action="{{ url_for('calls.writeup', call_id=call.id) }}" data-busy-label="Generating…">
+              <button type="submit" class="rp-btn">Write-up (.docx)</button>
+            </form>
+            <a href="{{ url_for('calls.report_pdf', call_id=call.id) }}" class="rp-btn">PDF</a>
+            <a href="{{ url_for('calls.report_pdf', call_id=call.id, fails_only='1') }}" class="rp-btn">Fails only</a>
+          </div>
+        </div>
+        <div class="p-4">
+          <div class="rp-score">
+            <span class="rp-score-value">{{ score_pct }}%</span>
+            <span class="rp-score-of">{{ ns.covered }} of {{ ns.total }} items covered</span>
+          </div>
+          <div class="rp-meter">
+            <div class="rp-meter-fill" style="transform:scaleX({{ (score_pct / 100) if ns.total else 0 }});background:{{ '#047857' if score_pct >= 80 else '#b45309' if score_pct >= 60 else '#b91c1c' }}"></div>
+          </div>
+          {% if sections %}
+            <div class="flex flex-wrap gap-x-5 gap-y-1.5 mt-3">
+              {% for sec in sections %}
+                {% set sc = sec.get('covered_count', 0) %}{% set st = sec.get('total_count', 0) %}
+                <span class="text-xs text-slate-600">
+                  {{ sec.name }}
+                  <b class="rp-num {{ 'text-emerald-700' if sc == st else 'text-red-700' }}">{{ sc }}/{{ st }}</b>
+                </span>
+              {% endfor %}
+            </div>
+          {% endif %}
+          {% if r.get('summary') %}
+            <p class="text-xs text-slate-600 mt-3 pt-3 border-t border-slate-100 leading-relaxed">{{ r.summary }}</p>
+          {% endif %}
+        </div>
+      </div>
+
+      {% if not sections %}
+        <div class="rp-panel p-6 text-center mt-4">
+          <h2 class="qb-section-title mb-1">No checklist results in this report</h2>
+          <p class="text-sm text-slate-600">The analysis finished without scoring any checklist sections. Check that your compliance checklist has items, then re-upload the call.</p>
+          <a href="{{ url_for('profile.view') }}" class="rp-btn mt-4">Open checklist</a>
+        </div>
+      {% endif %}
+
+      {# Items #}
+      {% for section in sections %}
+        {% set sk = section.get('key', section.name | lower | replace(' ', '_')) %}
+        {% set sc = section.get('covered_count', 0) %}{% set st = section.get('total_count', 0) %}
+        <div class="rp-panel mt-4">
+          <div class="rp-panel-head">
+            <h2 class="rp-panel-title">{{ section.name }}</h2>
+            <span class="rp-num text-xs font-semibold {{ 'text-emerald-700' if sc == st else 'text-red-700' }}">{{ sc }}/{{ st }} covered</span>
+          </div>
+          <div class="qb-scroll-x">
+            <table class="rp-table">
+              <thead>
+                <tr>
+                  <th style="width:32%">Requirement</th>
+                  <th style="width:8.5rem">Status</th>
+                  <th style="width:4.5rem">At</th>
+                  <th>Evidence</th>
+                  <th style="width:11rem">Override</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for item in section.get('items', []) %}
+                  {% set ov = overrides.get(sk ~ '::' ~ item.name, '') %}
+                  <tr class="{{ 'rp-row--miss' if item.status != 'covered' }}">
+                    <td class="qb-break font-medium text-slate-800">{{ item.name }}</td>
+                    <td>
+                      {% if item.status == 'covered' %}
+                        <span class="rp-status rp-status--ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 13 4 4L19 7"/></svg>Covered</span>
+                      {% else %}
+                        <span class="rp-status rp-status--miss"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>Missing</span>
+                      {% endif %}
+                    </td>
+                    <td>
+                      {% if item.timestamp and item.timestamp != '—' %}
+                        <button type="button" class="rp-ts" data-ts="{{ item.timestamp }}">{{ item.timestamp }}</button>
+                      {% else %}<span class="text-slate-400">—</span>{% endif %}
+                    </td>
+                    <td class="rp-quote qb-break">{{ item.evidence or '' }}</td>
+                    <td>
+                      {% if ov == 'approved' %}
+                        <span class="ov-pill inline-block text-xs font-semibold px-2 py-0.5 rounded bg-green-50 text-green-700 mb-1">✓ Approved</span>
+                      {% elif ov == 'failed' %}
+                        <span class="ov-pill inline-block text-xs font-semibold px-2 py-0.5 rounded bg-red-50 text-red-700 mb-1">✗ Flagged</span>
+                      {% endif %}
+                      <div class="override-btns" data-section-key="{{ sk }}" data-item-name="{{ item.name }}">
+                        <button type="button" class="ov-btn ov-approve {{ 'ov-active' if ov == 'approved' }}" data-idle="Approve" onclick="setOverride(this, 'approved')">Approve</button>
+                        <button type="button" class="ov-btn ov-flag {{ 'ov-active' if ov == 'failed' }}" data-idle="Flag" onclick="setOverride(this, 'failed')">Flag</button>
+                        {% if ov %}
+                          <button type="button" class="ov-btn ov-clear" data-idle="Clear" onclick="setOverride(this, '')">Clear</button>
+                        {% endif %}
+                      </div>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+
+    {# ── Transcript rail: evidence, adjacent to the finding ── #}
+    <div class="rp-rail">
+      <div class="rp-panel">
+        <div class="rp-panel-head">
+          <h2 class="rp-panel-title">Transcript</h2>
+          <label class="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer select-none">
+            <input type="checkbox" id="rp-follow" checked>Follow playback
+          </label>
+        </div>
+        {% if vm.lines %}
+          <div class="rp-transcript" id="rp-transcript">
+            {% for line in vm.lines %}
+              <div class="rp-line" data-start="{{ line.start_ms }}" data-end="{{ line.end_ms }}">
+                <button type="button" class="rp-line-ts" data-ts="{{ line.ts }}" aria-label="Play from {{ line.ts }}">{{ line.ts }}</button>
+                <div>
+                  <span class="rp-spk rp-spk--{{ line.slot }}">{{ line.speaker }}</span>
+                  <span class="rp-line-text">{{ line.text }}</span>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="p-4 text-xs text-slate-600">No transcript is available for this call.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
   <p class="qb-sr-only" id="override-status" role="status" aria-live="polite"></p>
+
+  <p class="mt-5 text-xs"><a href="{{ url_for('calls.history') }}" class="text-slate-600 no-underline hover:text-slate-900">← Call history</a></p>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-function parseTimestamp(ts) {
-  if (!ts) return null;
-  const parts = ts.trim().split(':').map(Number);
-  if (parts.length === 2) return parts[0] * 60 + parts[1];
-  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
-  return null;
-}
-
-function findLineAt(ms) {
-  const lines = document.querySelectorAll('#transcript-block .transcript-line[data-start]');
-  let best = null, bestDiff = Infinity;
-  for (const line of lines) {
-    const start = parseInt(line.dataset.start, 10);
-    const end   = parseInt(line.dataset.end,   10);
-    if (ms >= start && ms <= end) return line;
-    const diff = Math.abs(start - ms);
-    if (diff < bestDiff) { bestDiff = diff; best = line; }
-  }
-  return best;
-}
-
-function highlightLine(line) {
-  document.querySelectorAll('#transcript-block .transcript-line.playing')
-    .forEach(el => el.classList.remove('playing'));
-  if (line) {
-    line.classList.add('playing');
-    line.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }
-}
-
-function seekTo(ts) {
-  const secs = parseTimestamp(ts);
-  if (secs === null) return;
-  const audio = document.getElementById('call-audio');
-  if (audio) {
-    audio.currentTime = secs;
-    audio.play();
-  }
-  const line = findLineAt(secs * 1000);
-  if (line) highlightLine(line);
-}
-
 (function () {
   const audio = document.getElementById('call-audio');
-  if (!audio) return;
-  let lastHighlighted = null;
-  audio.addEventListener('timeupdate', () => {
-    const ms = audio.currentTime * 1000;
-    const line = findLineAt(ms);
-    if (line && line !== lastHighlighted) {
-      highlightLine(line);
-      lastHighlighted = line;
+  const timeline = document.getElementById('rp-timeline');
+  const playhead = document.getElementById('rp-playhead');
+  const playBtn = document.getElementById('rp-play');
+  const iconPlay = document.getElementById('rp-icon-play');
+  const iconPause = document.getElementById('rp-icon-pause');
+  const current = document.getElementById('rp-current');
+  const follow = document.getElementById('rp-follow');
+  const transcript = document.getElementById('rp-transcript');
+  const DURATION = {{ vm.duration or 0 }};
+
+  function fmt(s) {
+    s = Math.max(0, Math.floor(s));
+    return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+  }
+
+  function parseTs(ts) {
+    if (!ts) return null;
+    const p = ts.trim().split(':').map(Number);
+    if (p.some(isNaN)) return null;
+    if (p.length === 2) return p[0] * 60 + p[1];
+    if (p.length === 3) return p[0] * 3600 + p[1] * 60 + p[2];
+    return null;
+  }
+
+  if (audio && playBtn) {
+    playBtn.addEventListener('click', function () {
+      if (audio.paused) audio.play(); else audio.pause();
+    });
+    audio.addEventListener('play', function () {
+      iconPlay.style.display = 'none'; iconPause.style.display = '';
+      playBtn.setAttribute('aria-label', 'Pause call');
+    });
+    audio.addEventListener('pause', function () {
+      iconPlay.style.display = ''; iconPause.style.display = 'none';
+      playBtn.setAttribute('aria-label', 'Play call');
+    });
+  }
+
+  let activeLine = null;
+  function highlight(line) {
+    if (line === activeLine) return;
+    if (activeLine) activeLine.classList.remove('is-playing');
+    activeLine = line;
+    if (!line) return;
+    line.classList.add('is-playing');
+    if (follow && follow.checked && transcript) {
+      const t = transcript.getBoundingClientRect();
+      const l = line.getBoundingClientRect();
+      if (l.top < t.top || l.bottom > t.bottom) {
+        transcript.scrollTop += (l.top - t.top) - t.height / 2 + l.height / 2;
+      }
     }
+  }
+
+  function lineAt(ms) {
+    if (!transcript) return null;
+    const lines = transcript.querySelectorAll('.rp-line');
+    let best = null, bestDiff = Infinity;
+    for (const el of lines) {
+      const a = +el.dataset.start, b = +el.dataset.end;
+      if (ms >= a && ms <= b) return el;
+      const d = Math.abs(a - ms);
+      if (d < bestDiff) { bestDiff = d; best = el; }
+    }
+    return best;
+  }
+
+  if (audio) {
+    audio.addEventListener('timeupdate', function () {
+      const t = audio.currentTime;
+      if (current) current.textContent = fmt(t);
+      if (playhead && DURATION) playhead.style.left = Math.min(100, t / DURATION * 100) + '%';
+      if (timeline && DURATION) {
+        timeline.setAttribute('aria-valuenow', Math.floor(t));
+        timeline.setAttribute('aria-valuetext', fmt(t));
+      }
+      highlight(lineAt(t * 1000));
+    });
+  }
+
+  function seek(seconds, play) {
+    if (!audio || seconds === null) return;
+    audio.currentTime = seconds;
+    if (play !== false) audio.play().catch(function () {});
+    highlight(lineAt(seconds * 1000));
+  }
+
+  // Scrubbing: click, drag, and keyboard.
+  if (timeline && DURATION && audio) {
+    const posToSeconds = function (clientX) {
+      const rect = timeline.getBoundingClientRect();
+      return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width)) * DURATION;
+    };
+    let scrubbing = false;
+    timeline.addEventListener('pointerdown', function (e) {
+      if (e.target.closest('.rp-marker')) return;   // markers handle themselves
+      scrubbing = true;
+      timeline.setPointerCapture(e.pointerId);
+      seek(posToSeconds(e.clientX), false);
+    });
+    timeline.addEventListener('pointermove', function (e) {
+      if (scrubbing) seek(posToSeconds(e.clientX), false);
+    });
+    timeline.addEventListener('pointerup', function (e) {
+      if (!scrubbing) return;
+      scrubbing = false;
+      timeline.releasePointerCapture(e.pointerId);
+    });
+    timeline.addEventListener('keydown', function (e) {
+      const step = e.shiftKey ? 30 : 5;
+      if (e.key === 'ArrowRight') { e.preventDefault(); seek(Math.min(DURATION, audio.currentTime + step), false); }
+      else if (e.key === 'ArrowLeft') { e.preventDefault(); seek(Math.max(0, audio.currentTime - step), false); }
+      else if (e.key === 'Home') { e.preventDefault(); seek(0, false); }
+      else if (e.key === 'End') { e.preventDefault(); seek(DURATION, false); }
+      else if (e.key === ' ' || e.key === 'Enter') {
+        e.preventDefault();
+        if (audio.paused) audio.play(); else audio.pause();
+      }
+    });
+  }
+
+  // Every timestamp in the page aims the same transport.
+  document.addEventListener('click', function (e) {
+    const hit = e.target.closest('[data-ts]');
+    if (!hit) return;
+    e.preventDefault();
+    seek(parseTs(hit.dataset.ts), true);
   });
 })();
 
-// Overrides are a compliance decision — a click that quietly does nothing is
-// worse than an error. Every failure path reports back into the row.
-// Repaint one override cell from the new status. A full reload here used to
-// stop audio playback and jump to the top of a long report on every click —
-// exactly when the reviewer is deepest in the task.
+// Overrides update the row in place: a reload would stop playback and lose the
+// reviewer's place halfway down a long report.
 function applyOverride(cell, status) {
   const td = cell.parentElement;
   cell.dataset.busy = '';
-
   let pill = td.querySelector('.ov-pill');
   if (!pill) {
     pill = document.createElement('span');
@@ -320,23 +421,20 @@ function applyOverride(cell, status) {
   }
   if (status === 'approved') {
     pill.className = 'ov-pill inline-block text-xs font-semibold px-2 py-0.5 rounded bg-green-50 text-green-700 mb-1';
-    pill.textContent = '\u2713 Approved';
+    pill.textContent = '✓ Approved';
   } else if (status === 'failed') {
     pill.className = 'ov-pill inline-block text-xs font-semibold px-2 py-0.5 rounded bg-red-50 text-red-700 mb-1';
-    pill.textContent = '\u2717 Flagged';
+    pill.textContent = '✗ Flagged';
   } else {
     pill.remove();
   }
-
   cell.querySelectorAll('.ov-btn').forEach(function (b) {
     b.disabled = false;
     if (b.dataset.idle) b.textContent = b.dataset.idle;
     const target = b.classList.contains('ov-approve') ? 'approved'
-                 : b.classList.contains('ov-flag')    ? 'failed' : null;
+                 : b.classList.contains('ov-flag') ? 'failed' : null;
     if (target) b.classList.toggle('ov-active', status === target);
   });
-
-  // The Clear button only exists while an override is set.
   let clear = cell.querySelector('.ov-clear');
   if (status && !clear) {
     clear = document.createElement('button');
@@ -348,7 +446,6 @@ function applyOverride(cell, status) {
   } else if (!status && clear) {
     clear.remove();
   }
-
   const live = document.getElementById('override-status');
   if (live) {
     live.textContent = 'Override ' + (status === 'approved' ? 'approved'
@@ -359,15 +456,12 @@ function applyOverride(cell, status) {
 function setOverride(btn, status) {
   const cell = btn.closest('.override-btns');
   if (!cell || cell.dataset.busy === '1') return;
-
-  const sectionKey = cell.dataset.sectionKey;
-  const itemName = cell.dataset.itemName;
   const buttons = cell.querySelectorAll('.ov-btn');
   const previousLabel = btn.textContent;
 
   function fail(message) {
     cell.dataset.busy = '';
-    buttons.forEach(b => { b.disabled = false; });
+    buttons.forEach(function (b) { b.disabled = false; });
     btn.textContent = previousLabel;
     let note = cell.parentElement.querySelector('.ov-error');
     if (!note) {
@@ -380,27 +474,27 @@ function setOverride(btn, status) {
   }
 
   cell.dataset.busy = '1';
-  buttons.forEach(b => { b.disabled = true; });
+  buttons.forEach(function (b) { b.disabled = true; });
   btn.textContent = 'Saving…';
-
   const existing = cell.parentElement.querySelector('.ov-error');
   if (existing) existing.remove();
 
   fetch('{{ url_for("calls.override", call_id=call.id) }}', {
     method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({section_key: sectionKey, item_name: itemName, status: status}),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      section_key: cell.dataset.sectionKey,
+      item_name: cell.dataset.itemName,
+      status: status
+    }),
   })
-  .then(r => {
-    if (r.status === 401 || r.status === 403) {
-      fail('Your session expired. Reload the page and sign in again.');
-      return null;
-    }
-    if (!r.ok) { fail('Could not save that override (error ' + r.status + '). Try again.'); return null; }
-    return r.json();
+  .then(function (res) {
+    if (res.status === 401 || res.status === 403) { fail('Your session expired. Reload the page and sign in again.'); return null; }
+    if (!res.ok) { fail('Could not save that override (error ' + res.status + '). Try again.'); return null; }
+    return res.json();
   })
-  .then(data => { if (data) applyOverride(cell, status); })
-  .catch(() => fail('Could not reach the server. Check your connection and try again.'));
+  .then(function (data) { if (data) applyOverride(cell, status); })
+  .catch(function () { fail('Could not reach the server. Check your connection and try again.'); });
 }
 </script>
 {% endblock %}

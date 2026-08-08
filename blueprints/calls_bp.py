@@ -62,8 +62,119 @@ ALLOWED_EXTENSIONS = {
 PAGE_SIZE = 50
 
 
+@calls_bp.app_template_filter("ts_seconds")
+def ts_seconds(value):
+    """'8:12' or '1:02:33' -> seconds. Returns None when unparseable so the
+    template can drop the marker rather than place it at zero."""
+    if not value or not isinstance(value, str):
+        return None
+    parts = value.strip().split(":")
+    if not all(p.strip().isdigit() for p in parts):
+        return None
+    parts = [int(p) for p in parts]
+    if len(parts) == 2:
+        return parts[0] * 60 + parts[1]
+    if len(parts) == 3:
+        return parts[0] * 3600 + parts[1] * 60 + parts[2]
+    return None
+
+
 def _allowed(filename: str) -> bool:
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def _report_view_model(call):
+    """Everything the timeline needs, computed once from real data.
+
+    The call-intelligence canon is built on one thing: the call as a timeline
+    you can aim at. Every input here already exists — utterance speaker/start/end
+    from AssemblyAI, and a timestamp on every graded item and auto-fail phrase.
+    Nothing is synthesised; a call with no usable timing renders without a
+    timeline rather than with a decorative one.
+    """
+    raw = (call.transcript.raw_transcript_json or {}) if call.transcript else {}
+    utterances = raw.get("utterances") or []
+
+    # Duration: prefer the transcribed length, fall back to the last utterance.
+    duration = call.duration or 0
+    if not duration and utterances:
+        duration = int(max(u.get("end", 0) for u in utterances) / 1000) or 0
+
+    # Stable speaker slots in order of first appearance, so colour means the
+    # same thing on the timeline and in the transcript.
+    slots, order = {}, []
+    for u in utterances:
+        spk = u.get("speaker") or "?"
+        if spk not in slots:
+            slots[spk] = "a" if not order else ("b" if len(order) == 1 else "n")
+            order.append(spk)
+
+    def pct(seconds):
+        if not duration:
+            return None
+        return max(0.0, min(100.0, seconds / duration * 100))
+
+    bands, lines = [], []
+    for u in utterances:
+        start_s, end_s = u.get("start", 0) / 1000, u.get("end", 0) / 1000
+        left, right = pct(start_s), pct(end_s)
+        slot = slots.get(u.get("speaker") or "?", "n")
+        if left is not None and right is not None and right > left:
+            bands.append({"left": round(left, 3), "width": round(max(right - left, 0.15), 3), "slot": slot})
+        m, sec = int(start_s // 60), int(start_s % 60)
+        lines.append({
+            "start_ms": u.get("start", 0), "end_ms": u.get("end", 0),
+            "ts": f"{m}:{sec:02d}", "slot": slot,
+            "speaker": f"Speaker {u.get('speaker') or '?'}",
+            "text": u.get("text", ""),
+        })
+
+    # Talk share is a real QA signal and falls straight out of the same data.
+    talk = {}
+    for u in utterances:
+        slot = slots.get(u.get("speaker") or "?", "n")
+        talk[slot] = talk.get(slot, 0) + max(0, u.get("end", 0) - u.get("start", 0))
+    total_talk = sum(talk.values()) or 1
+    talk_share = {k: round(v / total_talk * 100) for k, v in talk.items()}
+
+    # Markers: one per graded item and per auto-fail phrase that carries a
+    # parseable timestamp. Missing items and auto-fails are what a reviewer is
+    # actually hunting for, so they read strongest.
+    report_json = call.report.report_json if call.report else {}
+    markers = []
+    for section in report_json.get("sections", []) or []:
+        for item in section.get("items", []) or []:
+            secs = ts_seconds(item.get("timestamp"))
+            if secs is None or not duration:
+                continue
+            covered = item.get("status") == "covered"
+            markers.append({
+                "pct": round(pct(secs), 3), "ts": item.get("timestamp"),
+                "kind": "ok" if covered else "miss",
+                "label": ("Covered" if covered else "Missing") + f" — {item.get('name', '')}",
+            })
+    af = report_json.get("auto_fail_phrases", {}) or {}
+    for phrase in (af.get("phrases") or []):
+        secs = ts_seconds(phrase.get("timestamp"))
+        if secs is None or not duration:
+            continue
+        markers.append({
+            "pct": round(pct(secs), 3), "ts": phrase.get("timestamp"),
+            "kind": "crit", "label": f"Auto-fail — {phrase.get('phrase', '')}",
+        })
+    markers.sort(key=lambda m: m["pct"])
+
+    return {
+        "duration": duration,
+        "duration_label": f"{duration // 60}:{duration % 60:02d}" if duration else "--:--",
+        "bands": bands, "lines": lines, "markers": markers,
+        # Only legend the kinds actually on the timeline. A missing item usually
+        # has no timestamp — nothing happened to point at — so advertising a
+        # "missing" marker that can never appear would be a lie in the legend.
+        "marker_kinds": sorted({m["kind"] for m in markers}),
+        "talk_share": talk_share, "speaker_count": len(order),
+        "has_timeline": bool(duration and bands),
+    }
 
 
 def _org_call_or_404(call_id: str) -> Call:
@@ -318,7 +429,9 @@ def report(call_id: str):
     call = _org_call_or_404(call_id)
     if call.status != "complete" or not call.report:
         return redirect(url_for("calls.status", call_id=call_id))
-    return render_template("calls/report.html", call=call, report=call.report)
+    return render_template(
+        "calls/report.html", call=call, report=call.report, vm=_report_view_model(call)
+    )
 
 
 # ── Manager override ──────────────────────────────────────────────────────────
