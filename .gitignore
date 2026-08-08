@@ -43,3 +43,8 @@ static/bds_logo.png
 
 # Uploaded call recordings (runtime data, not source)
 uploads/
+
+# Impeccable design skill — vendored tool install, not project source
+.claude/
+.impeccable/hook.cache.json
+.impeccable/config.local.json
