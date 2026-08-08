@@ -121,7 +121,7 @@ def run_pipeline(call_id: str, file_path: str,
         user_msg = build_user_message(transcript_text)
 
         response = client.messages.create(
-            model="claude-sonnet-4-6",
+            model="claude-opus-4-6",
             max_tokens=4096,
             system=system_prompt,
             messages=[{"role": "user", "content": user_msg}],

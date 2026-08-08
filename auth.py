@@ -77,7 +77,13 @@ def load_user() -> None:
     g.user = None
     g.org = None
 
-    token = request.cookies.get("__session")
+    # Prefer Authorization: Bearer header (used by AJAX polling to pass a
+    # freshly-minted Clerk token, avoiding cookie expiry 401s).
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header[7:]
+    else:
+        token = request.cookies.get("__session")
     if not token:
         return
 
@@ -137,6 +143,8 @@ def org_required(f):
                 abort(401)
             return redirect(url_for("auth.login"))
         if g.org is None:
+            if _is_api_request():
+                abort(403)
             return redirect(url_for("org.setup"))
         return f(*args, **kwargs)
     return decorated

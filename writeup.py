@@ -72,7 +72,7 @@ Output STRICT JSON, no prose around it:
 """
 
 
-def generate_finding_bodies(claude_client, agent_name, transcript, results, model="claude-sonnet-4-6"):
+def generate_finding_bodies(claude_client, agent_name, transcript, results, model="claude-opus-4-6"):
     user_msg = (
         f"AGENT NAME: {agent_name}\n\n"
         f"QA ANALYSIS JSON:\n{json.dumps(results, indent=2)}\n\n"

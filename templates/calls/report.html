@@ -40,6 +40,16 @@
     <a href="{{ url_for('calls.report_pdf', call_id=call.id, fails_only='1') }}" class="btn btn-secondary">Fails Only PDF</a>
   </div>
 
+  {# ── Audio player ── #}
+  {% if call.audio_file_url %}
+  <div class="audio-player-wrap">
+    <audio id="call-audio" controls>
+      <source src="{{ url_for('calls.audio', call_id=call.id) }}">
+      Your browser does not support audio playback.
+    </audio>
+  </div>
+  {% endif %}
+
   {# ── Scorecard ── #}
   {% set sections = r.get('sections', []) %}
   {% set ns = namespace(total=0, covered=0) %}
@@ -134,7 +144,11 @@
                   {% endif %}
                 </div>
               </td>
-              <td class="ts-cell">{{ item.timestamp or '—' }}</td>
+              <td class="ts-cell">
+                {% if item.timestamp and item.timestamp != '—' %}
+                  <button class="ts-link" onclick="seekTo('{{ item.timestamp }}')">{{ item.timestamp }}</button>
+                {% else %}—{% endif %}
+              </td>
               <td class="evidence-cell">{{ item.evidence or '' }}</td>
             </tr>
           {% endfor %}
@@ -158,7 +172,11 @@
           {% for p in af.phrases %}
             <tr class="row-fail">
               <td><strong>{{ p.phrase }}</strong></td>
-              <td class="ts-cell">{{ p.timestamp or '—' }}</td>
+              <td class="ts-cell">
+                {% if p.timestamp and p.timestamp != '—' %}
+                  <button class="ts-link" onclick="seekTo('{{ p.timestamp }}')">{{ p.timestamp }}</button>
+                {% else %}—{% endif %}
+              </td>
               <td>{{ p.speaker or '—' }}</td>
               <td class="evidence-cell">{{ p.quote or '' }}</td>
               <td>{{ p.violation or '' }}</td>
@@ -169,12 +187,99 @@
     </div>
   {% endif %}
 
+  {# ── Full transcript ── #}
+  {% if call.transcript %}
+    {% set utterances = call.transcript.raw_transcript_json.get('utterances', []) %}
+    {% if utterances %}
+    <div class="report-section">
+      <div class="report-section-header">
+        <h2 class="report-section-title">Full Transcript</h2>
+      </div>
+      <div class="transcript-block" id="transcript-block">
+        {% for u in utterances %}
+          {% set ts_secs = (u.start // 1000) %}
+          {% set ts_m = ts_secs // 60 %}
+          {% set ts_s = ts_secs % 60 %}
+          {% set ts_str = '%d:%02d' | format(ts_m, ts_s) %}
+          <div class="transcript-line" data-start="{{ u.start }}" data-end="{{ u.end }}">
+            <button class="ts-link transcript-ts" onclick="seekTo('{{ ts_str }}')" title="Jump to {{ ts_str }}">{{ ts_str }}</button>
+            <span class="transcript-speaker">{{ u.speaker or 'Speaker' }}:</span>
+            <span class="transcript-text">{{ u.text }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  {% endif %}
+
   <p class="back-link"><a href="{{ url_for('calls.history') }}">← Call history</a></p>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
+// ── Timestamp parsing ──────────────────────────────────────────────────────
+function parseTimestamp(ts) {
+  if (!ts) return null;
+  const parts = ts.trim().split(':').map(Number);
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  return null;
+}
+
+// ── Find transcript line closest to a given ms position ───────────────────
+function findLineAt(ms) {
+  const lines = document.querySelectorAll('#transcript-block .transcript-line[data-start]');
+  let best = null, bestDiff = Infinity;
+  for (const line of lines) {
+    const start = parseInt(line.dataset.start, 10);
+    const end   = parseInt(line.dataset.end,   10);
+    if (ms >= start && ms <= end) return line;        // exact match
+    const diff = Math.abs(start - ms);
+    if (diff < bestDiff) { bestDiff = diff; best = line; }
+  }
+  return best;
+}
+
+// ── Highlight a transcript line ────────────────────────────────────────────
+function highlightLine(line) {
+  document.querySelectorAll('#transcript-block .transcript-line.playing')
+    .forEach(el => el.classList.remove('playing'));
+  if (line) {
+    line.classList.add('playing');
+    line.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+}
+
+// ── Seek audio + scroll to + highlight matching transcript utterance ────────
+function seekTo(ts) {
+  const secs = parseTimestamp(ts);
+  if (secs === null) return;
+  const audio = document.getElementById('call-audio');
+  if (audio) {
+    audio.currentTime = secs;
+    audio.play();
+  }
+  const line = findLineAt(secs * 1000);
+  if (line) highlightLine(line);
+}
+
+// ── Live highlight as audio plays ─────────────────────────────────────────
+(function () {
+  const audio = document.getElementById('call-audio');
+  if (!audio) return;
+  let lastHighlighted = null;
+  audio.addEventListener('timeupdate', () => {
+    const ms = audio.currentTime * 1000;
+    const line = findLineAt(ms);
+    if (line && line !== lastHighlighted) {
+      highlightLine(line);
+      lastHighlighted = line;
+    }
+  });
+})();
+
+// ── Manager overrides ──────────────────────────────────────────────────────
 function setOverride(btn, status) {
   const cell = btn.closest('.override-btns');
   const sectionKey = cell.dataset.sectionKey;

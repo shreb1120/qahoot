@@ -39,9 +39,11 @@
            class="form-input form-input-sm" placeholder="From date" title="Call date from">
     <input type="date" name="date_to" value="{{ filters.date_to }}"
            class="form-input form-input-sm" placeholder="To date" title="Call date to">
+    <input type="text" name="phone" value="{{ filters.phone }}"
+           class="form-input form-input-sm" placeholder="Phone number" title="Filter by client phone">
 
     <button type="submit" class="btn btn-secondary btn-sm">Apply</button>
-    {% if filters.agent_id or filters.status or filters.result or filters.date_from or filters.date_to %}
+    {% if filters.agent_id or filters.status or filters.result or filters.date_from or filters.date_to or filters.phone %}
       <a href="{{ url_for('calls.history') }}" class="btn btn-ghost btn-sm">Clear</a>
     {% endif %}
   </form>
@@ -57,6 +59,7 @@
         <tr>
           <th>Agent</th>
           <th>File</th>
+          <th>Phone</th>
           <th>Call Date</th>
           <th>Uploaded</th>
           <th>Duration</th>
@@ -67,9 +70,10 @@
       </thead>
       <tbody>
         {% for call in calls %}
-          <tr>
+          <tr id="row-{{ call.id }}" data-report-url="{{ url_for('calls.report', call_id=call.id) }}">
             <td>{{ call.agent.name if call.agent else '—' }}</td>
             <td class="filename-cell">{{ call.filename }}</td>
+            <td class="phone-cell">{{ call.client_phone or '—' }}</td>
             <td>{{ call.call_date.strftime('%b %d, %Y') if call.call_date else '—' }}</td>
             <td>{{ call.upload_date.strftime('%b %d, %Y') }}</td>
             <td>
@@ -81,15 +85,18 @@
             </td>
             <td>
               {% if call.status == 'complete' %}
-                <span class="status-badge status-complete">Complete</span>
+                <span class="status-badge status-complete" id="sbadge-{{ call.id }}">Complete</span>
               {% elif call.status == 'error' %}
-                <span class="status-badge status-error">Error</span>
+                <span class="status-badge status-error" id="sbadge-{{ call.id }}">Error</span>
               {% elif call.status == 'transcribing' %}
-                <span class="status-badge status-transcribing">Transcribing</span>
+                <span class="status-badge status-transcribing" id="sbadge-{{ call.id }}">Transcribing</span>
+                <div class="progress-wrap"><div class="progress-fill" id="pfill-{{ call.id }}" style="width:40%"></div></div>
               {% elif call.status == 'analyzing' %}
-                <span class="status-badge status-analyzing">Analyzing</span>
+                <span class="status-badge status-analyzing" id="sbadge-{{ call.id }}">Analyzing</span>
+                <div class="progress-wrap"><div class="progress-fill" id="pfill-{{ call.id }}" style="width:75%"></div></div>
               {% else %}
-                <span class="status-badge status-pending">Pending</span>
+                <span class="status-badge status-pending" id="sbadge-{{ call.id }}">Pending</span>
+                <div class="progress-wrap"><div class="progress-fill" id="pfill-{{ call.id }}" style="width:8%"></div></div>
               {% endif %}
             </td>
             <td>
@@ -106,11 +113,11 @@
                 —
               {% endif %}
             </td>
-            <td>
+            <td id="action-cell-{{ call.id }}">
               {% if call.status == 'complete' %}
                 <a href="{{ url_for('calls.report', call_id=call.id) }}" class="table-link">View report →</a>
               {% elif call.status in ('pending', 'transcribing', 'analyzing') %}
-                <a href="{{ url_for('calls.status', call_id=call.id) }}" class="table-link">View status →</a>
+                <span class="muted-label">Processing…</span>
               {% endif %}
             </td>
           </tr>
@@ -120,38 +127,122 @@
   {% endif %}
 </div>
 
-{# Toast #}
-<div id="completion-toast" style="display:none;position:fixed;bottom:1.5rem;right:1.5rem;
-  background:#059669;color:#fff;padding:.75rem 1.25rem;border-radius:.5rem;
-  box-shadow:0 4px 12px rgba(0,0,0,.2);z-index:9999;font-weight:500;transition:opacity .4s">
-  A call finished processing — reloading…
+{# ── Completion toast ── #}
+<div id="completion-toast"
+     style="display:none;position:fixed;top:1.25rem;left:50%;transform:translateX(-50%);
+            background:#059669;color:#fff;padding:.9rem 1.5rem;border-radius:.625rem;
+            box-shadow:0 4px 20px rgba(0,0,0,.25);z-index:9999;font-weight:600;font-size:1rem;
+            align-items:center;gap:1.25rem;white-space:nowrap">
+  ✓ Call processing complete!
+  <a id="toast-report-link" href="#"
+     style="color:#fff;text-decoration:underline;font-weight:700;font-size:1.05rem">View Report →</a>
+  <button onclick="document.getElementById('completion-toast').style.display='none'"
+          style="background:none;border:none;color:#fff;font-size:1.2rem;cursor:pointer;
+                 opacity:.7;padding:0;line-height:1" title="Dismiss">✕</button>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-(function() {
-  const activeIds = {{ active_ids_json|safe }};
-  if (!activeIds.length) return;
+(function () {
+  const STATUS_LABEL = { pending:'Pending', transcribing:'Transcribing', analyzing:'Analyzing', complete:'Complete', error:'Error' };
+  const STATUS_CLASS = { pending:'status-pending', transcribing:'status-transcribing', analyzing:'status-analyzing', complete:'status-complete', error:'status-error' };
+  const STATUS_WIDTH = { pending:'8%', transcribing:'40%', analyzing:'75%', complete:'100%' };
 
-  function poll() {
-    fetch('{{ url_for("calls.active_json") }}')
-      .then(r => r.json())
-      .then(data => {
-        const nowActive = new Set(data.map(c => c.id));
-        const completed = activeIds.filter(id => !nowActive.has(id));
-        if (completed.length) {
-          const toast = document.getElementById('completion-toast');
-          toast.style.display = 'block';
-          setTimeout(() => { window.location.reload(); }, 1500);
-        } else {
-          setTimeout(poll, 6000);
-        }
+  // Collect all row IDs that are not yet terminal (complete/error) at page load
+  function getPendingRowIds() {
+    return Array.from(document.querySelectorAll('tr[id^="row-"]'))
+      .filter(tr => {
+        const badge = tr.querySelector('[id^="sbadge-"]');
+        if (!badge) return false;
+        const cls = badge.className;
+        return !cls.includes('status-complete') && !cls.includes('status-error');
       })
-      .catch(() => setTimeout(poll, 6000));
+      .map(tr => tr.id.replace('row-', ''));
   }
 
-  setTimeout(poll, 6000);
+  // Stop if no pending rows exist on this page
+  if (!getPendingRowIds().length) return;
+
+  function updateRow(id, status) {
+    const badge = document.getElementById('sbadge-' + id);
+    if (badge) {
+      badge.className = 'status-badge ' + (STATUS_CLASS[status] || '');
+      badge.textContent = STATUS_LABEL[status] || status;
+    }
+    const fill = document.getElementById('pfill-' + id);
+    if (fill) fill.style.width = STATUS_WIDTH[status] || fill.style.width;
+  }
+
+  function markComplete(id) {
+    updateRow(id, 'complete');
+    const row   = document.getElementById('row-' + id);
+    const url   = row ? row.dataset.reportUrl : null;
+    const aCell = document.getElementById('action-cell-' + id);
+    if (aCell && url) aCell.innerHTML = '<a href="' + url + '" class="table-link">View report →</a>';
+    const fill = document.getElementById('pfill-' + id);
+    if (fill && fill.parentElement) fill.parentElement.style.display = 'none';
+    return url;
+  }
+
+  function showToast(reportUrl) {
+    const toast = document.getElementById('completion-toast');
+    const link  = document.getElementById('toast-report-link');
+    if (reportUrl) link.href = reportUrl;
+    else link.style.display = 'none';
+    toast.style.display = 'flex';
+    // No auto-reload — row is already updated in place. Toast stays until user acts.
+  }
+
+  async function getClerkToken() {
+    try {
+      if (!window.Clerk) return null;
+      // Clerk.load() is idempotent — initialises the session on non-auth pages.
+      await window.Clerk.load();
+      if (!window.Clerk.session) return null;
+      return await window.Clerk.session.getToken() || null;
+    } catch (e) { return null; }
+  }
+
+  async function poll() {
+    const pending = getPendingRowIds();
+    if (!pending.length) return;
+
+    const token = await getClerkToken();
+    const headers = { 'X-Requested-With': 'XMLHttpRequest' };
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+
+    fetch('{{ url_for("calls.active_json") }}', { headers })
+    .then(r => {
+      if (r.status === 401 || r.status === 403) {
+        // JWT temporarily expired — Clerk.js refreshes it automatically.
+        // Just retry silently; never reload (reload boots the user off the page).
+        setTimeout(poll, 3000);
+        return null;
+      }
+      if (!r.ok) throw new Error(r.status);
+      return r.json();
+    })
+    .then(data => {
+      if (data === null) return;
+
+      const nowActive = new Map(data.map(c => [c.id, c]));
+
+      for (const c of data) updateRow(c.id, c.status);
+
+      const completed = pending.filter(id => !nowActive.has(id));
+      if (completed.length) {
+        let reportUrl = null;
+        completed.forEach(id => { reportUrl = markComplete(id); });
+        showToast(reportUrl);
+      } else {
+        setTimeout(poll, 3000);
+      }
+    })
+    .catch(() => setTimeout(poll, 3000));
+  }
+
+  setTimeout(poll, 500);
 })();
 </script>
 {% endblock %}

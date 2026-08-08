@@ -11,7 +11,7 @@ import logging
 import os
 
 from dotenv import load_dotenv
-from flask import Flask, g, redirect, url_for
+from flask import Flask, g, redirect, request, url_for
 
 from config import Config
 from db import get_db, init_db
@@ -48,6 +48,14 @@ def create_app(config_class: type = Config) -> Flask:
 
     # ── Auth (runs after open_db so g.db is available) ────────────────────
     app.before_request(load_user)
+
+    # ── Request logging ───────────────────────────────────────────────────
+    @app.after_request
+    def log_request(response):
+        logger.info("%s %s → %d (user=%s)",
+                    request.method, request.path, response.status_code,
+                    getattr(g, "user", None) and g.user.id)
+        return response
 
     # ── Security headers ──────────────────────────────────────────────────
     @app.after_request

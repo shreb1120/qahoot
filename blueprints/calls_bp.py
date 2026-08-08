@@ -42,6 +42,7 @@ from flask import (
     render_template,
     render_template_string,
     request,
+    send_file,
     url_for,
 )
 from werkzeug.utils import secure_filename
@@ -178,7 +179,7 @@ def upload():
         anthropic_key=current_app.config["ANTHROPIC_API_KEY"],
     )
 
-    return redirect(url_for("calls.status", call_id=call.id))
+    return redirect(url_for("calls.history"))
 
 
 # ── Status ────────────────────────────────────────────────────────────────────
@@ -200,6 +201,19 @@ def status_json(call_id: str):
         "status": call.status,
         "error": call.error_message,
     })
+
+
+# ── Audio file ────────────────────────────────────────────────────────────────
+
+@calls_bp.get("/<call_id>/audio")
+@org_required
+def audio(call_id: str):
+    import mimetypes
+    call = _org_call_or_404(call_id)
+    if not call.audio_file_url or not os.path.exists(call.audio_file_url):
+        abort(404)
+    mime = mimetypes.guess_type(call.audio_file_url)[0] or "audio/mpeg"
+    return send_file(call.audio_file_url, mimetype=mime, conditional=True)
 
 
 # ── Active calls (for history page polling) ───────────────────────────────────
@@ -386,6 +400,7 @@ def history():
     result_filter = request.args.get("result", "").strip()
     date_from = request.args.get("date_from", "").strip()
     date_to = request.args.get("date_to", "").strip()
+    phone_filter = request.args.get("phone", "").strip()
 
     if agent_id:
         q = q.filter(Call.agent_id == agent_id)
@@ -401,6 +416,8 @@ def history():
             q = q.filter(Call.call_date <= date.fromisoformat(date_to))
         except ValueError:
             pass
+    if phone_filter:
+        q = q.filter(Call.client_phone.ilike(f"%{phone_filter}%"))
 
     calls = q.order_by(Call.upload_date.desc()).all()
 
@@ -437,5 +454,6 @@ def history():
             "result": result_filter,
             "date_from": date_from,
             "date_to": date_to,
+            "phone": phone_filter,
         },
     )
