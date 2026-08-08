@@ -17,12 +17,12 @@
     </div>
   {% else %}
     {% if error %}
-      <div class="bg-red-50 border border-red-300 text-red-800 rounded-lg px-4 py-3 mb-4 text-sm" role="alert">{{ error }}</div>
+      <div class="rp-flash rp-flash--err mb-3" role="alert">{{ error }}</div>
     {% endif %}
 
     <form method="post" action="{{ url_for('calls.upload') }}" enctype="multipart/form-data"
           id="upload-form" novalidate data-busy-label="Uploading…"
-          class="bg-white border border-slate-200 rounded-xl p-6 space-y-5 shadow-sm">
+          class="rp-panel p-5 space-y-4 max-w-xl">
 
       {# ── Drop zone ──
          The input is visually hidden but still focusable and still validated.
@@ -49,7 +49,7 @@
         <label class="block text-sm font-semibold text-slate-700 mb-1" for="agent_id">Agent <span class="text-red-600" aria-hidden="true">*</span></label>
         {% if agents %}
           <select id="agent_id" name="agent_id" required aria-describedby="agent-error"
-                  class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none">
+                  class="rp-select w-full">
             <option value="">— Select agent —</option>
             {% for agent in agents %}
               <option value="{{ agent.id }}" {% if form.get('agent_id') == agent.id %}selected{% endif %}>{{ agent.name }}</option>
@@ -73,7 +73,7 @@
         <label class="block text-sm font-semibold text-slate-700 mb-1" for="alv_id">ALV / ID # <span class="text-red-600" aria-hidden="true">*</span></label>
         <input type="text" id="alv_id" name="alv_id" placeholder="e.g. 12345" maxlength="50" required
                value="{{ form.get('alv_id', '') }}" aria-describedby="alv-error"
-               class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none">
+               class="rp-input w-full">
         <p class="qb-field-error" id="alv-error" role="alert"></p>
       </div>
 
@@ -81,7 +81,7 @@
         <label class="block text-sm font-semibold text-slate-700 mb-1" for="call_date">Call date <span class="text-red-600" aria-hidden="true">*</span></label>
         <input type="date" id="call_date" name="call_date" required
                value="{{ form.get('call_date', '') }}" max="{{ today }}" aria-describedby="date-error"
-               class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none">
+               class="rp-input w-full">
         <p class="qb-field-error" id="date-error" role="alert"></p>
       </div>
 
@@ -89,11 +89,11 @@
         <label class="block text-sm font-semibold text-slate-700 mb-1" for="client_phone">Client phone <span class="text-xs text-slate-500 font-normal">(optional)</span></label>
         <input type="text" id="client_phone" name="client_phone" placeholder="e.g. 8005551234" maxlength="30"
                value="{{ form.get('client_phone', '') }}"
-               class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none">
+               class="rp-input w-full">
       </div>
 
       <button type="submit"
-              class="w-full px-4 py-2.5 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition shadow-sm">
+              class="qb-btn-primary w-full justify-center">
         Upload &amp; Analyze
       </button>
       <p class="text-xs text-slate-500 text-center">Large files can take a few minutes to upload. Keep this tab open.</p>

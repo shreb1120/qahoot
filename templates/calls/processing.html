@@ -2,7 +2,7 @@
 {% block title %}Processing Call — Qaboom{% endblock %}
 
 {% block content %}
-<div class="max-w-md mx-auto text-center pt-12">
+<div class="max-w-md mx-auto text-center pt-10">
   <h1 class="qb-page-title mb-2">Analyzing Call</h1>
   <p class="text-sm text-slate-500 mb-6 qb-break">{{ call.filename }}</p>
 
@@ -22,14 +22,14 @@
   </div>
 
   {% if call.status == 'error' %}
-    <p><a href="{{ url_for('calls.upload_form') }}" class="inline-block px-4 py-2 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 no-underline hover:bg-slate-50 transition">Try Again</a></p>
+    <p><a href="{{ url_for('calls.upload_form') }}" class="rp-btn">Try again</a></p>
   {% else %}
     <p class="text-sm text-slate-500 mb-4" id="wait-note">This usually takes 1–3 minutes depending on call length. This page will update automatically.</p>
     <div class="spinner mx-auto" id="spinner" aria-hidden="true"></div>
-    <div id="stalled-note" class="hidden mt-4 bg-amber-50 border border-amber-300 text-amber-900 rounded-lg px-4 py-3 text-sm text-left">
+    <div id="stalled-note" class="hidden mt-4 rp-panel p-3.5 text-sm text-left" style="background:#fffbeb;border-color:#fcd34d">
       <strong>This is taking longer than usual.</strong>
       <p class="mt-1">Analysis may still be running in the background — your call history will show the result when it finishes.</p>
-      <button type="button" id="resume-btn" class="mt-2 px-3 py-1.5 rounded-lg border border-amber-300 bg-white text-sm font-medium hover:bg-amber-50">Check again</button>
+      <button type="button" id="resume-btn" class="rp-btn mt-2">Check again</button>
     </div>
   {% endif %}
 
