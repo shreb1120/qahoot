@@ -1,75 +1,122 @@
 {% extends "base.html" %}
-{% block title %}Compliance Profile — Qaboom{% endblock %}
+{% block title %}Compliance checklist — Qaboom{% endblock %}
 
 {% block content %}
+{% set is_admin = g.user.role == 'admin' %}
 <div>
-  <h1 class="qb-page-title mb-1">Compliance Checklist</h1>
-
   {% if not profile %}
-    <div class="bg-amber-50 border border-amber-300 text-amber-900 rounded-lg px-4 py-3 text-sm mt-4">No compliance profile found for this org.</div>
+    <h1 class="qb-page-title mb-4">Compliance checklist</h1>
+    <div class="rp-panel rp-empty">
+      <h2 class="qb-section-title mb-1">No compliance profile yet</h2>
+      <p class="text-sm text-slate-600 max-w-md mx-auto">This organization has no active checklist, so calls cannot be graded. Contact support if you expected one here.</p>
+    </div>
   {% else %}
-    <p class="text-sm text-slate-500 mb-5">Profile: <strong>{{ profile.name }}</strong></p>
+    {% set sections = profile.script_sections_json.get('sections', []) %}
+    {% set phrases = profile.script_sections_json.get('auto_fail_phrases', []) %}
+    {% set ns = namespace(items=0, required=0) %}
+    {% for s in sections %}
+      {% for i in s.get('items', []) %}
+        {% set ns.items = ns.items + 1 %}
+        {% if i.get('required', True) %}{% set ns.required = ns.required + 1 %}{% endif %}
+      {% endfor %}
+    {% endfor %}
+
+    <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+      <div class="min-w-0">
+        <h1 class="qb-page-title">Compliance checklist</h1>
+        <p class="text-xs text-slate-600 mt-1.5 rp-num">
+          {{ profile.name }} · {{ sections | length }} section{{ 's' if sections | length != 1 }}
+          · {{ ns.items }} item{{ 's' if ns.items != 1 }} ({{ ns.required }} required)
+          · {{ phrases | length }} auto-fail phrase{{ 's' if phrases | length != 1 }}
+        </p>
+      </div>
+      {% if not is_admin %}
+        <span class="rp-tag rp-tag--opt">Read only — admins can edit</span>
+      {% endif %}
+    </div>
+
+    <p class="text-sm text-slate-600 mb-4 max-w-2xl">
+      Every uploaded call is graded against these items. Sections group related
+      disclosures; auto-fail phrases fail a call outright wherever they appear.
+    </p>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% for cat, msg in messages %}
-        <div class="mb-3 px-4 py-3 rounded-lg text-sm font-medium
-          {% if cat == 'error' %}bg-red-50 text-red-800 border border-red-200
-          {% else %}bg-green-50 text-green-800 border border-green-200{% endif %}">{{ msg }}</div>
+        <div class="rp-flash {{ 'rp-flash--err' if cat == 'error' else 'rp-flash--ok' }} mb-3" role="status">{{ msg }}</div>
       {% endfor %}
     {% endwith %}
 
     {# ── Sections ── #}
-    {% set sections = profile.script_sections_json.get('sections', []) %}
     {% for section in sections %}
       {% set si = loop.index0 %}
-      <div class="bg-white border border-slate-200 rounded-xl mb-4 overflow-hidden shadow-sm" style="border-left: 3px solid #4f46e5">
-        <div class="flex items-center justify-between px-5 py-3 border-b border-slate-200">
-          <h2 class="qb-section-title">{{ section.name }}</h2>
-          {% if g.user.role == 'admin' %}
-            <form method="post" action="{{ url_for('profile.delete_section', section_idx=si) }}"
-                  data-confirm="Delete the section &quot;{{ section.name }}&quot; and all {{ section.get('items', []) | length }} of its items? Existing reports keep their results; future calls will no longer be graded on them.">
-              <button type="submit" class="text-red-600 text-xs font-medium hover:text-red-800 bg-transparent border-none cursor-pointer px-2 py-1 -mx-2">Delete section</button>
-            </form>
-          {% endif %}
+      {% set items = section.get('items', []) %}
+      <div class="rp-panel mb-4 overflow-hidden">
+        <div class="rp-panel-head">
+          <h2 class="rp-panel-title">{{ section.name }}</h2>
+          <div class="flex items-center gap-3">
+            <span class="text-xs text-slate-600 rp-num">{{ items | length }} item{{ 's' if items | length != 1 }}</span>
+            {% if is_admin %}
+              <form method="post" action="{{ url_for('profile.delete_section', section_idx=si) }}"
+                    data-confirm="Delete the section &quot;{{ section.name }}&quot; and all {{ items | length }} of its items? Existing reports keep their results; future calls will no longer be graded on them.">
+                <button type="submit" class="rp-danger">Delete section</button>
+              </form>
+            {% endif %}
+          </div>
         </div>
 
-        {% set items = section.get('items', []) %}
         {% if items %}
-          <div class="overflow-x-auto">
-            <table class="w-full text-sm">
+          <div class="qb-scroll-x">
+            <table class="rp-table">
               <thead>
-                <tr class="bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                  <th class="px-4 py-2">Item</th><th class="px-4 py-2">Required</th><th class="px-4 py-2">Guidance</th>
-                  {% if g.user.role == 'admin' %}<th class="px-4 py-2"></th>{% endif %}
+                <tr>
+                  <th>Requirement &amp; scoring guidance</th>
+                  <th style="width:6.5rem">Required</th>
+                  {% if is_admin %}<th style="width:9rem">Actions</th>{% endif %}
                 </tr>
               </thead>
-              <tbody class="divide-y divide-slate-100">
+              <tbody>
                 {% for item in items %}
                   {% set ii = loop.index0 %}
                   <tr>
-                    <td class="px-4 py-2.5 qb-break">{{ item.name }}</td>
-                    <td class="px-4 py-2.5">{{ 'Yes' if item.get('required', True) else 'Optional' }}</td>
-                    <td class="px-4 py-2.5 text-slate-500 italic text-xs qb-break">{{ item.get('notes', '') or '—' }}</td>
-                    {% if g.user.role == 'admin' %}
-                      <td class="px-4 py-2.5">
+                    <td class="qb-break">
+                      <div class="rp-req">{{ item.name }}</div>
+                      {% if item.get('notes') %}<div class="rp-note">{{ item.notes }}</div>{% endif %}
+                      {% if is_admin %}
                         <details>
-                          <summary class="text-xs text-indigo-700 cursor-pointer font-medium">Edit</summary>
+                          <summary class="rp-disclosure">Edit</summary>
                           <form method="post" action="{{ url_for('profile.edit_item', section_idx=si, item_idx=ii) }}"
-                                class="flex flex-wrap gap-2 items-center mt-2 p-2 bg-slate-50 rounded-lg border border-slate-200">
-                            <input type="text" name="name" value="{{ item.name }}" required
-                                   class="flex-1 min-w-[140px] px-2 py-1 border border-slate-200 rounded text-sm">
-                            <label class="flex items-center gap-1 text-xs cursor-pointer whitespace-nowrap">
-                              <input type="checkbox" name="required" value="true"
-                                     {% if item.get('required', True) %}checked{% endif %}> Required
+                                class="rp-inline" data-busy-label="Saving…">
+                            <div class="rp-field flex-1 min-w-[180px]">
+                              <label class="rp-field-label" for="e-name-{{ si }}-{{ ii }}">Requirement</label>
+                              <input class="rp-input" type="text" id="e-name-{{ si }}-{{ ii }}" name="name"
+                                     value="{{ item.name }}" required maxlength="300">
+                            </div>
+                            <div class="rp-field flex-1 min-w-[180px]">
+                              <label class="rp-field-label" for="e-notes-{{ si }}-{{ ii }}">Scoring guidance</label>
+                              <input class="rp-input" type="text" id="e-notes-{{ si }}-{{ ii }}" name="notes"
+                                     value="{{ item.get('notes', '') }}" maxlength="500"
+                                     placeholder="How a grader should judge this">
+                            </div>
+                            <label class="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer whitespace-nowrap h-8">
+                              <input type="checkbox" name="required" value="true" {% if item.get('required', True) %}checked{% endif %}> Required
                             </label>
-                            <input type="text" name="notes" value="{{ item.get('notes', '') }}" placeholder="Scoring guidance (optional)"
-                                   class="flex-1 min-w-[140px] px-2 py-1 border border-slate-200 rounded text-sm">
-                            <button type="submit" class="px-3 py-1 rounded border border-slate-200 bg-white text-xs font-medium hover:bg-slate-50">Save</button>
+                            <button type="submit" class="rp-btn">Save</button>
                           </form>
                         </details>
+                      {% endif %}
+                    </td>
+                    <td>
+                      {% if item.get('required', True) %}
+                        <span class="rp-tag rp-tag--req">Required</span>
+                      {% else %}
+                        <span class="rp-tag rp-tag--opt">Optional</span>
+                      {% endif %}
+                    </td>
+                    {% if is_admin %}
+                      <td>
                         <form method="post" action="{{ url_for('profile.delete_item', section_idx=si, item_idx=ii) }}"
                               data-confirm="Remove the checklist item &quot;{{ item.name }}&quot;? Future calls will no longer be graded on it.">
-                          <button type="submit" class="text-red-600 text-xs font-medium hover:text-red-800 bg-transparent border-none cursor-pointer mt-1 px-2 py-1 -mx-2">Remove</button>
+                          <button type="submit" class="rp-danger">Remove</button>
                         </form>
                       </td>
                     {% endif %}
@@ -79,23 +126,29 @@
             </table>
           </div>
         {% else %}
-          <p class="px-5 py-3 text-sm text-slate-500">No items yet.</p>
+          <p class="px-3.5 py-3 text-sm text-slate-600">No items in this section yet{{ ' — add one below.' if is_admin else '.' }}</p>
         {% endif %}
 
-        {% if g.user.role == 'admin' %}
-          <div class="px-5 py-3 border-t border-slate-200">
+        {% if is_admin %}
+          <div class="px-3.5 py-2.5 border-t border-slate-100">
             <details>
-              <summary class="text-sm text-indigo-700 cursor-pointer font-medium">+ Add item</summary>
+              <summary class="rp-disclosure">Add item</summary>
               <form method="post" action="{{ url_for('profile.add_item', section_idx=si) }}"
-                    class="flex flex-wrap gap-2 items-center mt-2">
-                <input type="text" name="name" placeholder="Item name" required
-                       class="flex-1 min-w-[160px] px-2 py-1.5 border border-slate-200 rounded text-sm">
-                <label class="flex items-center gap-1 text-xs cursor-pointer whitespace-nowrap">
+                    class="rp-inline" data-busy-label="Adding…">
+                <div class="rp-field flex-1 min-w-[180px]">
+                  <label class="rp-field-label" for="a-name-{{ si }}">Requirement</label>
+                  <input class="rp-input" type="text" id="a-name-{{ si }}" name="name" required maxlength="300"
+                         placeholder="e.g. Disclose that enrollment may affect credit">
+                </div>
+                <div class="rp-field flex-1 min-w-[180px]">
+                  <label class="rp-field-label" for="a-notes-{{ si }}">Scoring guidance <span class="font-normal">(optional)</span></label>
+                  <input class="rp-input" type="text" id="a-notes-{{ si }}" name="notes" maxlength="500"
+                         placeholder="How a grader should judge this">
+                </div>
+                <label class="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer whitespace-nowrap h-8">
                   <input type="checkbox" name="required" value="true" checked> Required
                 </label>
-                <input type="text" name="notes" placeholder="Scoring guidance (optional)"
-                       class="flex-1 min-w-[160px] px-2 py-1.5 border border-slate-200 rounded text-sm">
-                <button type="submit" class="px-3 py-1.5 rounded border border-slate-200 bg-white text-xs font-medium hover:bg-slate-50">Add</button>
+                <button type="submit" class="rp-btn">Add item</button>
               </form>
             </details>
           </div>
@@ -103,48 +156,57 @@
       </div>
     {% endfor %}
 
-    {# ── Add section ── #}
-    {% if g.user.role == 'admin' %}
-      <div class="bg-white border border-slate-200 rounded-xl p-5 mb-4 shadow-sm">
+    {% if not sections %}
+      <div class="rp-panel rp-empty mb-4">
+        <h2 class="qb-section-title mb-1">No sections yet</h2>
+        <p class="text-sm text-slate-600 max-w-md mx-auto">{{ 'Add a section below to start building your checklist.' if is_admin else 'Ask an admin to set up your compliance checklist.' }}</p>
+      </div>
+    {% endif %}
+
+    {% if is_admin %}
+      <div class="rp-panel p-3.5 mb-4">
         <details>
-          <summary class="text-sm text-indigo-700 cursor-pointer font-medium">+ Add section</summary>
-          <form method="post" action="{{ url_for('profile.add_section') }}"
-                class="flex flex-wrap gap-2 items-center mt-2">
-            <input type="text" name="name" placeholder="Section name (e.g. Post-Enrollment Script)" required
-                   class="flex-1 min-w-[200px] px-2 py-1.5 border border-slate-200 rounded text-sm">
-            <button type="submit" class="px-3 py-1.5 rounded border border-slate-200 bg-white text-xs font-medium hover:bg-slate-50">Add section</button>
+          <summary class="rp-disclosure">Add section</summary>
+          <form method="post" action="{{ url_for('profile.add_section') }}" class="rp-inline" data-busy-label="Adding…">
+            <div class="rp-field flex-1 min-w-[220px]">
+              <label class="rp-field-label" for="a-section">Section name</label>
+              <input class="rp-input" type="text" id="a-section" name="name" required maxlength="200"
+                     placeholder="e.g. Post-Enrollment Script">
+            </div>
+            <button type="submit" class="rp-btn">Add section</button>
           </form>
         </details>
       </div>
     {% endif %}
 
     {# ── Auto-fail phrases ── #}
-    <div class="bg-white border border-slate-200 rounded-xl mb-4 overflow-hidden shadow-sm" style="border-left: 3px solid #dc2626">
-      <div class="flex items-center justify-between px-5 py-3 border-b border-slate-200">
-        <h2 class="qb-section-title">Auto-Fail Phrases</h2>
-        <span class="text-xs text-slate-500">If any of these appear in a call, it's an automatic failure.</span>
+    <div class="rp-panel overflow-hidden" style="border-color:#fecaca">
+      <div class="rp-panel-head" style="background:#fef2f2;border-color:#fecaca">
+        <h2 class="rp-panel-title" style="color:#b91c1c">Auto-fail phrases</h2>
+        <span class="text-xs text-slate-700">Saying any of these fails the call outright</span>
       </div>
 
-      {% set phrases = profile.script_sections_json.get('auto_fail_phrases', []) %}
       {% if phrases %}
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm">
+        <div class="qb-scroll-x">
+          <table class="rp-table">
             <thead>
-              <tr class="bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                <th class="px-4 py-2">Phrase</th><th class="px-4 py-2">Description</th>
-                {% if g.user.role == 'admin' %}<th class="px-4 py-2"></th>{% endif %}
+              <tr>
+                <th>Phrase &amp; why it's prohibited</th>
+                {% if is_admin %}<th style="width:9rem">Actions</th>{% endif %}
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-100">
+            <tbody>
               {% for p in phrases %}
                 <tr>
-                  <td class="px-4 py-2.5"><code class="bg-slate-100 px-1.5 py-0.5 rounded text-xs qb-break inline-block">{{ p.phrase }}</code></td>
-                  <td class="px-4 py-2.5 qb-break">{{ p.get('description', '') or '—' }}</td>
-                  {% if g.user.role == 'admin' %}
-                    <td class="px-4 py-2.5">
+                  <td class="qb-break">
+                    <code class="rp-code">{{ p.phrase }}</code>
+                    {% if p.get('description') %}<div class="rp-note">{{ p.description }}</div>{% endif %}
+                  </td>
+                  {% if is_admin %}
+                    <td>
                       <form method="post" action="{{ url_for('profile.delete_phrase', phrase_idx=loop.index0) }}"
                             data-confirm="Remove the auto-fail phrase &quot;{{ p.phrase }}&quot;? Calls will no longer fail automatically when it is said.">
-                        <button type="submit" class="text-red-600 text-xs font-medium hover:text-red-800 bg-transparent border-none cursor-pointer px-2 py-1 -mx-2">Remove</button>
+                        <button type="submit" class="rp-danger">Remove</button>
                       </form>
                     </td>
                   {% endif %}
@@ -154,20 +216,25 @@
           </table>
         </div>
       {% else %}
-        <p class="px-5 py-3 text-sm text-slate-500">No auto-fail phrases defined.</p>
+        <p class="px-3.5 py-3 text-sm text-slate-600">No auto-fail phrases defined{{ ' — add one below.' if is_admin else '.' }}</p>
       {% endif %}
 
-      {% if g.user.role == 'admin' %}
-        <div class="px-5 py-3 border-t border-slate-200">
+      {% if is_admin %}
+        <div class="px-3.5 py-2.5 border-t border-slate-100">
           <details>
-            <summary class="text-sm text-indigo-700 cursor-pointer font-medium">+ Add phrase</summary>
-            <form method="post" action="{{ url_for('profile.add_phrase') }}"
-                  class="flex flex-wrap gap-2 items-center mt-2">
-              <input type="text" name="phrase" placeholder='e.g. "0% interest"' required
-                     class="flex-1 min-w-[160px] px-2 py-1.5 border border-slate-200 rounded text-sm">
-              <input type="text" name="description" placeholder="Why it's prohibited (optional)"
-                     class="flex-1 min-w-[160px] px-2 py-1.5 border border-slate-200 rounded text-sm">
-              <button type="submit" class="px-3 py-1.5 rounded border border-slate-200 bg-white text-xs font-medium hover:bg-slate-50">Add phrase</button>
+            <summary class="rp-disclosure">Add phrase</summary>
+            <form method="post" action="{{ url_for('profile.add_phrase') }}" class="rp-inline" data-busy-label="Adding…">
+              <div class="rp-field flex-1 min-w-[180px]">
+                <label class="rp-field-label" for="a-phrase">Phrase</label>
+                <input class="rp-input" type="text" id="a-phrase" name="phrase" required maxlength="300"
+                       placeholder="e.g. guaranteed settlement">
+              </div>
+              <div class="rp-field flex-1 min-w-[180px]">
+                <label class="rp-field-label" for="a-phrase-desc">Why it's prohibited <span class="font-normal">(optional)</span></label>
+                <input class="rp-input" type="text" id="a-phrase-desc" name="description" maxlength="500"
+                       placeholder="e.g. Guarantees an outcome — prohibited by FTC rules">
+              </div>
+              <button type="submit" class="rp-btn">Add phrase</button>
             </form>
           </details>
         </div>

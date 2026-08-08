@@ -690,3 +690,66 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 }
 .rp-spark-bar[data-today="1"] { opacity: .85; }
 .rp-spark-bar:hover { opacity: .7; }
+
+/* ── Canon: inline editors ──
+   The checklist keeps its plain add/edit/delete forms — a drag-and-drop builder
+   is an explicit v1 non-goal — but they get a real surface instead of naked
+   inputs floating under a <summary>. */
+.rp-inline {
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: .5rem;
+  margin-top: .625rem; padding: .75rem;
+  background: var(--c-panel-2); border: 1px solid var(--c-line);
+  border-radius: var(--c-radius);
+}
+.rp-disclosure {
+  font-size: var(--fs-meta); font-weight: 600; color: var(--spk-a);
+  cursor: pointer; list-style: none; display: inline-flex; align-items: center; gap: .25rem;
+  padding: .25rem 0; min-height: 24px;
+}
+.rp-disclosure::-webkit-details-marker { display: none; }
+.rp-disclosure::before { content: '+'; font-weight: 700; }
+details[open] > .rp-disclosure::before { content: '\2212'; }
+.rp-disclosure:hover { text-decoration: underline; }
+
+/* ── Canon: guidance / description, same citation treatment as report evidence ── */
+.rp-note {
+  margin-top: .3125rem; padding-left: .625rem;
+  border-left: 1px solid var(--c-line-2);
+  max-width: 58ch; color: var(--muted);
+  font-size: var(--fs-meta); line-height: 1.55;
+}
+
+/* ── Canon: required / optional ── */
+.rp-tag {
+  display: inline-block; padding: .0625rem .375rem; border-radius: 3px;
+  font-size: var(--fs-meta); font-weight: 600; border: 1px solid;
+}
+.rp-tag--req { background: var(--spk-a-soft); color: var(--spk-a); border-color: #c7d2fe; }
+.rp-tag--opt { background: var(--c-panel-2); color: var(--faint); border-color: var(--c-line-2); }
+
+/* ── Canon: code / phrase token ── */
+.rp-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: var(--fs-meta); background: var(--c-panel-2);
+  border: 1px solid var(--c-line); border-radius: var(--c-radius-sm);
+  padding: .125rem .375rem; color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+
+/* ── Canon: destructive text action ── */
+.rp-danger {
+  background: none; border: none; cursor: pointer;
+  font-size: var(--fs-meta); font-weight: 600; color: #b91c1c;
+  padding: .25rem .375rem; margin: -.25rem -.375rem;
+  border-radius: var(--c-radius-sm); min-height: 24px;
+}
+.rp-danger:hover { background: #fef2f2; color: #7f1d1d; }
+
+/* ── Canon: flash messages ── */
+.rp-flash {
+  display: flex; align-items: flex-start; gap: .5rem;
+  padding: .625rem .875rem; border-radius: var(--c-radius);
+  border: 1px solid; font-size: var(--fs-body); font-weight: 500;
+}
+.rp-flash--ok  { background: #ecfdf5; color: #065f46; border-color: #a7f3d0; }
+.rp-flash--err { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
