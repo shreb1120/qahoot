@@ -75,48 +75,91 @@
       </div>
     </div>
   {% else %}
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
 
-      {# Recent activity #}
-      <div class="lg:col-span-2 rp-panel overflow-hidden">
-        <div class="rp-panel-head">
-          <h2 class="rp-panel-title">Recent activity</h2>
-          <a href="{{ url_for('calls.history') }}" class="rp-link text-xs">View all →</a>
+    {# ── Needs review: the only thing on this page that is a task ── #}
+    {% if needs_review %}
+      <div class="rp-panel mt-4" style="border-color:#fecaca">
+        <div class="rp-panel-head" style="background:#fef2f2;border-color:#fecaca">
+          <h2 class="rp-panel-title" style="color:#b91c1c">Needs review</h2>
+          <span class="text-xs text-slate-700 rp-num">{{ needs_review_total }} failed call{{ 's' if needs_review_total != 1 }} with no manager decision</span>
         </div>
         <div>
-          {% for call in recent_calls %}
+          {% for call in needs_review %}
             {% set det = (call.report.pass_fail_status if call.report else '') or '' %}
-            <div class="rp-activity">
-              <div class="rp-activity-main">
-                {% if call.status == 'complete' %}
-                  <a href="{{ url_for('calls.report', call_id=call.id) }}" class="rp-activity-name rp-link block" title="{{ call.filename }}">{{ call.filename }}</a>
-                {% else %}
-                  <div class="rp-activity-name" title="{{ call.filename }}">{{ call.filename }}</div>
-                {% endif %}
-                <div class="rp-activity-meta">{{ call.agent.name if call.agent else 'Unassigned' }} · {{ call.upload_date.strftime('%b %d, %H:%M') }}</div>
-              </div>
-              {% if call.status in ('pending','transcribing','analyzing') %}
-                <span class="status-badge status-{{ call.status }}">{{ call.status | capitalize }}</span>
-              {% elif call.status == 'error' %}
-                <span class="status-badge status-error">Error</span>
-              {% elif 'CRITICAL' in det %}
-                <span class="rp-verdict rp-verdict--sm rp-verdict--crit"><span class="rp-verdict-dot" aria-hidden="true"></span>CRITICAL</span>
-              {% elif 'PASS' in det and 'FAIL' not in det %}
-                <span class="rp-verdict rp-verdict--sm rp-verdict--pass"><span class="rp-verdict-dot" aria-hidden="true"></span>PASS</span>
-              {% elif 'FAIL' in det %}
-                <span class="rp-verdict rp-verdict--sm rp-verdict--fail"><span class="rp-verdict-dot" aria-hidden="true"></span>FAIL</span>
+            <a class="rp-queue-item" href="{{ url_for('calls.report', call_id=call.id) }}">
+              {% if 'CRITICAL' in det %}
+                <span class="rp-verdict rp-verdict--sm rp-verdict--crit flex-shrink-0"><span class="rp-verdict-dot" aria-hidden="true"></span>CRITICAL</span>
               {% else %}
-                <span class="text-xs text-slate-500">—</span>
+                <span class="rp-verdict rp-verdict--sm rp-verdict--fail flex-shrink-0"><span class="rp-verdict-dot" aria-hidden="true"></span>FAIL</span>
               {% endif %}
-            </div>
+              <span class="rp-activity-main">
+                <span class="rp-activity-name block text-slate-900">{{ call.agent.name if call.agent else 'Unassigned' }}</span>
+                <span class="rp-activity-meta">{% if call.alv_id %}ALV-{{ call.alv_id }} · {% endif %}{{ call.upload_date.strftime('%b %d, %H:%M') }}</span>
+              </span>
+              <span class="rp-link text-xs flex-shrink-0">Review →</span>
+            </a>
           {% endfor %}
+        </div>
+        {% if needs_review_total > needs_review | length %}
+          <div class="px-3.5 py-2 border-t border-slate-100">
+            <a href="{{ url_for('calls.history', result='fail') }}" class="rp-link text-xs">See all {{ needs_review_total }} →</a>
+          </div>
+        {% endif %}
+      </div>
+    {% endif %}
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4 items-stretch">
+
+      {# ── Agent performance: the comparison a QA manager opens this tool to make ── #}
+      <div class="lg:col-span-2 rp-panel overflow-hidden rp-col">
+        <div class="rp-panel-head">
+          <h2 class="rp-panel-title">Agent performance</h2>
+          <span class="text-xs text-slate-500">lowest pass rate first</span>
+        </div>
+        <div class="rp-col-body">
+          {% if agent_stats %}
+            <div class="qb-scroll-x">
+              <table class="rp-table">
+                <thead>
+                  <tr>
+                    <th>Agent</th>
+                    <th style="width:11rem">Pass rate</th>
+                    <th style="width:5.5rem">Graded</th>
+                    <th style="width:5.5rem">Critical</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for a in agent_stats %}
+                    <tr>
+                      <td class="qb-break font-medium text-slate-800">{{ a.name }}</td>
+                      <td>
+                        <div class="flex items-center gap-2">
+                          <span class="rp-num text-xs font-semibold {% if a.pass_rate >= 80 %}text-emerald-700{% elif a.pass_rate >= 60 %}text-amber-700{% else %}text-red-700{% endif %}" style="min-width:2.5rem">{{ a.pass_rate }}%</span>
+                          <span class="rp-agent-bar flex-1">
+                            <span class="rp-agent-fill block" style="--v:{{ a.pass_rate / 100 }};background:{{ '#047857' if a.pass_rate >= 80 else '#b45309' if a.pass_rate >= 60 else '#b91c1c' }}"></span>
+                          </span>
+                        </div>
+                      </td>
+                      <td class="rp-num text-slate-600">{{ a.graded }}</td>
+                      <td class="rp-num {{ 'text-red-800 font-semibold' if a.critical else 'text-slate-500' }}">{{ a.critical or '—' }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <p class="p-4 text-sm text-slate-600">No graded calls attributed to an agent yet. Pass rates appear here once analysis finishes.</p>
+          {% endif %}
+        </div>
+        <div class="rp-col-foot px-3.5 pb-3">
+          <a href="{{ url_for('agents.list_agents') }}" class="rp-link text-xs">Manage agents →</a>
         </div>
       </div>
 
-      {# Results breakdown #}
-      <div class="rp-panel">
-        <div class="rp-panel-head"><h2 class="rp-panel-title">Results breakdown</h2></div>
-        <div class="p-4">
+      {# ── Results + volume ── #}
+      <div class="rp-panel rp-col">
+        <div class="rp-panel-head"><h2 class="rp-panel-title">Results</h2></div>
+        <div class="rp-col-body p-4">
           {% if stats.completed > 0 %}
             <div class="space-y-3">
               {% for label, count, colour in [
@@ -132,14 +175,69 @@
                 </div>
               {% endfor %}
             </div>
-            <p class="text-xs text-slate-500 mt-3 rp-num">{{ stats.completed }} completed call{{ 's' if stats.completed != 1 }}</p>
+            <p class="text-xs text-slate-500 mt-2.5 rp-num">{{ stats.completed }} completed call{{ 's' if stats.completed != 1 }}</p>
           {% else %}
             <p class="text-sm text-slate-600">No completed calls yet. Results appear here once analysis finishes.</p>
           {% endif %}
-          <div class="mt-4 pt-3 border-t border-slate-100">
-            <a href="{{ url_for('calls.history') }}" class="rp-btn w-full justify-center">View call history</a>
-          </div>
+
+          {% if volume_peak %}
+            <div class="mt-4 pt-3 border-t border-slate-100">
+              <div class="rp-metric-label mb-2">Uploads · last 14 days</div>
+              <div class="rp-spark" role="img"
+                   aria-label="Uploads over the last 14 days, peak {{ volume_peak }} in a day">
+                {% for v in volume %}
+                  <span class="rp-spark-bar"
+                        {% if loop.last %}data-today="1"{% endif %}
+                        style="height:{{ (v.count / volume_peak * 100) if volume_peak else 0 }}%"
+                        title="{{ v.day.strftime('%b %d') }}: {{ v.count }} call{{ 's' if v.count != 1 }}"></span>
+                {% endfor %}
+              </div>
+              <div class="flex justify-between text-xs text-slate-500 mt-1 rp-num">
+                <span>{{ volume[0].day.strftime('%b %d') }}</span>
+                <span>today</span>
+              </div>
+            </div>
+          {% endif %}
         </div>
+        <div class="rp-col-foot px-4 pb-4">
+          <a href="{{ url_for('calls.history') }}" class="rp-btn w-full justify-center">View call history</a>
+        </div>
+      </div>
+    </div>
+
+    {# ── Recent activity ── #}
+    <div class="rp-panel mt-4 overflow-hidden">
+      <div class="rp-panel-head">
+        <h2 class="rp-panel-title">Recent activity</h2>
+        <a href="{{ url_for('calls.history') }}" class="rp-link text-xs">View all →</a>
+      </div>
+      <div>
+        {% for call in recent_calls %}
+          {% set det = (call.report.pass_fail_status if call.report else '') or '' %}
+          <div class="rp-activity">
+            <div class="rp-activity-main">
+              {% if call.status == 'complete' %}
+                <a href="{{ url_for('calls.report', call_id=call.id) }}" class="rp-activity-name rp-link block" title="{{ call.filename }}">{{ call.filename }}</a>
+              {% else %}
+                <div class="rp-activity-name" title="{{ call.filename }}">{{ call.filename }}</div>
+              {% endif %}
+              <div class="rp-activity-meta">{{ call.agent.name if call.agent else 'Unassigned' }} · {{ call.upload_date.strftime('%b %d, %H:%M') }}</div>
+            </div>
+            {% if call.status in ('pending','transcribing','analyzing') %}
+              <span class="status-badge status-{{ call.status }}">{{ call.status | capitalize }}</span>
+            {% elif call.status == 'error' %}
+              <span class="status-badge status-error">Error</span>
+            {% elif 'CRITICAL' in det %}
+              <span class="rp-verdict rp-verdict--sm rp-verdict--crit"><span class="rp-verdict-dot" aria-hidden="true"></span>CRITICAL</span>
+            {% elif 'PASS' in det and 'FAIL' not in det %}
+              <span class="rp-verdict rp-verdict--sm rp-verdict--pass"><span class="rp-verdict-dot" aria-hidden="true"></span>PASS</span>
+            {% elif 'FAIL' in det %}
+              <span class="rp-verdict rp-verdict--sm rp-verdict--fail"><span class="rp-verdict-dot" aria-hidden="true"></span>FAIL</span>
+            {% else %}
+              <span class="text-xs text-slate-500">—</span>
+            {% endif %}
+          </div>
+        {% endfor %}
       </div>
     </div>
   {% endif %}

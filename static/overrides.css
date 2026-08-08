@@ -656,3 +656,37 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   background: var(--spk-a); color: #fff;
   font-size: .625rem; font-weight: 700; font-variant-numeric: tabular-nums;
 }
+
+/* ── Canon: dashboard columns ──
+   The panels in a row are grid items, so they already stretch to equal height.
+   Making each an internal flex column lets its footer action sit on the panel's
+   bottom edge instead of floating wherever the content happened to end — which
+   is what left the "View call history" button visibly out of line with its
+   taller neighbour. */
+.rp-col { display: flex; flex-direction: column; height: 100%; }
+.rp-col-body { flex: 1; }
+.rp-col-foot { margin-top: auto; padding-top: .75rem; border-top: 1px solid var(--c-line); }
+
+/* ── Canon: attention queue ── */
+.rp-queue-item {
+  display: flex; align-items: center; gap: .75rem;
+  padding: .5rem .875rem; border-bottom: 1px solid var(--c-line);
+  text-decoration: none;
+}
+.rp-queue-item:last-child { border-bottom: none; }
+.rp-queue-item:hover { background: #fffbfb; }
+
+/* ── Canon: agent performance ── */
+.rp-agent-bar { height: 4px; border-radius: 2px; background: #eef1f4; overflow: hidden; margin-top: .25rem; }
+.rp-agent-fill { height: 100%; border-radius: 2px; transform-origin: left center; transform: scaleX(var(--v, 0)); }
+
+/* ── Canon: volume sparkline ──
+   Real counts per day, bars scaled against the period's own peak. */
+.rp-spark { display: flex; align-items: flex-end; gap: 2px; height: 2.5rem; }
+.rp-spark-bar {
+  flex: 1; min-width: 0; border-radius: 1px 1px 0 0;
+  background: var(--spk-a); opacity: .28;
+  min-height: 2px;
+}
+.rp-spark-bar[data-today="1"] { opacity: .85; }
+.rp-spark-bar:hover { opacity: .7; }
