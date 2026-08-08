@@ -51,3 +51,6 @@ uploads/
 
 # Node build toolchain (CSS build only — not needed at runtime)
 node_modules/
+
+# Test artifacts
+.pytest_cache/

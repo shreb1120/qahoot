@@ -97,7 +97,11 @@ def index():
         )
         .join(Call, Call.agent_id == Agent.id)
         .join(Report, Report.call_id == Call.id)
-        .filter(Agent.org_id == org_id)
+        # Both sides scoped, not just the agent. Reaching calls through an
+        # agent join means a call carrying another org's id would be counted
+        # here if only Agent.org_id were checked — every other query in this
+        # file scopes on Call.org_id, and this one now matches.
+        .filter(Agent.org_id == org_id, Call.org_id == org_id)
         .group_by(Agent.id, Agent.name)
         .all()
     )
