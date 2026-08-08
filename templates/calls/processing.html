@@ -2,11 +2,11 @@
 {% block title %}Processing Call — Qaboom{% endblock %}
 
 {% block content %}
-<div class="page-shell processing-shell">
-  <h1 class="page-heading">Analyzing Call</h1>
-  <p class="processing-filename">{{ call.filename }}</p>
+<div class="max-w-md mx-auto text-center pt-12">
+  <h1 class="text-2xl font-bold text-slate-900 mb-2">Analyzing Call</h1>
+  <p class="text-sm text-slate-500 mb-6 qb-break">{{ call.filename }}</p>
 
-  <div class="processing-status" id="status-display">
+  <div id="status-display" class="mb-4" role="status" aria-live="polite">
     {% if call.status == 'pending' %}
       <span class="status-badge status-pending">Queued</span>
     {% elif call.status == 'transcribing' %}
@@ -16,49 +16,118 @@
     {% elif call.status == 'error' %}
       <span class="status-badge status-error">Error</span>
       {% if call.error_message %}
-        <p class="processing-error">{{ call.error_message }}</p>
+        <p class="text-red-700 text-sm mt-2">{{ call.error_message }}</p>
       {% endif %}
     {% endif %}
   </div>
 
   {% if call.status == 'error' %}
-    <p><a href="{{ url_for('calls.upload_form') }}" class="btn btn-secondary">Try Again</a></p>
+    <p><a href="{{ url_for('calls.upload_form') }}" class="inline-block px-4 py-2 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 no-underline hover:bg-slate-50 transition">Try Again</a></p>
   {% else %}
-    <p class="processing-note">This usually takes 1–3 minutes depending on call length. This page will update automatically.</p>
-    <div class="spinner"></div>
+    <p class="text-sm text-slate-500 mb-4" id="wait-note">This usually takes 1–3 minutes depending on call length. This page will update automatically.</p>
+    <div class="spinner mx-auto" id="spinner" aria-hidden="true"></div>
+    <div id="stalled-note" class="hidden mt-4 bg-amber-50 border border-amber-300 text-amber-900 rounded-lg px-4 py-3 text-sm text-left">
+      <strong>This is taking longer than usual.</strong>
+      <p class="mt-1">Analysis may still be running in the background — your call history will show the result when it finishes.</p>
+      <button type="button" id="resume-btn" class="mt-2 px-3 py-1.5 rounded-lg border border-amber-300 bg-white text-sm font-medium hover:bg-amber-50">Check again</button>
+    </div>
   {% endif %}
 
-  <p class="back-link"><a href="{{ url_for('calls.history') }}">← Call history</a></p>
+  <p class="mt-8 text-sm"><a href="{{ url_for('calls.history') }}" class="text-slate-500 no-underline hover:text-slate-700">← Call history</a></p>
 </div>
 {% endblock %}
 
 {% block scripts %}
 {% if call.status not in ('error', 'complete') %}
 <script>
-  (function poll() {
-    fetch("{{ url_for('calls.status_json', call_id=call.id) }}")
-      .then(function(r) { return r.json(); })
-      .then(function(data) {
-        if (data.status === "complete") {
-          window.location.href = "{{ url_for('calls.report', call_id=call.id) }}";
-        } else if (data.status === "error") {
-          var el = document.getElementById("status-display");
-          el.innerHTML = '<span class="status-badge status-error">Error</span>' +
-            (data.error ? '<p class="processing-error">' + data.error + '</p>' : '');
-        } else {
-          var labels = {
-            pending: "Queued",
-            transcribing: "Transcribing\u2026",
-            analyzing: "Analyzing\u2026"
-          };
-          var el = document.getElementById("status-display");
-          var label = labels[data.status] || data.status;
-          el.innerHTML = '<span class="status-badge status-' + data.status + '">' + label + '</span>';
-          setTimeout(poll, 4000);
-        }
+(function () {
+  const LABELS = { pending: "Queued", transcribing: "Transcribing…", analyzing: "Analyzing…" };
+  const REPORT_URL = "{{ url_for('calls.report', call_id=call.id) }}";
+  const STATUS_URL = "{{ url_for('calls.status_json', call_id=call.id) }}";
+
+  // A 2hr recording is the documented ceiling, so give up well past the worst
+  // realistic case rather than polling this tab forever.
+  const MAX_MINUTES = 25;
+  const INTERVAL_MS = 4000;
+  const MAX_ATTEMPTS = Math.ceil((MAX_MINUTES * 60 * 1000) / INTERVAL_MS);
+
+  const display = document.getElementById("status-display");
+  const stalled = document.getElementById("stalled-note");
+  const spinner = document.getElementById("spinner");
+  const waitNote = document.getElementById("wait-note");
+  const resumeBtn = document.getElementById("resume-btn");
+
+  let attempts = 0;
+  let timer = null;
+
+  function render(status, errorText) {
+    display.textContent = "";
+    const badge = document.createElement("span");
+    badge.className = "status-badge status-" + status;
+    badge.textContent = LABELS[status] || status;
+    display.appendChild(badge);
+    if (!errorText) return;
+    // textContent, not innerHTML: this string comes from the pipeline and may
+    // contain characters that would otherwise be parsed as markup.
+    const p = document.createElement("p");
+    p.className = "text-red-700 text-sm mt-2";
+    p.textContent = errorText;
+    display.appendChild(p);
+  }
+
+  function giveUp() {
+    if (spinner) spinner.classList.add("hidden");
+    if (waitNote) waitNote.classList.add("hidden");
+    if (stalled) stalled.classList.remove("hidden");
+  }
+
+  function schedule(delay) {
+    if (attempts >= MAX_ATTEMPTS) { giveUp(); return; }
+    timer = setTimeout(poll, delay);
+  }
+
+  function poll() {
+    attempts += 1;
+    fetch(STATUS_URL, { headers: { "X-Requested-With": "XMLHttpRequest" } })
+      .then(function (r) {
+        if (!r.ok) throw new Error(r.status);
+        return r.json();
       })
-      .catch(function() { setTimeout(poll, 6000); });
-  })();
+      .then(function (data) {
+        if (data.status === "complete") {
+          window.location.href = REPORT_URL;
+          return;
+        }
+        if (data.status === "error") {
+          render("error", data.error || "Analysis failed. Re-upload the call to try again.");
+          if (spinner) spinner.classList.add("hidden");
+          if (waitNote) waitNote.classList.add("hidden");
+          return;
+        }
+        render(data.status);
+        schedule(INTERVAL_MS);
+      })
+      .catch(function () { schedule(INTERVAL_MS * 1.5); });
+  }
+
+  if (resumeBtn) {
+    resumeBtn.addEventListener("click", function () {
+      attempts = 0;
+      stalled.classList.add("hidden");
+      if (spinner) spinner.classList.remove("hidden");
+      if (waitNote) waitNote.classList.remove("hidden");
+      poll();
+    });
+  }
+
+  // Don't keep polling a tab nobody is looking at; resume on return.
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) { clearTimeout(timer); return; }
+    if (attempts < MAX_ATTEMPTS) poll();
+  });
+
+  poll();
+})();
 </script>
 {% endif %}
 {% endblock %}

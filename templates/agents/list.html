@@ -2,60 +2,84 @@
 {% block title %}Agents — Qaboom{% endblock %}
 
 {% block content %}
-<div class="page-shell">
-  <div class="page-header-row">
-    <h1 class="page-heading">Agents</h1>
+<div class="max-w-3xl mx-auto">
+  <div class="flex flex-wrap items-end justify-between gap-3 mb-6">
+    <div>
+      <h1 class="qb-page-title">Agents</h1>
+      <p class="text-sm text-slate-500 mt-1.5">
+        {{ agents | length }} agent{{ 's' if agents | length != 1 }} · call performance is tracked per agent
+      </p>
+    </div>
+    <a href="{{ url_for('org.settings') }}" class="qb-btn-secondary">← Team settings</a>
   </div>
 
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% for cat, msg in messages %}
-      <div class="notice notice-{{ cat }}">{{ msg }}</div>
+      <div class="mb-3 px-4 py-3 rounded-lg text-sm font-medium
+        {% if cat == 'error' %}bg-red-50 text-red-800 border border-red-200
+        {% else %}bg-green-50 text-green-800 border border-green-200{% endif %}">{{ msg }}</div>
     {% endfor %}
   {% endwith %}
 
   {% if agents %}
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Added</th>
-          {% if g.user.role == 'admin' %}<th></th>{% endif %}
-        </tr>
-      </thead>
-      <tbody>
-        {% for agent in agents %}
-          <tr>
-            <td>{{ agent.name }}</td>
-            <td>{{ agent.created_at.strftime('%Y-%m-%d') }}</td>
-            {% if g.user.role == 'admin' %}
-              <td>
-                <form method="post"
-                      action="{{ url_for('agents.delete_agent', agent_id=agent.id) }}"
-                      onsubmit="return confirm('Delete agent {{ agent.name }}?')">
-                  <button type="submit" class="btn-danger-sm">Delete</button>
-                </form>
-              </td>
-            {% endif %}
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    <div class="qb-card overflow-hidden mb-4">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
+              <th class="px-5 py-2.5">Name</th><th class="px-5 py-2.5">Added</th>
+              {% if g.user.role == 'admin' %}<th class="px-5 py-2.5 text-right">Actions</th>{% endif %}
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            {% for agent in agents %}
+              <tr class="hover:bg-slate-50/70 transition-colors">
+                <td class="px-5 py-3 font-medium text-slate-800">
+                  <span class="flex items-center gap-2.5">
+                    <span class="w-7 h-7 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center text-xs font-bold flex-shrink-0" aria-hidden="true">{{ agent.name[:1] | upper }}</span>
+                    <span class="qb-break">{{ agent.name }}</span>
+                  </span>
+                </td>
+                <td class="px-5 py-3 text-slate-500">{{ agent.created_at.strftime('%b %d, %Y') }}</td>
+                {% if g.user.role == 'admin' %}
+                  <td class="px-5 py-3 text-right">
+                    <form method="post" action="{{ url_for('agents.delete_agent', agent_id=agent.id) }}"
+                          data-confirm="Delete {{ agent.name }}? Calls already attributed to them stay in history, but will no longer show an agent.">
+                      <button type="submit" class="text-red-600 text-xs font-medium hover:text-red-800 bg-transparent border-none cursor-pointer px-2 py-1 -mx-2">Delete</button>
+                    </form>
+                  </td>
+                {% endif %}
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
   {% else %}
-    <p class="empty-section">No agents added yet.</p>
-  {% endif %}
-
-  {% if g.user.role == 'admin' %}
-    <div class="profile-section profile-section-add" style="margin-top:1.5rem">
-      <details class="add-item-toggle" {% if not agents %}open{% endif %}>
-        <summary>+ Add agent</summary>
-        <form method="post" action="{{ url_for('agents.add_agent') }}" class="inline-form">
-          <input type="text" name="name" placeholder="Agent full name" required class="form-input">
-          <button type="submit" class="btn btn-secondary btn-sm">Add agent</button>
-        </form>
-      </details>
+    {# ── Empty state ── #}
+    <div class="qb-card text-center py-14 mb-4">
+      <div class="w-14 h-14 mx-auto rounded-2xl bg-indigo-50 text-indigo-500 flex items-center justify-center mb-3">
+        <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="1.4" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z"/>
+        </svg>
+      </div>
+      <h3 class="text-lg font-semibold text-slate-900 mb-1">No agents yet</h3>
+      <p class="text-sm text-slate-500 max-w-xs mx-auto">Add your team's agents below so every uploaded call can be attributed and scored per person.</p>
     </div>
   {% endif %}
 
-  <p class="back-link"><a href="{{ url_for('org.settings') }}">← Team settings</a></p>
+  {% if g.user.role == 'admin' %}
+    <div class="qb-card p-5">
+      <h2 class="qb-section-title mb-1">Add an agent</h2>
+      <p class="text-xs text-slate-500 mb-3">Enter the agent's full name as it should appear on reports.</p>
+      <form method="post" action="{{ url_for('agents.add_agent') }}" class="flex flex-wrap gap-2 items-center"
+            data-busy-label="Adding…">
+        <label for="agent-name" class="qb-sr-only">Agent full name</label>
+        <input type="text" id="agent-name" name="name" placeholder="Agent full name" required maxlength="120"
+               class="flex-1 min-w-[200px] px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none">
+        <button type="submit" class="qb-btn-primary">Add agent</button>
+      </form>
+    </div>
+  {% endif %}
 </div>
 {% endblock %}

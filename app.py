@@ -68,12 +68,12 @@ def create_app(config_class: type = Config) -> Flask:
         # this will be tightened with a nonce in Phase 4.
         csp = (
             "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://*.clerk.accounts.dev https://*.clerk.com; "
-            "style-src 'self' 'unsafe-inline' https://*.clerk.accounts.dev; "
+            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdn.tailwindcss.com https://*.clerk.accounts.dev https://*.clerk.com; "
+            "style-src 'self' 'unsafe-inline' https://*.clerk.accounts.dev https://fonts.googleapis.com; "
             "img-src 'self' data: https://*.clerk.accounts.dev https://img.clerk.com; "
-            "connect-src 'self' https://*.clerk.accounts.dev https://*.clerk.com https://*.clerkinc.com wss://*.clerk.accounts.dev wss://*.clerk.com; "
+            "connect-src 'self' https://cdn.tailwindcss.com https://*.clerk.accounts.dev https://*.clerk.com https://*.clerkinc.com wss://*.clerk.accounts.dev wss://*.clerk.com; "
             "frame-src https://*.clerk.accounts.dev https://*.clerk.com; "
-            "font-src 'self' https://*.clerk.accounts.dev; "
+            "font-src 'self' https://*.clerk.accounts.dev https://fonts.gstatic.com; "
             "object-src 'none'; "
             "base-uri 'self'; "
             "frame-ancestors 'none'"
@@ -114,6 +114,83 @@ def create_app(config_class: type = Config) -> Flask:
     @app.get("/login")
     def login_redirect():
         return redirect(url_for("auth.login"))
+
+    # ── Error pages ───────────────────────────────────────────────────────
+    # Without these, Werkzeug's unbranded default pages are what a customer
+    # sees when something goes wrong — including on the upload path, where an
+    # oversized file is a routine mistake rather than an exceptional one.
+    from flask import jsonify, render_template
+
+    def _wants_json() -> bool:
+        return (
+            request.path.endswith(".json")
+            or request.headers.get("X-Requested-With") == "XMLHttpRequest"
+            or request.accept_mimetypes.best == "application/json"
+        )
+
+    def _error_page(code: int, heading: str, detail: str, action: str):
+        if _wants_json():
+            return jsonify({"error": heading, "detail": detail}), code
+
+        signed_in = getattr(g, "user", None) and getattr(g, "org", None)
+        if action == "signin" or not signed_in:
+            action_url, action_label = url_for("auth.login"), "Sign in"
+        elif action == "upload":
+            action_url, action_label = url_for("calls.upload_form"), "Back to upload"
+        else:
+            action_url, action_label = url_for("dashboard.index"), "Go to dashboard"
+
+        return render_template(
+            "errors/error.html",
+            code=code, heading=heading, detail=detail,
+            action_url=action_url, action_label=action_label,
+        ), code
+
+    @app.errorhandler(401)
+    def handle_401(_e):
+        return _error_page(
+            401, "Your session has expired",
+            "Sign in again to pick up where you left off.",
+            "signin",
+        )
+
+    @app.errorhandler(403)
+    def handle_403(_e):
+        return _error_page(
+            403, "You don't have access to that",
+            "This page is limited to organization admins. Ask a teammate with "
+            "admin access if you need it.",
+            "dashboard",
+        )
+
+    @app.errorhandler(404)
+    def handle_404(_e):
+        return _error_page(
+            404, "We couldn't find that page",
+            "The link may be out of date, or the call may have been removed "
+            "from your organization.",
+            "dashboard",
+        )
+
+    @app.errorhandler(413)
+    def handle_413(_e):
+        limit_mb = app.config.get("MAX_CONTENT_LENGTH", 0) // (1024 * 1024)
+        return _error_page(
+            413, "That recording is too large",
+            f"Uploads are limited to {limit_mb} MB. Split the recording into "
+            "shorter segments or compress it, then try again.",
+            "upload",
+        )
+
+    @app.errorhandler(500)
+    def handle_500(e):
+        logger.error("Unhandled error on %s %s", request.method, request.path, exc_info=e)
+        return _error_page(
+            500, "Something went wrong on our end",
+            "The error has been logged. Try again in a moment — if it keeps "
+            "happening, contact support with the time it occurred.",
+            "dashboard",
+        )
 
     return app
 

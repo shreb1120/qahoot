@@ -58,6 +58,9 @@ ALLOWED_EXTENSIONS = {
     "flac", "aac", "wma", "mov", "avi", "mkv",
 }
 
+# Rows rendered per history page.
+PAGE_SIZE = 50
+
 
 def _allowed(filename: str) -> bool:
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -79,10 +82,13 @@ def _org_call_or_404(call_id: str) -> Call:
 
 # ── Upload ────────────────────────────────────────────────────────────────────
 
-@calls_bp.get("/upload")
-@org_required
-def upload_form():
+def _upload_context(**overrides):
+    """Everything calls/upload.html needs, so an error re-render is identical
+    to a fresh one. Rebuilding this on the error path is what keeps the agent
+    dropdown populated and the user's typed values intact."""
+    from datetime import date as _date
     from models import ComplianceProfile
+
     profile = (
         g.db.query(ComplianceProfile)
         .filter_by(org_id=g.org.id, is_active=True)
@@ -94,24 +100,57 @@ def upload_form():
         .order_by(Agent.name)
         .all()
     )
-    return render_template("calls/upload.html", has_profile=bool(profile), agents=agents)
+    max_bytes = current_app.config.get("MAX_CONTENT_LENGTH") or 0
+    ctx = {
+        "has_profile": bool(profile),
+        "agents": agents,
+        "form": {},
+        "error": None,
+        "today": _date.today().isoformat(),
+        "max_upload_bytes": max_bytes,
+        "max_upload_mb": max_bytes // (1024 * 1024),
+        "allowed_extensions": sorted(ALLOWED_EXTENSIONS),
+    }
+    ctx.update(overrides)
+    return ctx
+
+
+def _submitted_upload_form():
+    return {
+        "agent_id": request.form.get("agent_id", "").strip(),
+        "alv_id": request.form.get("alv_id", "").strip(),
+        "call_date": request.form.get("call_date", "").strip(),
+        "client_phone": request.form.get("client_phone", "").strip(),
+    }
+
+
+def _upload_error(message):
+    return render_template(
+        "calls/upload.html",
+        **_upload_context(error=message, form=_submitted_upload_form()),
+    ), 400
+
+
+@calls_bp.get("/upload")
+@org_required
+def upload_form():
+    return render_template("calls/upload.html", **_upload_context())
 
 
 @calls_bp.post("/upload")
 @org_required
 def upload():
-    if "file" not in request.files:
-        return render_template("calls/upload.html", has_profile=True, agents=[],
-                               error="No file selected."), 400
+    from datetime import date
 
-    f = request.files["file"]
-    if not f.filename:
-        return render_template("calls/upload.html", has_profile=True, agents=[],
-                               error="No file selected."), 400
+    f = request.files.get("file")
+    if f is None or not f.filename:
+        return _upload_error("Choose a call recording to upload.")
 
     if not _allowed(f.filename):
-        return render_template("calls/upload.html", has_profile=True, agents=[],
-                               error="Unsupported file type. Upload an audio or video file."), 400
+        return _upload_error(
+            "That file type is not supported. Upload an audio or video "
+            "recording (MP3, MP4, WAV, M4A, OGG, WEBM, and similar)."
+        )
 
     from models import ComplianceProfile
     profile = (
@@ -120,31 +159,46 @@ def upload():
         .first()
     )
     if not profile:
-        return render_template("calls/upload.html", has_profile=False, agents=[],
-                               error="Set up your compliance profile before uploading."), 400
+        return render_template("calls/upload.html", **_upload_context(
+            has_profile=False,
+            error="Set up your compliance profile before uploading.",
+            form=_submitted_upload_form(),
+        )), 400
 
     # Read metadata from form
-    agent_id = request.form.get("agent_id") or None
+    agent_id = request.form.get("agent_id", "").strip() or None
     alv_id = request.form.get("alv_id", "").strip() or None
     call_date_str = request.form.get("call_date", "").strip()
     client_phone = request.form.get("client_phone", "").strip() or None
 
-    call_date = None
-    if call_date_str:
-        from datetime import date
-        try:
-            call_date = date.fromisoformat(call_date_str)
-        except ValueError:
-            pass
+    # These three are required in the form; enforce that here too rather than
+    # silently storing a call with no agent or no date attached to it.
+    if not agent_id:
+        return _upload_error("Select which agent took this call.")
+    if not alv_id:
+        return _upload_error("Enter the ALV or internal ID for this call.")
+    if not call_date_str:
+        return _upload_error("Enter the date the call took place.")
+
+    try:
+        call_date = date.fromisoformat(call_date_str)
+    except ValueError:
+        return _upload_error("That call date is not a valid date.")
+    if call_date > date.today():
+        return _upload_error("A call cannot have happened in the future.")
 
     # Validate agent belongs to this org
-    if agent_id:
-        valid_agent = g.db.query(Agent).filter_by(id=agent_id, org_id=g.org.id).first()
-        if not valid_agent:
-            agent_id = None
+    valid_agent = g.db.query(Agent).filter_by(id=agent_id, org_id=g.org.id).first()
+    if not valid_agent:
+        return _upload_error("That agent is no longer available. Pick another.")
 
-    # Save file to disk
+    # Save file to disk. secure_filename() strips non-ASCII, so a recording named
+    # entirely in a non-Latin script can come back empty — fall back to the
+    # extension we already validated rather than writing a nameless file.
     safe_name = secure_filename(f.filename)
+    if not safe_name or safe_name.startswith("."):
+        safe_name = f"recording.{f.filename.rsplit('.', 1)[1].lower()}"
+
     upload_dir = os.path.join(
         current_app.config["UPLOAD_FOLDER"], g.org.id
     )
@@ -166,18 +220,39 @@ def upload():
     g.db.flush()  # populate call.id
 
     file_path = os.path.join(upload_dir, f"{call.id}_{safe_name}")
-    f.save(file_path)
+    try:
+        f.save(file_path)
+    except OSError:
+        current_app.logger.exception("Upload failed to write %s", file_path)
+        g.db.rollback()
+        return _upload_error(
+            "We could not save that recording. Try again, and contact support "
+            "if it keeps happening."
+        )
+
+    if os.path.getsize(file_path) == 0:
+        os.remove(file_path)
+        g.db.rollback()
+        return _upload_error("That file is empty. Check the recording and try again.")
 
     call.audio_file_url = file_path
     g.db.commit()
 
-    # Spawn background pipeline
-    pipeline_module.spawn(
-        call_id=call.id,
-        file_path=file_path,
-        assemblyai_key=current_app.config["ASSEMBLYAI_API_KEY"],
-        anthropic_key=current_app.config["ANTHROPIC_API_KEY"],
-    )
+    # Spawn background pipeline. If it cannot start, the call would otherwise sit
+    # in "pending" forever with nothing working on it — mark it failed instead so
+    # history shows the truth.
+    try:
+        pipeline_module.spawn(
+            call_id=call.id,
+            file_path=file_path,
+            assemblyai_key=current_app.config["ASSEMBLYAI_API_KEY"],
+            anthropic_key=current_app.config["ANTHROPIC_API_KEY"],
+        )
+    except Exception:
+        current_app.logger.exception("Pipeline failed to start for call %s", call.id)
+        call.status = "error"
+        call.error_message = "Analysis could not be started. Re-upload the call to retry."
+        g.db.commit()
 
     return redirect(url_for("calls.history"))
 
@@ -440,14 +515,48 @@ def history():
         .all()
     )
 
+    # Totals are counted across the whole filtered set, then a single page is
+    # rendered. An org with thousands of calls would otherwise put every row in
+    # the DOM — but a compliance tool must still report honest totals, so the
+    # summary counts below are not page-scoped.
+    total_calls = len(calls)
+    summary = {"passed": 0, "failed": 0, "critical": 0}
+    for c in calls:
+        det = (c.report.pass_fail_status if c.report else "") or ""
+        if "CRITICAL" in det:
+            summary["critical"] += 1
+        elif "PASS" in det and "FAIL" not in det:
+            summary["passed"] += 1
+        elif "FAIL" in det:
+            summary["failed"] += 1
+
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+    except ValueError:
+        page = 1
+    total_pages = max(1, (total_calls + PAGE_SIZE - 1) // PAGE_SIZE)
+    page = min(page, total_pages)
+    start = (page - 1) * PAGE_SIZE
+    page_calls = calls[start:start + PAGE_SIZE]
+
+    # Preserve the active filters when moving between pages.
+    page_args = {k: v for k, v in request.args.items() if k != "page" and v}
+
     # IDs of in-progress calls for polling
-    active_ids = [c.id for c in calls if c.status in ("pending", "transcribing", "analyzing")]
+    active_ids = [c.id for c in page_calls if c.status in ("pending", "transcribing", "analyzing")]
 
     return render_template(
         "calls/history.html",
-        calls=calls,
+        calls=page_calls,
         agents=agents,
         active_ids_json=json.dumps(active_ids),
+        summary=summary,
+        total_calls=total_calls,
+        page=page,
+        total_pages=total_pages,
+        page_start=start + 1 if page_calls else 0,
+        page_end=start + len(page_calls),
+        page_args=page_args,
         filters={
             "agent_id": agent_id,
             "status": status_filter,

@@ -2,47 +2,65 @@
 {% block title %}Upload Call — Qaboom{% endblock %}
 
 {% block content %}
-<div class="page-shell">
-  <h1 class="page-heading">Upload a Call</h1>
+{% set form = form | default({}) %}
+<div class="max-w-xl">
+  <h1 class="text-2xl font-bold text-slate-900 mb-5">Upload a Call</h1>
 
   {% if not has_profile %}
-    <div class="notice notice-warn">
+    <div class="bg-amber-50 border border-amber-300 text-amber-900 rounded-lg px-4 py-3 text-sm">
       <strong>No compliance profile set up yet.</strong>
       {% if g.user.role == 'admin' %}
-        <a href="{{ url_for('profile.view') }}">Set up your checklist</a> before uploading calls.
+        <a href="{{ url_for('profile.view') }}" class="font-semibold underline">Set up your checklist</a> before uploading calls.
       {% else %}
         Ask your org admin to set up a compliance checklist first.
       {% endif %}
     </div>
   {% else %}
     {% if error %}
-      <div class="notice notice-error">{{ error }}</div>
+      <div class="bg-red-50 border border-red-300 text-red-800 rounded-lg px-4 py-3 mb-4 text-sm" role="alert">{{ error }}</div>
     {% endif %}
 
-    <form method="post" action="{{ url_for('calls.upload') }}" enctype="multipart/form-data" class="upload-form">
+    <form method="post" action="{{ url_for('calls.upload') }}" enctype="multipart/form-data"
+          id="upload-form" novalidate data-busy-label="Uploading…"
+          class="bg-white border border-slate-200 rounded-xl p-6 space-y-5 shadow-sm">
 
-      <div class="form-field">
-        <label class="form-label" for="file">Call recording</label>
-        <p class="form-hint">Audio or video file — MP3, MP4, WAV, M4A, OGG, WEBM, etc. Up to 500 MB.</p>
-        <input type="file" id="file" name="file" class="form-file-input"
-               accept="audio/*,video/*"
-               required>
+      {# ── Drop zone ──
+         The input is visually hidden but still focusable and still validated.
+         Tailwind's `hidden` (display:none) would remove it from the tab order
+         entirely, leaving keyboard users with no way to choose a file. #}
+      <div>
+        <span class="block text-sm font-semibold text-slate-700 mb-1" id="file-label">Call recording</span>
+        <p class="text-xs text-slate-500 mb-2" id="file-hint">Audio or video file — MP3, MP4, WAV, M4A, OGG, WEBM, and similar. Up to {{ max_upload_mb }} MB.</p>
+        <label id="drop-zone"
+               class="qb-dropzone flex flex-col items-center justify-center gap-2 px-6 py-8 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/40 transition text-center">
+          <svg class="w-10 h-10 text-slate-300" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/>
+          </svg>
+          <span class="text-sm font-medium text-slate-600" id="drop-label">Drag &amp; drop, or press Enter to browse</span>
+          <span class="text-xs text-slate-500 qb-break max-w-full" id="drop-filename"></span>
+          <input type="file" id="file" name="file" accept="audio/*,video/*"
+                 class="qb-sr-only"
+                 aria-labelledby="file-label" aria-describedby="file-hint file-error">
+        </label>
+        <p class="qb-field-error" id="file-error" role="alert"></p>
       </div>
 
-      <div class="form-field">
-        <label class="form-label" for="agent_id">Agent <span class="required-star">*</span></label>
+      <div>
+        <label class="block text-sm font-semibold text-slate-700 mb-1" for="agent_id">Agent <span class="text-red-600" aria-hidden="true">*</span></label>
         {% if agents %}
-          <select id="agent_id" name="agent_id" class="form-input" required>
+          <select id="agent_id" name="agent_id" required aria-describedby="agent-error"
+                  class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none">
             <option value="">— Select agent —</option>
             {% for agent in agents %}
-              <option value="{{ agent.id }}">{{ agent.name }}</option>
+              <option value="{{ agent.id }}" {% if form.get('agent_id') == agent.id %}selected{% endif %}>{{ agent.name }}</option>
             {% endfor %}
           </select>
+          <p class="qb-field-error" id="agent-error" role="alert"></p>
         {% else %}
-          <p class="form-hint notice notice-warn" style="margin:0">
+          <p class="text-sm bg-amber-50 border border-amber-300 text-amber-900 rounded-lg px-3 py-2">
             No agents added yet.
             {% if g.user.role == 'admin' %}
-              <a href="{{ url_for('agents.list_agents') }}">Add agents</a> first.
+              <a href="{{ url_for('agents.list_agents') }}" class="font-semibold underline">Add agents</a> first.
             {% else %}
               Ask your admin to add agents.
             {% endif %}
@@ -51,47 +69,179 @@
         {% endif %}
       </div>
 
-      <div class="form-field">
-        <label class="form-label" for="alv_id">ALV / ID # <span class="required-star">*</span></label>
-        <input type="text" id="alv_id" name="alv_id" class="form-input"
-               placeholder="e.g. 12345" maxlength="50" required>
+      <div>
+        <label class="block text-sm font-semibold text-slate-700 mb-1" for="alv_id">ALV / ID # <span class="text-red-600" aria-hidden="true">*</span></label>
+        <input type="text" id="alv_id" name="alv_id" placeholder="e.g. 12345" maxlength="50" required
+               value="{{ form.get('alv_id', '') }}" aria-describedby="alv-error"
+               class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none">
+        <p class="qb-field-error" id="alv-error" role="alert"></p>
       </div>
 
-      <div class="form-field">
-        <label class="form-label" for="call_date">Call date <span class="required-star">*</span></label>
-        <input type="date" id="call_date" name="call_date" class="form-input" required>
+      <div>
+        <label class="block text-sm font-semibold text-slate-700 mb-1" for="call_date">Call date <span class="text-red-600" aria-hidden="true">*</span></label>
+        <input type="date" id="call_date" name="call_date" required
+               value="{{ form.get('call_date', '') }}" max="{{ today }}" aria-describedby="date-error"
+               class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none">
+        <p class="qb-field-error" id="date-error" role="alert"></p>
       </div>
 
-      <div class="form-field">
-        <label class="form-label" for="client_phone">Client phone <span class="muted-label">(optional)</span></label>
-        <input type="text" id="client_phone" name="client_phone" class="form-input"
-               placeholder="e.g. 8005551234" maxlength="30">
+      <div>
+        <label class="block text-sm font-semibold text-slate-700 mb-1" for="client_phone">Client phone <span class="text-xs text-slate-500 font-normal">(optional)</span></label>
+        <input type="text" id="client_phone" name="client_phone" placeholder="e.g. 8005551234" maxlength="30"
+               value="{{ form.get('client_phone', '') }}"
+               class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none">
       </div>
 
-      <button type="submit" class="btn btn-primary">Upload &amp; Analyze</button>
+      <button type="submit"
+              class="w-full px-4 py-2.5 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition shadow-sm">
+        Upload &amp; Analyze
+      </button>
+      <p class="text-xs text-slate-500 text-center">Large files can take a few minutes to upload. Keep this tab open.</p>
     </form>
   {% endif %}
 
-  <p class="back-link"><a href="{{ url_for('calls.history') }}">← Call history</a></p>
+  <p class="mt-6 text-sm"><a href="{{ url_for('calls.history') }}" class="text-slate-500 no-underline hover:text-slate-700">← Call history</a></p>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-  // Auto-parse filename: YYYYMMDD-HHMMSS_PHONENUMBER (e.g. 20260727-162411_8306607303-all.mp3)
-  document.getElementById('file')?.addEventListener('change', function() {
-    const name = this.files[0]?.name || '';
-    const m = name.match(/^(\d{4})(\d{2})(\d{2})-(\d{6})_(\d{7,15})/);
+(function() {
+  const form = document.getElementById('upload-form');
+  const fileInput = document.getElementById('file');
+  const dropZone = document.getElementById('drop-zone');
+  const dropLabel = document.getElementById('drop-label');
+  const dropFilename = document.getElementById('drop-filename');
+  const fileError = document.getElementById('file-error');
+  if (!form || !fileInput || !dropZone) return;
+
+  const MAX_BYTES = {{ max_upload_bytes }};
+  const MAX_LABEL = '{{ max_upload_mb }} MB';
+  const ALLOWED = {{ allowed_extensions | tojson }};
+
+  const ALERT_ICON =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">' +
+    '<path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"/></svg>';
+
+  function setError(el, message) {
+    if (!el) return;
+    el.innerHTML = message ? ALERT_ICON + '<span>' + message + '</span>' : '';
+  }
+
+  function formatSize(bytes) {
+    const mb = bytes / (1024 * 1024);
+    return mb >= 1 ? mb.toFixed(1) + ' MB' : Math.max(1, Math.round(bytes / 1024)) + ' KB';
+  }
+
+  function extensionOf(name) {
+    const dot = name.lastIndexOf('.');
+    return dot === -1 ? '' : name.slice(dot + 1).toLowerCase();
+  }
+
+  // Returns an error string, or '' when the chosen file is usable.
+  function checkFile(file) {
+    if (!file) return 'Choose a call recording to upload.';
+    if (!ALLOWED.includes(extensionOf(file.name))) {
+      return 'That file type is not supported. Upload an audio or video recording (' + ALLOWED.slice(0, 6).join(', ') + ', and similar).';
+    }
+    if (file.size === 0) return 'That file is empty. Check the recording and try again.';
+    if (file.size > MAX_BYTES) {
+      return 'That file is ' + formatSize(file.size) + '. The limit is ' + MAX_LABEL + ' — split the recording or compress it first.';
+    }
+    return '';
+  }
+
+  function showFile(file) {
+    const problem = checkFile(file);
+    setError(fileError, problem);
+    dropZone.classList.toggle('border-red-400', !!problem);
+
+    if (problem) {
+      dropLabel.textContent = 'Drag & drop, or press Enter to browse';
+      dropFilename.textContent = '';
+      dropZone.classList.remove('border-indigo-400', 'bg-indigo-50/40');
+      return;
+    }
+
+    dropLabel.textContent = 'File selected';
+    dropFilename.textContent = file.name + ' · ' + formatSize(file.size);
+    dropZone.classList.add('border-indigo-400', 'bg-indigo-50/40');
+  }
+
+  fileInput.addEventListener('change', function() {
+    const file = this.files && this.files[0];
+    if (!file) { setError(fileError, ''); return; }
+    showFile(file);
+
+    // Recordings are named like 20240116-143052_8005551234.mp3 — prefill from
+    // that when the fields are still untouched.
+    const m = file.name.match(/^(\d{4})(\d{2})(\d{2})-(\d{6})_(\d{7,15})/);
     if (m) {
       const dateField = document.getElementById('call_date');
       const phoneField = document.getElementById('client_phone');
-      if (dateField && !dateField.value) {
-        dateField.value = `${m[1]}-${m[2]}-${m[3]}`;
-      }
-      if (phoneField && !phoneField.value) {
-        phoneField.value = m[5];
-      }
+      if (dateField && !dateField.value) dateField.value = m[1] + '-' + m[2] + '-' + m[3];
+      if (phoneField && !phoneField.value) phoneField.value = m[5];
     }
   });
+
+  ['dragenter', 'dragover'].forEach(function(evt) {
+    dropZone.addEventListener(evt, function(e) {
+      e.preventDefault();
+      dropZone.classList.add('border-indigo-400', 'bg-indigo-50/40');
+    });
+  });
+  dropZone.addEventListener('dragleave', function(e) {
+    e.preventDefault();
+    if (!fileInput.files.length) dropZone.classList.remove('border-indigo-400', 'bg-indigo-50/40');
+  });
+  dropZone.addEventListener('drop', function(e) {
+    e.preventDefault();
+    if (!e.dataTransfer.files.length) return;
+    fileInput.files = e.dataTransfer.files;
+    fileInput.dispatchEvent(new Event('change'));
+  });
+
+  // The form is `novalidate` so every problem is reported in one pass, in the
+  // page, rather than one native bubble at a time.
+  const TODAY = '{{ today }}';
+  const FIELDS = [
+    { id: 'agent_id',  error: 'agent-error', message: 'Select which agent took this call.' },
+    { id: 'alv_id',    error: 'alv-error',   message: 'Enter the ALV or internal ID for this call.' },
+    {
+      id: 'call_date', error: 'date-error',  message: 'Enter the date the call took place.',
+      // ISO dates compare correctly as strings, so no Date parsing (and no
+      // timezone surprises) is needed here.
+      check: function (value) {
+        return value > TODAY ? 'A call cannot have happened in the future.' : '';
+      }
+    }
+  ];
+
+  form.addEventListener('submit', function(e) {
+    let firstInvalid = null;
+
+    const fileProblem = checkFile(fileInput.files && fileInput.files[0]);
+    setError(fileError, fileProblem);
+    if (fileProblem) firstInvalid = fileInput;
+
+    FIELDS.forEach(function(field) {
+      const el = document.getElementById(field.id);
+      const errEl = document.getElementById(field.error);
+      if (!el) return;
+      const value = el.value.trim();
+      const problem = !value ? field.message : (field.check ? field.check(value) : '');
+      setError(errEl, problem);
+      el.setAttribute('aria-invalid', problem ? 'true' : 'false');
+      if (problem && !firstInvalid) firstInvalid = el;
+    });
+
+    if (!firstInvalid) return;
+
+    e.preventDefault();
+    e.stopImmediatePropagation();   // keep base.html's busy-state guard from firing
+    if (firstInvalid === fileInput) dropZone.scrollIntoView({ block: 'center' });
+    firstInvalid.focus();
+  });
+})();
 </script>
 {% endblock %}

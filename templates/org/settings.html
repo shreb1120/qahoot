@@ -2,88 +2,99 @@
 {% block title %}Team Settings — Qaboom{% endblock %}
 
 {% block content %}
-<div class="page-container">
-  <div class="page-header-row">
+<div class="max-w-4xl mx-auto">
+  <div class="flex flex-wrap items-start justify-between gap-3 mb-6">
     <div>
-      <h1 class="page-title">Team Settings</h1>
-      <p class="page-sub">Organization: <strong>{{ g.org.name }}</strong></p>
+      <h1 class="qb-page-title">Team Settings</h1>
+      <p class="text-sm text-slate-500 mt-1.5">Organization: <strong class="text-slate-700">{{ g.org.name }}</strong></p>
     </div>
-    <a href="{{ url_for('agents.list_agents') }}" class="btn btn-secondary">Manage Agents</a>
+    <a href="{{ url_for('agents.list_agents') }}" class="qb-btn-secondary">Manage Agents</a>
   </div>
 
-  {# ── Members ─────────────────────────────────────────────────────────── #}
-  <section class="settings-section">
-    <h2 class="settings-heading">Members</h2>
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Email</th>
-          <th>Role</th>
-          <th>Joined</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for member in members %}
-        <tr>
-          <td>{{ member.email }}</td>
-          <td><span class="badge badge-{{ member.role }}">{{ member.role }}</span></td>
-          <td>{{ member.created_at.strftime('%Y-%m-%d') }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </section>
+  {# ── Members ── #}
+  <div class="bg-white border border-slate-200 rounded-xl mb-5 overflow-hidden shadow-sm">
+    <div class="px-5 py-3 border-b border-slate-200">
+      <h2 class="text-base font-bold text-slate-900 m-0">Members</h2>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
+            <th class="px-4 py-2">Email</th><th class="px-4 py-2">Role</th><th class="px-4 py-2">Joined</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for member in members %}
+          <tr>
+            <td class="px-4 py-2.5">{{ member.email }}</td>
+            <td class="px-4 py-2.5">
+              <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold
+                {% if member.role == 'admin' %}bg-violet-100 text-violet-700{% else %}bg-sky-100 text-sky-700{% endif %}">
+                {{ member.role }}
+              </span>
+            </td>
+            <td class="px-4 py-2.5">{{ member.created_at.strftime('%Y-%m-%d') }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
 
-  {# ── Invite ───────────────────────────────────────────────────────────── #}
-  <section class="settings-section">
-    <h2 class="settings-heading">Invite a teammate</h2>
-    <p class="settings-hint">
+  {# ── Invite — card with blue accent ── #}
+  <div class="bg-white border border-slate-200 rounded-xl mb-5 p-5 shadow-sm" style="border-left: 3px solid #4f46e5">
+    <h2 class="text-base font-bold text-slate-900 mb-1">Invite a teammate</h2>
+    <p class="text-xs text-slate-500 mb-4">
       Generate an invite link (valid 7 days) and share it however you like —
       no email is sent automatically.
     </p>
 
-    <div class="invite-form-row">
-      <input
-        type="email"
-        id="invite-email"
-        class="form-input"
-        placeholder="teammate@example.com (optional — for your reference)"
-        maxlength="255"
-      >
-      <button id="invite-btn" class="btn btn-primary">Generate invite link</button>
+    <div class="flex flex-wrap gap-2 mb-1">
+      <label for="invite-email" class="qb-sr-only">Teammate's email (optional, for your reference)</label>
+      <input type="email" id="invite-email"
+             class="flex-1 min-w-[220px] border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+             placeholder="teammate@example.com (optional — for your reference)"
+             maxlength="255" aria-describedby="invite-error">
+      <button id="invite-btn" type="button" class="qb-btn-primary whitespace-nowrap">Generate invite link</button>
     </div>
+    <p class="qb-field-error mb-3" id="invite-error" role="alert"></p>
 
-    <div id="invite-result" class="invite-result" style="display:none">
-      <label class="form-label">Copy this link and share it:</label>
-      <div class="invite-link-row">
-        <input type="text" id="invite-link" class="form-input" readonly>
-        <button id="copy-btn" class="btn btn-secondary" type="button">Copy</button>
+    <div id="invite-result" style="display:none" class="mt-4 p-4 bg-sky-50 border border-sky-200 rounded-lg">
+      <label for="invite-link" class="block text-sm font-semibold text-slate-700 mb-1">Copy this link and share it:</label>
+      <div class="flex flex-wrap gap-2">
+        <input type="text" id="invite-link" readonly
+               class="flex-1 min-w-[200px] border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono bg-white">
+        <button id="copy-btn" type="button" class="px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm font-medium hover:bg-slate-50">Copy</button>
       </div>
-      <p class="settings-hint">Link expires in 7 days. Each link can only be used once.</p>
+      <p class="qb-sr-only" id="copy-status" role="status" aria-live="polite"></p>
+      <p class="text-xs text-slate-500 mt-2">Link expires in 7 days. Each link can only be used once.</p>
     </div>
-  </section>
+  </div>
 
-  {# ── Pending invites ──────────────────────────────────────────────────── #}
+  {# ── Pending invites ── #}
   {% if invites %}
-  <section class="settings-section">
-    <h2 class="settings-heading">Pending invites</h2>
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Email (reference)</th>
-          <th>Expires</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for inv in invites %}
-        <tr>
-          <td>{{ inv.invited_email or '—' }}</td>
-          <td>{{ inv.expires_at.strftime('%Y-%m-%d') }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </section>
+  <div class="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+    <div class="px-5 py-3 border-b border-slate-200">
+      <h2 class="text-base font-bold text-slate-900 m-0">Pending invites</h2>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
+            <th class="px-4 py-2">Email (reference)</th><th class="px-4 py-2">Expires</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for inv in invites %}
+          <tr>
+            <td class="px-4 py-2.5">{{ inv.invited_email or '—' }}</td>
+            <td class="px-4 py-2.5">{{ inv.expires_at.strftime('%Y-%m-%d') }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
   {% endif %}
 </div>
 {% endblock %}

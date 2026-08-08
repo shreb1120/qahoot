@@ -2,209 +2,235 @@
 {% block title %}Report — {{ call.filename }} — Qaboom{% endblock %}
 
 {% block content %}
-<div class="page-shell">
+<div>
   {% set r = report.report_json %}
   {% set det = r.get('final_determination', '') %}
   {% set overrides = report.overrides_json or {} %}
 
   {# ── Header ── #}
-  <div class="report-header">
+  <div class="flex flex-wrap items-start justify-between gap-4 mb-5">
     <div>
-      <h1 class="page-heading">Call Report</h1>
-      <p class="report-meta">
-        {% if call.agent %}<strong>{{ call.agent.name }}</strong> &nbsp;·&nbsp;{% endif %}
-        {% if call.alv_id %}ALV-{{ call.alv_id }} &nbsp;·&nbsp;{% endif %}
-        {{ call.filename }}
-        {% if call.call_date %}&nbsp;·&nbsp; {{ call.call_date.strftime('%b %d, %Y') }}{% endif %}
-        {% if call.duration %}&nbsp;·&nbsp; {{ (call.duration // 60) }}m {{ (call.duration % 60) }}s{% endif %}
-        &nbsp;·&nbsp; <span class="muted-label">Uploaded {{ call.upload_date.strftime('%b %d, %Y') }}</span>
+      <h1 class="text-2xl font-bold text-slate-900">Call Report</h1>
+      <p class="text-sm text-slate-500 mt-1">
+        {% if call.agent %}<strong>{{ call.agent.name }}</strong> &nbsp;&middot;&nbsp;{% endif %}
+        {% if call.alv_id %}ALV-{{ call.alv_id }} &nbsp;&middot;&nbsp;{% endif %}
+        <span class="qb-break">{{ call.filename }}</span>
+        {% if call.call_date %}&nbsp;&middot;&nbsp; {{ call.call_date.strftime('%b %d, %Y') }}{% endif %}
+        {% if call.duration %}&nbsp;&middot;&nbsp; {{ (call.duration // 60) }}m {{ (call.duration % 60) }}s{% endif %}
+        &nbsp;&middot;&nbsp; <span class="text-slate-400">Uploaded {{ call.upload_date.strftime('%b %d, %Y') }}</span>
       </p>
     </div>
-    <div class="report-header-right">
+    <div>
       {% if 'PASS' in det and 'FAIL' not in det %}
-        <span class="result-badge result-pass result-badge-lg">PASS</span>
+        <span class="inline-block px-4 py-1.5 rounded-full text-base font-bold bg-green-50 text-green-700 border border-green-200 shadow-sm">PASS</span>
       {% elif 'CRITICAL' in det %}
-        <span class="result-badge result-critical result-badge-lg">CRITICAL FAIL</span>
+        <span class="inline-block px-4 py-1.5 rounded-full text-base font-bold bg-red-50 text-red-900 border border-red-200 shadow-sm">CRITICAL FAIL</span>
       {% else %}
-        <span class="result-badge result-fail result-badge-lg">FAIL</span>
+        <span class="inline-block px-4 py-1.5 rounded-full text-base font-bold bg-red-50 text-red-700 border border-red-200 shadow-sm">FAIL</span>
       {% endif %}
     </div>
   </div>
 
   {# ── Action buttons ── #}
-  <div class="report-actions">
-    <form method="post" action="{{ url_for('calls.writeup', call_id=call.id) }}" style="display:inline">
-      <button type="submit" class="btn btn-secondary">Write-up (.docx)</button>
+  <div class="flex flex-wrap gap-2 mb-5">
+    <form method="post" action="{{ url_for('calls.writeup', call_id=call.id) }}" style="display:inline"
+          data-busy-label="Generating…">
+      <button type="submit" class="px-4 py-2 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50 transition shadow-sm">Write-up (.docx)</button>
     </form>
-    <a href="{{ url_for('calls.report_pdf', call_id=call.id) }}" class="btn btn-secondary">Download PDF</a>
-    <a href="{{ url_for('calls.report_pdf', call_id=call.id, fails_only='1') }}" class="btn btn-secondary">Fails Only PDF</a>
+    <a href="{{ url_for('calls.report_pdf', call_id=call.id) }}" class="px-4 py-2 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 no-underline hover:bg-slate-50 transition shadow-sm">Download PDF</a>
+    <a href="{{ url_for('calls.report_pdf', call_id=call.id, fails_only='1') }}" class="px-4 py-2 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 no-underline hover:bg-slate-50 transition shadow-sm">Fails Only PDF</a>
   </div>
 
   {# ── Audio player ── #}
   {% if call.audio_file_url %}
-  <div class="audio-player-wrap">
-    <audio id="call-audio" controls>
+  <div class="mb-5">
+    <audio id="call-audio" controls class="w-full rounded-lg">
       <source src="{{ url_for('calls.audio', call_id=call.id) }}">
       Your browser does not support audio playback.
     </audio>
   </div>
   {% endif %}
 
-  {# ── Scorecard ── #}
+  {# ── Scorecard with circular ring ── #}
   {% set sections = r.get('sections', []) %}
   {% set ns = namespace(total=0, covered=0) %}
   {% for sec in sections %}
     {% set ns.total = ns.total + sec.get('total_count', 0) %}
     {% set ns.covered = ns.covered + sec.get('covered_count', 0) %}
   {% endfor %}
-  {% if ns.total > 0 %}
-    {% set score_pct = (ns.covered / ns.total * 100) | round | int %}
-  {% else %}
-    {% set score_pct = 0 %}
-  {% endif %}
+  {% if ns.total > 0 %}{% set score_pct = (ns.covered / ns.total * 100) | round | int %}{% else %}{% set score_pct = 0 %}{% endif %}
+  {% set ring_color = '#059669' if score_pct >= 80 else '#f59e0b' if score_pct >= 60 else '#dc2626' %}
 
-  <div class="scorecard">
-    <div class="scorecard-overall">
-      <div class="scorecard-score">{{ ns.covered }} / {{ ns.total }}</div>
-      <div class="scorecard-label">items covered</div>
-      <div class="score-bar-wrap">
-        <div class="score-bar" style="width:{{ score_pct }}%;background:{{ '#059669' if score_pct >= 80 else '#dc2626' }}"></div>
+  <div class="bg-white border border-slate-200 rounded-xl p-5 mb-5 flex flex-wrap gap-6 items-center shadow-sm">
+    {# SVG circular progress ring #}
+    <div class="flex-shrink-0 relative" style="width:100px;height:100px">
+      <svg viewBox="0 0 36 36" class="w-full h-full -rotate-90">
+        <circle cx="18" cy="18" r="15.9155" fill="none" stroke="#e2e8f0" stroke-width="2.5"/>
+        <circle cx="18" cy="18" r="15.9155" fill="none"
+                stroke="{{ ring_color }}" stroke-width="2.5"
+                stroke-dasharray="{{ score_pct }}, 100"
+                stroke-linecap="round"
+                class="transition-all duration-700"/>
+      </svg>
+      <div class="absolute inset-0 flex flex-col items-center justify-center">
+        <span class="text-xl font-bold text-slate-900">{{ score_pct }}%</span>
+        <span class="text-[10px] text-slate-400 uppercase tracking-wide">score</span>
       </div>
-      <div class="scorecard-pct">{{ score_pct }}%</div>
     </div>
-    <div class="scorecard-sections">
-      {% for sec in sections %}
-        <span class="section-pill {{ 'pill-pass' if sec.covered_count == sec.total_count else 'pill-fail' }}">
-          {{ sec.name }}: {{ sec.covered_count }}/{{ sec.total_count }}
-        </span>
-      {% endfor %}
+    <div class="flex-1">
+      <div class="text-sm text-slate-700 font-medium mb-2">{{ ns.covered }} / {{ ns.total }} items covered</div>
+      <div class="flex flex-wrap gap-1.5">
+        {% for sec in sections %}
+          <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold
+            {% if sec.get('covered_count', 0) == sec.get('total_count', 0) %}bg-green-50 text-green-700 border border-green-200{% else %}bg-red-50 text-red-700 border border-red-200{% endif %}">
+            {{ sec.name }}: {{ sec.get('covered_count', 0) }}/{{ sec.get('total_count', 0) }}
+          </span>
+        {% endfor %}
+      </div>
     </div>
   </div>
 
   {# ── Critical fail alert ── #}
   {% set af = r.get('auto_fail_phrases', {}) %}
   {% if af.get('detected') %}
-    <div class="notice notice-critical">
+    <div class="bg-red-50 border border-red-300 text-red-900 rounded-lg px-4 py-3 mb-5 text-sm font-medium">
       <strong>Auto-fail phrase detected in this call.</strong> See details below.
     </div>
   {% endif %}
 
   {% if r.get('summary') %}
-    <p class="report-summary">{{ r.summary }}</p>
+    <p class="bg-white border border-slate-200 rounded-lg px-5 py-4 text-sm text-slate-500 italic mb-5 shadow-sm">{{ r.summary }}</p>
   {% endif %}
 
-  {# ── Sections ── #}
+  {# ── Sections with left accent border ── #}
   {% for section in sections %}
     {% set sk = section.get('key', section.name | lower | replace(' ', '_')) %}
-    <div class="report-section">
-      <div class="report-section-header">
-        <h2 class="report-section-title">{{ section.name }}</h2>
-        <span class="section-score
-          {% if section.covered_count == section.total_count %}score-pass{% else %}score-fail{% endif %}">
-          {{ section.covered_count }} / {{ section.total_count }} covered
+    {% set sec_covered = section.get('covered_count', 0) %}
+    {% set sec_total = section.get('total_count', 0) %}
+    {% set sec_pass = sec_covered == sec_total %}
+    <div class="bg-white border border-slate-200 rounded-xl mb-4 overflow-hidden shadow-sm" style="border-left: 3px solid {{ '#059669' if sec_pass else '#dc2626' }}">
+      <div class="flex items-center justify-between px-5 py-3 border-b border-slate-200">
+        <h2 class="text-base font-bold text-slate-900 m-0">{{ section.name }}</h2>
+        <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full
+          {% if sec_pass %}bg-green-50 text-green-700{% else %}bg-red-50 text-red-700{% endif %}">
+          {{ sec_covered }} / {{ sec_total }} covered
         </span>
       </div>
 
-      <table class="report-table">
-        <thead>
-          <tr>
-            <th>Item</th>
-            <th>Status</th>
-            <th>Manager Override</th>
-            <th>Timestamp</th>
-            <th>Evidence</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for item in section.get('items', []) %}
-            {% set ov_key = sk ~ '::' ~ item.name %}
-            {% set ov = overrides.get(ov_key, '') %}
-            <tr class="{{ 'row-pass' if item.status == 'covered' else 'row-fail' }}">
-              <td>{{ item.name }}</td>
-              <td>
-                {% if item.status == 'covered' %}
-                  <span class="item-badge item-covered">✓ Covered</span>
-                {% else %}
-                  <span class="item-badge item-missing">✗ Missing</span>
-                {% endif %}
-              </td>
-              <td class="override-cell">
-                {% if ov == 'approved' %}
-                  <span class="override-badge ov-approved">✓ Approved</span>
-                {% elif ov == 'failed' %}
-                  <span class="override-badge ov-failed">✗ Flagged</span>
-                {% endif %}
-                <div class="override-btns" data-section-key="{{ sk }}" data-item-name="{{ item.name }}">
-                  <button class="ov-btn ov-approve {{ 'ov-active' if ov == 'approved' }}"
-                          onclick="setOverride(this, 'approved')">Approve</button>
-                  <button class="ov-btn ov-flag {{ 'ov-active' if ov == 'failed' }}"
-                          onclick="setOverride(this, 'failed')">Flag</button>
-                  {% if ov %}
-                    <button class="ov-btn ov-clear" onclick="setOverride(this, '')">Clear</button>
-                  {% endif %}
-                </div>
-              </td>
-              <td class="ts-cell">
-                {% if item.timestamp and item.timestamp != '—' %}
-                  <button class="ts-link" onclick="seekTo('{{ item.timestamp }}')">{{ item.timestamp }}</button>
-                {% else %}—{% endif %}
-              </td>
-              <td class="evidence-cell">{{ item.evidence or '' }}</td>
+      <div class="overflow-x-auto qb-scroll-x">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
+              <th class="px-4 py-2">Item</th>
+              <th class="px-4 py-2">Status</th>
+              <th class="px-4 py-2">Manager Override</th>
+              <th class="px-4 py-2">Timestamp</th>
+              <th class="px-4 py-2">Evidence</th>
             </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            {% for item in section.get('items', []) %}
+              {% set ov_key = sk ~ '::' ~ item.name %}
+              {% set ov = overrides.get(ov_key, '') %}
+              <tr class="{% if item.status == 'covered' %}bg-white{% else %}bg-red-50/50{% endif %}">
+                <td class="px-4 py-2.5 qb-break">{{ item.name }}</td>
+                <td class="px-4 py-2.5">
+                  {% if item.status == 'covered' %}
+                    <span class="inline-block px-2 py-0.5 rounded text-xs font-semibold bg-green-50 text-green-700">✓ Covered</span>
+                  {% else %}
+                    <span class="inline-block px-2 py-0.5 rounded text-xs font-semibold bg-red-50 text-red-700">✗ Missing</span>
+                  {% endif %}
+                </td>
+                <td class="px-4 py-2.5 min-w-[130px]">
+                  {% if ov == 'approved' %}
+                    <span class="inline-block text-xs font-semibold px-2 py-0.5 rounded bg-green-50 text-green-700 mb-1">✓ Approved</span>
+                  {% elif ov == 'failed' %}
+                    <span class="inline-block text-xs font-semibold px-2 py-0.5 rounded bg-red-50 text-red-700 mb-1">✗ Flagged</span>
+                  {% endif %}
+                  <div class="override-btns" data-section-key="{{ sk }}" data-item-name="{{ item.name }}">
+                    <button class="ov-btn ov-approve {{ 'ov-active' if ov == 'approved' }}"
+                            onclick="setOverride(this, 'approved')">Approve</button>
+                    <button class="ov-btn ov-flag {{ 'ov-active' if ov == 'failed' }}"
+                            onclick="setOverride(this, 'failed')">Flag</button>
+                    {% if ov %}
+                      <button class="ov-btn ov-clear" onclick="setOverride(this, '')">Clear</button>
+                    {% endif %}
+                  </div>
+                </td>
+                <td class="px-4 py-2.5 font-mono text-slate-500 whitespace-nowrap">
+                  {% if item.timestamp and item.timestamp != '—' %}
+                    <button class="ts-link" onclick="seekTo('{{ item.timestamp }}')">{{ item.timestamp }}</button>
+                  {% else %}—{% endif %}
+                </td>
+                <td class="px-4 py-2.5 text-slate-500 italic qb-break">{{ item.evidence or '' }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </div>
   {% endfor %}
 
+  {% if not sections %}
+    <div class="qb-card p-6 text-center mb-4">
+      <h2 class="text-base font-bold text-slate-900 mb-1">No checklist results in this report</h2>
+      <p class="text-sm text-slate-500">The analysis finished without scoring any checklist sections. Check that your compliance checklist has items, then re-upload the call.</p>
+      <a href="{{ url_for('profile.view') }}" class="qb-btn-secondary mt-4">Open checklist</a>
+    </div>
+  {% endif %}
+
   {# ── Auto-fail phrases ── #}
   {% if af.get('detected') and af.get('phrases') %}
-    <div class="report-section report-section-critical">
-      <div class="report-section-header">
-        <h2 class="report-section-title">Auto-Fail Phrases Detected</h2>
-        <span class="result-badge result-critical">CRITICAL FAIL</span>
+    <div class="bg-white border border-red-300 rounded-xl mb-4 overflow-hidden shadow-sm" style="border-left: 3px solid #dc2626">
+      <div class="flex items-center justify-between px-5 py-3 border-b border-red-200">
+        <h2 class="text-base font-bold text-slate-900 m-0">Auto-Fail Phrases Detected</h2>
+        <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-50 text-red-900 border border-red-200">CRITICAL FAIL</span>
       </div>
-      <table class="report-table">
-        <thead>
-          <tr><th>Phrase</th><th>Timestamp</th><th>Speaker</th><th>Quote</th><th>Violation</th></tr>
-        </thead>
-        <tbody>
-          {% for p in af.phrases %}
-            <tr class="row-fail">
-              <td><strong>{{ p.phrase }}</strong></td>
-              <td class="ts-cell">
-                {% if p.timestamp and p.timestamp != '—' %}
-                  <button class="ts-link" onclick="seekTo('{{ p.timestamp }}')">{{ p.timestamp }}</button>
-                {% else %}—{% endif %}
-              </td>
-              <td>{{ p.speaker or '—' }}</td>
-              <td class="evidence-cell">{{ p.quote or '' }}</td>
-              <td>{{ p.violation or '' }}</td>
+      <div class="overflow-x-auto qb-scroll-x">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
+              <th class="px-4 py-2">Phrase</th><th class="px-4 py-2">Timestamp</th><th class="px-4 py-2">Speaker</th><th class="px-4 py-2">Quote</th><th class="px-4 py-2">Violation</th>
             </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            {% for p in af.phrases %}
+              <tr class="bg-red-50/50">
+                <td class="px-4 py-2.5 font-bold qb-break">{{ p.phrase }}</td>
+                <td class="px-4 py-2.5 font-mono text-slate-500 whitespace-nowrap">
+                  {% if p.timestamp and p.timestamp != '—' %}
+                    <button class="ts-link" onclick="seekTo('{{ p.timestamp }}')">{{ p.timestamp }}</button>
+                  {% else %}—{% endif %}
+                </td>
+                <td class="px-4 py-2.5">{{ p.speaker or '—' }}</td>
+                <td class="px-4 py-2.5 text-slate-500 italic qb-break">{{ p.quote or '' }}</td>
+                <td class="px-4 py-2.5 qb-break">{{ p.violation or '' }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </div>
   {% endif %}
 
   {# ── Full transcript ── #}
   {% if call.transcript %}
-    {% set utterances = call.transcript.raw_transcript_json.get('utterances', []) %}
+    {% set utterances = (call.transcript.raw_transcript_json or {}).get('utterances', []) %}
     {% if utterances %}
-    <div class="report-section">
-      <div class="report-section-header">
-        <h2 class="report-section-title">Full Transcript</h2>
+    <div class="bg-white border border-slate-200 rounded-xl mb-4 overflow-hidden shadow-sm">
+      <div class="px-5 py-3 border-b border-slate-200">
+        <h2 class="text-base font-bold text-slate-900 m-0">Full Transcript</h2>
       </div>
-      <div class="transcript-block" id="transcript-block">
+      <div class="transcript-block px-5 py-4 flex flex-col gap-2 max-h-[480px] overflow-y-auto bg-slate-50/50" style="box-shadow:inset 0 2px 4px rgba(0,0,0,.04)" id="transcript-block">
         {% for u in utterances %}
           {% set ts_secs = (u.start // 1000) %}
           {% set ts_m = ts_secs // 60 %}
           {% set ts_s = ts_secs % 60 %}
           {% set ts_str = '%d:%02d' | format(ts_m, ts_s) %}
-          <div class="transcript-line" data-start="{{ u.start }}" data-end="{{ u.end }}">
-            <button class="ts-link transcript-ts" onclick="seekTo('{{ ts_str }}')" title="Jump to {{ ts_str }}">{{ ts_str }}</button>
-            <span class="transcript-speaker">{{ u.speaker or 'Speaker' }}:</span>
-            <span class="transcript-text">{{ u.text }}</span>
+          <div class="transcript-line flex gap-2 items-baseline text-sm leading-relaxed px-1.5 py-0.5 rounded transition-colors" data-start="{{ u.start }}" data-end="{{ u.end }}">
+            <button class="ts-link transcript-ts flex-shrink-0" onclick="seekTo('{{ ts_str }}')" title="Jump to {{ ts_str }}">{{ ts_str }}</button>
+            <span class="transcript-speaker font-semibold flex-shrink-0 text-slate-900">{{ u.speaker or 'Speaker' }}:</span>
+            <span class="transcript-text text-slate-700">{{ u.text }}</span>
           </div>
         {% endfor %}
       </div>
@@ -212,13 +238,12 @@
     {% endif %}
   {% endif %}
 
-  <p class="back-link"><a href="{{ url_for('calls.history') }}">← Call history</a></p>
+  <p class="mt-6 text-sm"><a href="{{ url_for('calls.history') }}" class="text-slate-500 no-underline hover:text-slate-700">← Call history</a></p>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-// ── Timestamp parsing ──────────────────────────────────────────────────────
 function parseTimestamp(ts) {
   if (!ts) return null;
   const parts = ts.trim().split(':').map(Number);
@@ -227,21 +252,19 @@ function parseTimestamp(ts) {
   return null;
 }
 
-// ── Find transcript line closest to a given ms position ───────────────────
 function findLineAt(ms) {
   const lines = document.querySelectorAll('#transcript-block .transcript-line[data-start]');
   let best = null, bestDiff = Infinity;
   for (const line of lines) {
     const start = parseInt(line.dataset.start, 10);
     const end   = parseInt(line.dataset.end,   10);
-    if (ms >= start && ms <= end) return line;        // exact match
+    if (ms >= start && ms <= end) return line;
     const diff = Math.abs(start - ms);
     if (diff < bestDiff) { bestDiff = diff; best = line; }
   }
   return best;
 }
 
-// ── Highlight a transcript line ────────────────────────────────────────────
 function highlightLine(line) {
   document.querySelectorAll('#transcript-block .transcript-line.playing')
     .forEach(el => el.classList.remove('playing'));
@@ -251,7 +274,6 @@ function highlightLine(line) {
   }
 }
 
-// ── Seek audio + scroll to + highlight matching transcript utterance ────────
 function seekTo(ts) {
   const secs = parseTimestamp(ts);
   if (secs === null) return;
@@ -264,7 +286,6 @@ function seekTo(ts) {
   if (line) highlightLine(line);
 }
 
-// ── Live highlight as audio plays ─────────────────────────────────────────
 (function () {
   const audio = document.getElementById('call-audio');
   if (!audio) return;
@@ -279,20 +300,53 @@ function seekTo(ts) {
   });
 })();
 
-// ── Manager overrides ──────────────────────────────────────────────────────
+// Overrides are a compliance decision — a click that quietly does nothing is
+// worse than an error. Every failure path reports back into the row.
 function setOverride(btn, status) {
   const cell = btn.closest('.override-btns');
+  if (!cell || cell.dataset.busy === '1') return;
+
   const sectionKey = cell.dataset.sectionKey;
   const itemName = cell.dataset.itemName;
+  const buttons = cell.querySelectorAll('.ov-btn');
+  const previousLabel = btn.textContent;
+
+  function fail(message) {
+    cell.dataset.busy = '';
+    buttons.forEach(b => { b.disabled = false; });
+    btn.textContent = previousLabel;
+    let note = cell.parentElement.querySelector('.ov-error');
+    if (!note) {
+      note = document.createElement('p');
+      note.className = 'ov-error qb-field-error';
+      note.setAttribute('role', 'alert');
+      cell.parentElement.appendChild(note);
+    }
+    note.textContent = message;
+  }
+
+  cell.dataset.busy = '1';
+  buttons.forEach(b => { b.disabled = true; });
+  btn.textContent = 'Saving…';
+
+  const existing = cell.parentElement.querySelector('.ov-error');
+  if (existing) existing.remove();
 
   fetch('{{ url_for("calls.override", call_id=call.id) }}', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({section_key: sectionKey, item_name: itemName, status: status}),
   })
-  .then(r => r.json())
-  .then(() => window.location.reload())
-  .catch(e => console.error(e));
+  .then(r => {
+    if (r.status === 401 || r.status === 403) {
+      fail('Your session expired. Reload the page and sign in again.');
+      return null;
+    }
+    if (!r.ok) { fail('Could not save that override (error ' + r.status + '). Try again.'); return null; }
+    return r.json();
+  })
+  .then(data => { if (data) window.location.reload(); })
+  .catch(() => fail('Could not reach the server. Check your connection and try again.'));
 }
 </script>
 {% endblock %}

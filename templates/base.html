@@ -4,50 +4,293 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Qaboom{% endblock %}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+  {# Tailwind CDN — preflight disabled to preserve browser defaults #}
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      corePlugins: { preflight: false },
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+          colors: {
+            /* ── Design system: Direction A — Indigo Enterprise ── */
+            /* Primary brand: indigo. Neutral: slate. Semantic: emerald/red/amber. */
+            brand: { 50:'#eef2ff', 100:'#e0e7ff', 200:'#c7d2fe', 500:'#6366f1', 600:'#4f46e5', 700:'#4338ca', 800:'#3730a3', 900:'#312e81' },
+            surface: { DEFAULT:'#f5f6fa', card:'#ffffff', ink:'#0f172a', muted:'#64748b', border:'#e2e8f0' },
+            sidebar: { DEFAULT:'#0f172a', hover:'rgba(255,255,255,0.06)' },
+            ok: '#059669',   /* pass */
+            bad: '#dc2626',  /* fail */
+            warn: '#d97706', /* warning */
+          }
+        }
+      }
+    }
+  </script>
+
+  {# Inter font #}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='overrides.css') }}">
+
+  <style>
+    *, *::before, *::after { font-family: 'Inter', system-ui, sans-serif; }
+    body { margin: 0; background: #f5f6fa; }
+  </style>
+
   {% block head %}{% endblock %}
 </head>
-<body class="app-body">
+<body>
 
-  <header class="app-header">
-    <div class="app-header-inner">
-      <a href="{{ url_for('dashboard.index') }}" class="app-logo">Qaboom</a>
+{% set show_sidebar = g.user is defined and g.user and g.org is defined and g.org %}
 
-      <nav class="app-nav">
-        {% if g.user %}
-          {% if g.org %}
-            <span class="app-nav-org">{{ g.org.name }}</span>
-            <a href="{{ url_for('calls.upload_form') }}" class="app-nav-link">Upload</a>
-            <a href="{{ url_for('calls.history') }}" class="app-nav-link">History</a>
-            <a href="{{ url_for('profile.view') }}" class="app-nav-link">Checklist</a>
-            <a href="{{ url_for('agents.list_agents') }}" class="app-nav-link">Agents</a>
-            {% if g.user.role == 'admin' %}
-              <a href="{{ url_for('org.settings') }}" class="app-nav-link">Team</a>
-            {% endif %}
-          {% endif %}
-          <a href="{{ url_for('auth.logout') }}" class="app-nav-link">Sign out</a>
-        {% endif %}
-      </nav>
+<a href="#main-content" class="qb-skip-link">Skip to main content</a>
+
+{% if show_sidebar %}
+  {# ── Mobile top bar ── #}
+  <div class="lg:hidden fixed top-0 inset-x-0 z-40 h-14 bg-[#0f172a] flex items-center px-4 border-b border-white/10 shadow-lg">
+    <button id="sidebar-open" type="button" class="text-white" aria-label="Open menu"
+            aria-controls="sidebar" aria-expanded="false">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/></svg>
+    </button>
+    <a href="{{ url_for('dashboard.index') }}" class="ml-3 text-white font-bold text-lg tracking-tight no-underline flex items-center gap-2">
+      <span class="w-2 h-2 rounded-sm bg-indigo-500"></span>Qaboom
+    </a>
+  </div>
+
+  {# ── Backdrop ── #}
+  <div id="sidebar-backdrop" class="fixed inset-0 bg-black/50 z-40 hidden lg:hidden"></div>
+
+  {# ── Sidebar ── #}
+  <aside id="sidebar" class="fixed top-0 left-0 z-50 h-full w-64 flex flex-col transform -translate-x-full lg:translate-x-0 transition-transform duration-200 ease-in-out shadow-xl"
+         style="background:linear-gradient(180deg,#0f172a 0%,#172554 55%,#312e81 100%)">
+    {# Brand header #}
+    <div class="flex items-center justify-between px-5 h-14 lg:h-16">
+      <a href="{{ url_for('dashboard.index') }}" class="text-white font-bold text-xl tracking-tight no-underline flex items-center gap-2.5">
+        <span class="w-2.5 h-2.5 rounded-sm bg-indigo-400 ring-2 ring-indigo-400/30" aria-hidden="true"></span>Qaboom
+      </a>
+      <button id="sidebar-close" type="button" class="lg:hidden text-slate-400 hover:text-white" aria-label="Close menu">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
     </div>
-  </header>
 
-  <main class="app-main">
+    {# Nav links #}
+    <nav class="flex-1 px-3 py-2 space-y-0.5 overflow-y-auto" aria-label="Main">
+      <a href="{{ url_for('dashboard.index') }}" class="sidebar-link {% if request.endpoint == 'dashboard.index' %}active{% endif %}"{% if request.endpoint == 'dashboard.index' %} aria-current="page"{% endif %}>
+        <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955a1.126 1.126 0 0 1 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/></svg>
+        Dashboard
+      </a>
+      <a href="{{ url_for('calls.upload_form') }}" class="sidebar-link {% if request.endpoint == 'calls.upload_form' %}active{% endif %}"{% if request.endpoint == 'calls.upload_form' %} aria-current="page"{% endif %}>
+        <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/></svg>
+        Upload
+      </a>
+      <a href="{{ url_for('calls.history') }}" class="sidebar-link {% if request.endpoint == 'calls.history' %}active{% endif %}"{% if request.endpoint == 'calls.history' %} aria-current="page"{% endif %}>
+        <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+        History
+      </a>
+      <a href="{{ url_for('profile.view') }}" class="sidebar-link {% if request.endpoint == 'profile.view' %}active{% endif %}"{% if request.endpoint == 'profile.view' %} aria-current="page"{% endif %}>
+        <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15a2.25 2.25 0 0 1 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25Z"/></svg>
+        Checklist
+      </a>
+      <a href="{{ url_for('agents.list_agents') }}" class="sidebar-link {% if request.endpoint == 'agents.list_agents' %}active{% endif %}"{% if request.endpoint == 'agents.list_agents' %} aria-current="page"{% endif %}>
+        <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z"/></svg>
+        Agents
+      </a>
+      {% if g.user.role == 'admin' %}
+      <a href="{{ url_for('org.settings') }}" class="sidebar-link {% if request.endpoint == 'org.settings' %}active{% endif %}"{% if request.endpoint == 'org.settings' %} aria-current="page"{% endif %}>
+        <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
+        Team
+      </a>
+      {% endif %}
+    </nav>
+
+    {# Bottom section: sign out + org pill #}
+    <div class="px-3 pt-2 pb-3 space-y-2">
+      <div class="border-t border-white/10 pt-2">
+        <a href="{{ url_for('auth.logout') }}" class="sidebar-link">
+          <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9"/></svg>
+          Sign out
+        </a>
+      </div>
+      <div class="mx-2 px-3 py-1.5 rounded-md bg-white/5 border border-white/10 text-xs text-slate-400 truncate">{{ g.org.name }}</div>
+    </div>
+  </aside>
+{% endif %}
+
+{# ── Main content ── #}
+<main id="main-content" tabindex="-1" class="{% if show_sidebar %}lg:pl-64 pt-14 lg:pt-0{% endif %} min-h-screen">
+  <div class="qb-main-content max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% for category, message in messages %}
-        <div class="flash flash-{{ category }}">{{ message }}</div>
+        <div class="mb-4 px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2
+          {% if category == 'error' %}bg-red-50 text-red-800 border border-red-200
+          {% elif category == 'success' %}bg-green-50 text-green-800 border border-green-200
+          {% else %}bg-indigo-50 text-indigo-800 border border-indigo-200{% endif %}">
+          {% if category == 'error' %}
+            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"/></svg>
+          {% elif category == 'success' %}
+            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+          {% else %}
+            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z"/></svg>
+          {% endif %}
+          {{ message }}
+        </div>
       {% endfor %}
     {% endwith %}
 
     {% block content %}{% endblock %}
-  </main>
 
-  {# Clerk JS — loaded on every page so user button and session work everywhere #}
-  <script async
-    src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@5/dist/clerk.browser.js"
-    data-clerk-publishable-key="{{ clerk_key | default('') }}"
-    crossorigin="anonymous">
-  </script>
+    {# ── Footer watermark ── #}
+    {% if show_sidebar %}
+    <div class="mt-12 pb-4 text-center">
+      <span class="text-xs text-slate-300 font-medium tracking-wide">Qaboom</span>
+    </div>
+    {% endif %}
+  </div>
+</main>
 
-  {% block scripts %}{% endblock %}
+{# Clerk JS #}
+<script async
+  src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@5/dist/clerk.browser.js"
+  data-clerk-publishable-key="{{ clerk_key | default('') }}"
+  crossorigin="anonymous">
+</script>
+
+{# ── Shared form guards ──
+   data-confirm="…"   → confirmation prompt that is safe with any characters
+                        (an inline onsubmit="confirm('…')" breaks on apostrophes,
+                        and a broken handler submits the form unconfirmed).
+   data-busy-label="…" → blocks double submission and shows progress. Opt-in,
+                        because some forms are legitimately re-submittable. #}
+<script>
+(function () {
+  document.addEventListener('submit', function (e) {
+    const form = e.target;
+    if (!(form instanceof HTMLFormElement)) return;
+
+    const confirmMsg = form.dataset.confirm;
+    if (confirmMsg && !window.confirm(confirmMsg)) {
+      e.preventDefault();
+      return;
+    }
+
+    if (form.dataset.busyLabel === undefined) return;
+
+    if (form.dataset.submitted === '1') { e.preventDefault(); return; }
+    // Native validation runs before this fires only for valid forms; guard anyway
+    // so a rejected submit does not leave the button stuck in its busy state.
+    if (typeof form.checkValidity === 'function' && !form.checkValidity()) return;
+
+    form.dataset.submitted = '1';
+    const btn = form.querySelector('button[type="submit"], input[type="submit"]');
+    if (!btn) return;
+    btn.dataset.idleLabel = btn.textContent;
+    if (form.dataset.busyLabel) btn.textContent = form.dataset.busyLabel;
+    btn.setAttribute('aria-busy', 'true');
+    // Deferred: disabling a submit button synchronously drops it from the payload.
+    setTimeout(function () { btn.disabled = true; }, 0);
+  });
+
+  // Restore after a back-navigation, which serves the page from bfcache with
+  // the button still disabled from the previous submit.
+  window.addEventListener('pageshow', function (e) {
+    if (!e.persisted) return;
+    document.querySelectorAll('form[data-busy-label]').forEach(function (form) {
+      form.dataset.submitted = '';
+      const btn = form.querySelector('button[type="submit"], input[type="submit"]');
+      if (!btn) return;
+      btn.disabled = false;
+      btn.removeAttribute('aria-busy');
+      if (btn.dataset.idleLabel) btn.textContent = btn.dataset.idleLabel;
+    });
+  });
+})();
+</script>
+
+{% if show_sidebar %}
+<script>
+(function() {
+  const sidebar  = document.getElementById('sidebar');
+  const backdrop = document.getElementById('sidebar-backdrop');
+  const openBtn  = document.getElementById('sidebar-open');
+  const closeBtn = document.getElementById('sidebar-close');
+  if (!sidebar) return;
+
+  const desktop = window.matchMedia('(min-width: 1024px)');
+  const supportsInert = 'inert' in HTMLElement.prototype;
+  let isOpen = false;
+
+  function focusables() {
+    return Array.prototype.slice.call(
+      sidebar.querySelectorAll('a[href], button:not([disabled])')
+    ).filter(function (el) { return el.offsetParent !== null || desktop.matches; });
+  }
+
+  // On desktop the sidebar is permanently visible and must never be hidden.
+  // Below lg, `visibility` (set in overrides.css via .is-open) is what removes
+  // the closed sidebar from the tab order and the accessibility tree.
+  function sync() {
+    if (supportsInert) sidebar.inert = !desktop.matches && !isOpen;
+    if (openBtn) openBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  }
+
+  function open() {
+    isOpen = true;
+    sidebar.classList.remove('-translate-x-full');
+    sidebar.classList.add('is-open');
+    backdrop.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    sync();
+    const first = focusables()[0];
+    if (first) first.focus();
+  }
+
+  function close(returnFocus) {
+    isOpen = false;
+    sidebar.classList.add('-translate-x-full');
+    sidebar.classList.remove('is-open');
+    backdrop.classList.add('hidden');
+    document.body.style.overflow = '';
+    sync();
+    if (returnFocus && openBtn) openBtn.focus();
+  }
+
+  if (openBtn)  openBtn.addEventListener('click', open);
+  if (closeBtn) closeBtn.addEventListener('click', function () { close(true); });
+  if (backdrop) backdrop.addEventListener('click', function () { close(true); });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape' || !isOpen || desktop.matches) return;
+    close(true);
+  });
+
+  // Keep focus inside the drawer while it covers the page.
+  sidebar.addEventListener('keydown', function (e) {
+    if (e.key !== 'Tab' || !isOpen || desktop.matches) return;
+    const items = focusables();
+    if (!items.length) return;
+    const first = items[0], last = items[items.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault(); last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault(); first.focus();
+    }
+  });
+
+  // Rotating a phone to landscape can cross the lg breakpoint with the drawer
+  // still open; reset to the layout's own state rather than a stale one.
+  desktop.addEventListener('change', function () {
+    if (desktop.matches && isOpen) close(false);
+    else sync();
+  });
+
+  sync();
+})();
+</script>
+{% endif %}
+
+{% block scripts %}{% endblock %}
 </body>
 </html>
