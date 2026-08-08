@@ -1,0 +1,366 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-08T22:22:43.350853+00:00",
+  "title": "Design System: Qaboom",
+  "extensions": {
+    "colorMeta": {
+      "action": {
+        "role": "primary",
+        "displayName": "Signal Indigo",
+        "canonical": "#4f46e5",
+        "tonalRamp": [
+          "#1e1b4b",
+          "#312e81",
+          "#3730a3",
+          "#4338ca",
+          "#4f46e5",
+          "#6366f1",
+          "#a5b4fc",
+          "#eef2ff"
+        ]
+      },
+      "speaker-a": {
+        "role": "secondary",
+        "displayName": "Deep Indigo (Speaker A)",
+        "canonical": "#4338ca",
+        "tonalRamp": [
+          "#1e1b4b",
+          "#312e81",
+          "#3730a3",
+          "#4338ca",
+          "#6366f1",
+          "#818cf8",
+          "#c7d2fe",
+          "#e0e7ff"
+        ]
+      },
+      "speaker-b": {
+        "role": "secondary",
+        "displayName": "Evidence Teal (Speaker B)",
+        "canonical": "#0f766e",
+        "tonalRamp": [
+          "#042f2e",
+          "#134e4a",
+          "#115e59",
+          "#0f766e",
+          "#0d9488",
+          "#2dd4bf",
+          "#99f6e4",
+          "#ccfbf1"
+        ]
+      },
+      "pass": {
+        "role": "tertiary",
+        "displayName": "Verdict Green",
+        "canonical": "#047857",
+        "tonalRamp": [
+          "#022c22",
+          "#064e3b",
+          "#065f46",
+          "#047857",
+          "#059669",
+          "#34d399",
+          "#a7f3d0",
+          "#ecfdf5"
+        ]
+      },
+      "fail": {
+        "role": "tertiary",
+        "displayName": "Verdict Red",
+        "canonical": "#b91c1c",
+        "tonalRamp": [
+          "#450a0a",
+          "#7f1d1d",
+          "#991b1b",
+          "#b91c1c",
+          "#dc2626",
+          "#f87171",
+          "#fecaca",
+          "#fef2f2"
+        ]
+      },
+      "critical": {
+        "role": "tertiary",
+        "displayName": "Critical Oxblood",
+        "canonical": "#7f1d1d",
+        "tonalRamp": [
+          "#340707",
+          "#450a0a",
+          "#7f1d1d",
+          "#991b1b",
+          "#b91c1c",
+          "#ef4444",
+          "#fca5a5",
+          "#fff1f2"
+        ]
+      },
+      "warn": {
+        "role": "tertiary",
+        "displayName": "Caution Amber",
+        "canonical": "#b45309",
+        "tonalRamp": [
+          "#451a03",
+          "#78350f",
+          "#92400e",
+          "#b45309",
+          "#d97706",
+          "#f59e0b",
+          "#fcd34d",
+          "#fffbeb"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#0f172a",
+        "tonalRamp": [
+          "#020617",
+          "#0f172a",
+          "#1e293b",
+          "#334155",
+          "#475569",
+          "#64748b",
+          "#cbd5e1",
+          "#f8fafc"
+        ]
+      },
+      "ground": {
+        "role": "neutral",
+        "displayName": "Cool Ground",
+        "canonical": "#f5f6f8",
+        "tonalRamp": [
+          "#0f172a",
+          "#334155",
+          "#64748b",
+          "#94a3b8",
+          "#d0d5dd",
+          "#e4e7ec",
+          "#f5f6f8",
+          "#ffffff"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Page title. One per screen."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Panel and card headings."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Body copy, table cells, controls. Cap prose at ~58ch."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Panel headers, field labels, metadata. Often uppercase."
+      },
+      "numeric": {
+        "displayName": "Numeric",
+        "purpose": "Any figure compared down a column. Always tabular."
+      }
+    },
+    "shadows": [
+      {
+        "name": "sticky-lift",
+        "value": "0 1px 3px rgba(16,24,40,.06)",
+        "purpose": "The report transport, which overlaps content as it sticks."
+      },
+      {
+        "name": "toast",
+        "value": "0 8px 24px rgba(15,23,42,.22)",
+        "purpose": "The completion toast \u2014 genuinely above everything."
+      },
+      {
+        "name": "showcase",
+        "value": "0 24px 48px -12px rgba(0,0,0,.5)",
+        "purpose": "Sample artifact on the dark auth panel only."
+      },
+      {
+        "name": "focus-ring",
+        "value": "0 0 0 3px rgba(67,56,202,.18)",
+        "purpose": "Focus on every control, paired with a border shift."
+      },
+      {
+        "name": "fail-marker",
+        "value": "inset 2px 0 0 #dc2626",
+        "purpose": "First cell of a failed or missing row. The only thick mark in the system."
+      }
+    ],
+    "motion": [
+      {
+        "name": "state",
+        "value": "120ms",
+        "purpose": "Hover and focus on controls."
+      },
+      {
+        "name": "meter",
+        "value": "400-500ms ease",
+        "purpose": "Score and pass-rate bars, animated on transform only."
+      },
+      {
+        "name": "drawer",
+        "value": "200ms ease-in-out",
+        "purpose": "Off-canvas sidebar transform."
+      },
+      {
+        "name": "reduced",
+        "value": "prefers-reduced-motion: reduce disables meters, drawer and shimmer",
+        "purpose": "Honoured system-wide."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "metrics",
+        "value": "900px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      },
+      {
+        "name": "report-split",
+        "value": "1180px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one action a screen exists for. Never more than one per view.",
+      "html": "<button class=\"ds-btn-primary\">Upload &amp; analyze</button>",
+      "css": ".ds-btn-primary{display:inline-flex;align-items:center;gap:6px;background:#4f46e5;color:#fff;border:none;border-radius:4px;padding:10px 16px;font:600 14px/1.2 Inter,system-ui,sans-serif;cursor:pointer;transition:background .12s}.ds-btn-primary:hover{background:#4338ca}.ds-btn-primary:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(67,56,202,.25)}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Everything that is not the primary action.",
+      "html": "<button class=\"ds-btn-secondary\">PDF</button>",
+      "css": ".ds-btn-secondary{display:inline-flex;align-items:center;gap:6px;min-height:32px;background:#fff;color:#334155;border:1px solid #d0d5dd;border-radius:4px;padding:7px 12px;font:600 12px/1.2 Inter,system-ui,sans-serif;cursor:pointer;transition:background .12s,border-color .12s}.ds-btn-secondary:hover{background:#fafbfc;border-color:#b8c0cc}.ds-btn-secondary:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(67,56,202,.18)}"
+    },
+    {
+      "name": "Labelled Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Every control carries a visible label; the placeholder is an example, never the label.",
+      "html": "<div class=\"ds-field\"><label class=\"ds-field-label\" for=\"ds-alv\">ALV / internal ID</label><input class=\"ds-input\" id=\"ds-alv\" type=\"text\" placeholder=\"e.g. 88214\"></div>",
+      "css": ".ds-field{display:flex;flex-direction:column;gap:4px;font-family:Inter,system-ui,sans-serif}.ds-field-label{font:600 12px/1.3 Inter,system-ui,sans-serif;color:#64748b;letter-spacing:.02em}.ds-input{height:32px;padding:0 8px;font:400 12px/1.2 Inter,system-ui,sans-serif;color:#334155;background:#fff;border:1px solid #d0d5dd;border-radius:4px}.ds-input:focus{outline:none;border-color:#4338ca;box-shadow:0 0 0 3px rgba(67,56,202,.15)}"
+    },
+    {
+      "name": "Verdict Badge",
+      "kind": "chip",
+      "refersTo": "verdict-fail",
+      "description": "Pass, fail, critical. Critical is the only solid fill \u2014 it is the only verdict that ends the conversation.",
+      "html": "<span class=\"ds-verdict ds-verdict--pass\"><span class=\"ds-dot\"></span>PASS</span> <span class=\"ds-verdict ds-verdict--fail\"><span class=\"ds-dot\"></span>FAIL</span> <span class=\"ds-verdict ds-verdict--crit\"><span class=\"ds-dot\"></span>CRITICAL</span>",
+      "css": ".ds-verdict{display:inline-flex;align-items:center;gap:6px;padding:3px 8px;border-radius:4px;border:1px solid transparent;font:700 12px/1.4 Inter,system-ui,sans-serif}.ds-dot{width:6px;height:6px;border-radius:999px;background:currentColor}.ds-verdict--pass{background:#ecfdf5;color:#047857;border-color:#a7f3d0}.ds-verdict--fail{background:#fef2f2;color:#b91c1c;border-color:#fecaca}.ds-verdict--crit{background:#7f1d1d;color:#fff;border-color:#7f1d1d}"
+    },
+    {
+      "name": "Panel",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "The universal container. Flat at rest \u2014 a hairline and a recessed header carry the structure.",
+      "html": "<div class=\"ds-panel\"><div class=\"ds-panel-head\"><h2 class=\"ds-panel-title\">Approval Script</h2><span class=\"ds-panel-meta\">2/3 covered</span></div><div class=\"ds-panel-body\">Panel content.</div></div>",
+      "css": ".ds-panel{background:#fff;border:1px solid #e4e7ec;border-radius:6px;overflow:hidden;font-family:Inter,system-ui,sans-serif}.ds-panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;background:#fafbfc;border-bottom:1px solid #e4e7ec}.ds-panel-title{margin:0;font:700 12px/1.3 Inter,system-ui,sans-serif;letter-spacing:.04em;text-transform:uppercase;color:#475569}.ds-panel-meta{font:600 12px/1.3 Inter,system-ui,sans-serif;color:#475569;font-variant-numeric:tabular-nums}.ds-panel-body{padding:16px;font:400 14px/1.5 Inter,system-ui,sans-serif;color:#334155}"
+    },
+    {
+      "name": "Evidence Citation",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "Evidence, scoring guidance and rationale \u2014 always under the thing it qualifies, capped at a real measure.",
+      "html": "<div><div class=\"ds-req\">Disclose that enrollment may affect credit rating</div><div class=\"ds-evidence\">We are required to inform you that enrolling in this program may adversely affect your credit rating.</div></div>",
+      "css": ".ds-req{font:500 14px/1.5 Inter,system-ui,sans-serif;color:#334155;max-width:62ch}.ds-evidence{margin-top:6px;padding-left:10px;border-left:1px solid #d0d5dd;max-width:58ch;font:400 12px/1.55 Inter,system-ui,sans-serif;color:#475569}"
+    },
+    {
+      "name": "Call Transport",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "Signature component. Speaker bands and evidence markers from real call data; every timestamp on the page aims it.",
+      "html": "<div class=\"ds-transport\"><button class=\"ds-play\" aria-label=\"Play\"><svg viewBox=\"0 0 24 24\" fill=\"currentColor\" width=\"16\" height=\"16\"><path d=\"M8 5.14v13.72a1 1 0 0 0 1.52.85l11.14-6.86a1 1 0 0 0 0-1.7L9.52 4.29A1 1 0 0 0 8 5.14Z\"/></svg></button><div class=\"ds-timeline\"><div class=\"ds-markers\"><button class=\"ds-marker ds-marker--crit\" style=\"left:42%\"></button><button class=\"ds-marker ds-marker--ok\" style=\"left:12%\"></button></div><div class=\"ds-track\"><span class=\"ds-band\" style=\"left:0;width:14%;background:#4338ca\"></span><span class=\"ds-band\" style=\"left:15%;width:9%;background:#0f766e\"></span><span class=\"ds-band\" style=\"left:25%;width:18%;background:#4338ca\"></span><span class=\"ds-band\" style=\"left:44%;width:28%;background:#0f766e\"></span></div><div class=\"ds-playhead\" style=\"left:32%\"></div></div><div class=\"ds-time\"><b>2:04</b> / 6:19</div></div>",
+      "css": ".ds-transport{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid #e4e7ec;border-radius:6px;padding:12px 14px;box-shadow:0 1px 3px rgba(16,24,40,.06);font-family:Inter,system-ui,sans-serif}.ds-play{flex-shrink:0;width:36px;height:36px;border-radius:999px;background:#0f172a;color:#fff;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .12s}.ds-play:hover{background:#1e293b}.ds-timeline{position:relative;flex:1;padding:12px 0 4px;cursor:pointer}.ds-track{position:relative;height:28px;border-radius:4px;background:#eef1f4;overflow:hidden}.ds-band{position:absolute;top:0;height:100%;opacity:.78}.ds-markers{position:absolute;left:0;right:0;top:0;height:12px}.ds-marker{position:absolute;top:0;width:10px;height:10px;margin-left:-5px;padding:0;border:none;background:none;cursor:pointer}.ds-marker::before{content:'';display:block;width:7px;height:7px;margin:0 auto;transform:rotate(45deg);border-radius:1px}.ds-marker--crit::before{background:#7f1d1d}.ds-marker--ok::before{background:#94a3b8}.ds-marker:hover::before{transform:rotate(45deg) scale(1.45)}.ds-playhead{position:absolute;top:12px;bottom:4px;left:32%;width:2px;margin-left:-1px;background:#0f172a}.ds-playhead::after{content:'';position:absolute;top:-3px;left:-3px;width:8px;height:8px;border-radius:999px;background:#0f172a}.ds-time{font:400 12px/1.2 Inter,system-ui,sans-serif;color:#475569;white-space:nowrap;font-variant-numeric:tabular-nums}.ds-time b{color:#0f172a;font-weight:600}"
+    },
+    {
+      "name": "Sidebar Navigation",
+      "kind": "nav",
+      "refersTo": null,
+      "description": "The system's only dark chrome and only gradient. Active item takes an indigo wash and a 3px left marker.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-link is-active\" href=\"#\">Dashboard</a><a class=\"ds-nav-link\" href=\"#\">Upload</a><a class=\"ds-nav-link\" href=\"#\">History</a></nav>",
+      "css": ".ds-nav{width:256px;padding:12px;background:linear-gradient(180deg,#0f172a 0%,#172554 55%,#312e81 100%);font-family:Inter,system-ui,sans-serif}.ds-nav-link{display:flex;align-items:center;gap:12px;padding:9px 16px;border-radius:8px;border-left:3px solid transparent;color:#a5b0c7;font:500 14px/1.3 Inter,system-ui,sans-serif;text-decoration:none;transition:background .15s,color .15s}.ds-nav-link:hover{background:rgba(255,255,255,.06);color:#e6eaf3}.ds-nav-link.is-active{background:rgba(99,102,241,.16);color:#fff;border-left-color:#818cf8}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Instrument Panel",
+    "overview": "Qaboom is read by a reviewer who lives in it for hours and a manager who opens it to answer one question \u2014 is this defensible? The system behaves like instrumentation rather than a brochure: flat, dense, hairline-ruled, nothing decorated that could instead be measured.\n\nThe register is the call-intelligence category executed at full fidelity \u2014 a deliberate commitment, because the product needs to read as a peer of the tools a buyer already evaluates. Distinctiveness lives in the graded call itself, where a speaker timeline, evidence markers and a synced transcript turn a verdict into something you can hear.\n\nColour is rationed hard. The interface is near-neutral so green, red and oxblood mean exactly one thing each. Brand indigo is an action colour, never a mood. Indigo and teal are reserved as data \u2014 they identify speakers, nothing else.",
+    "keyCharacteristics": [
+      "Flat by default; hairlines and tonal steps carry structure, not shadows",
+      "Dense over airy \u2014 more rows visible beats more whitespace",
+      "Tabular figures everywhere a number can be compared",
+      "Semantic colour reserved for verdicts; brand colour reserved for action",
+      "Speaker colour is information, not ornament",
+      "Every text tier clears WCAG AA; one tier is explicitly non-text"
+    ],
+    "rules": [
+      {
+        "name": "The Verdict Monopoly Rule",
+        "section": "colors",
+        "body": "Green, red and oxblood mean pass, fail and auto-fail. Nothing else on any screen may use them."
+      },
+      {
+        "name": "The Non-Text Floor Rule",
+        "section": "colors",
+        "body": "decor (#94a3b8) is 2.6:1 and may never carry text. When a value looks too light, take the next tier up, never a new lighter value."
+      },
+      {
+        "name": "The Speaker Colour Rule",
+        "section": "colors",
+        "body": "Indigo and teal identify speakers. A surface not about who was talking does not use them as accents."
+      },
+      {
+        "name": "The Four Steps Rule",
+        "section": "typography",
+        "body": "28 / 18 / 14 / 12px. There is no fifth size."
+      },
+      {
+        "name": "The Tight Floor Rule",
+        "section": "typography",
+        "body": "The 14 to 12px step is 1.17x on purpose. Below body, weight, case and colour carry the distinction instead of size."
+      },
+      {
+        "name": "The Tabular Rule",
+        "section": "typography",
+        "body": "Any figure a user might compare down a column gets tabular-nums."
+      },
+      {
+        "name": "The Earned Shadow Rule",
+        "section": "elevation",
+        "body": "A shadow requires a real z-relationship. Decorative elevation on a resting panel is a defect."
+      },
+      {
+        "name": "The Two Radii Rule",
+        "section": "shapes",
+        "body": "6px contains, 4px controls. A third value is drift."
+      }
+    ],
+    "dos": [
+      "Do reach for a hairline and a tonal step before reaching for a shadow.",
+      "Do give every number a comparison job tabular-nums.",
+      "Do put evidence and guidance in the 58ch citation treatment, under the thing they qualify.",
+      "Do label every form control visibly; placeholders disappear on first keystroke.",
+      "Do keep the verdict vocabulary to pass / fail / critical, and render critical as the only solid fill.",
+      "Do let a surface render honestly when data is missing."
+    ],
+    "donts": [
+      "Don't use a colour below 4.5:1 for text. decor exists for glyphs only.",
+      "Don't add a fifth type size or an 11px tier.",
+      "Don't put green, red or oxblood on anything that is not a verdict.",
+      "Don't use speaker indigo or teal as a general accent.",
+      "Don't put a thick coloured border on the side or top of a card.",
+      "Don't render a chart, waveform or ratio from data the product does not actually have.",
+      "Don't introduce a radius between 4px and 6px, or above 6px on a panel."
+    ]
+  }
+}
