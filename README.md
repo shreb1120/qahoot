@@ -53,6 +53,37 @@ Flask app  ──► AssemblyAI (universal, speaker labels)
 
 ---
 
+## Styling — rebuild CSS after editing templates
+
+Tailwind is compiled ahead of time into `static/tailwind.css`. It used to load
+from a CDN and compile in the browser on every page load; that was ~126 KB of
+compiler on the critical path plus an outage dependency on a third party.
+
+**After editing anything in `templates/` or `static/*.js`, run:**
+
+```bash
+./build-css.sh
+sudo systemctl restart qaboom
+```
+
+Tailwind only emits the utility classes it can actually find in your files. If
+you add a class to a template and don't rebuild, that class simply won't exist
+and the element will render unstyled. The app logs a warning at startup when
+`static/tailwind.css` is older than a template, so check the service log if
+something looks wrong:
+
+```bash
+sudo systemctl status qaboom
+```
+
+While editing a lot, `./build-css.sh --watch` rebuilds automatically.
+
+Node is only needed to *build* the CSS. The running server just serves the
+committed file — production needs no Node at all.
+
+Inter is self-hosted in `static/fonts/` (variable font, latin + latin-ext).
+Nothing needs regenerating unless the required weights or subsets change.
+
 ## Routes
 
 | Path | Method | Purpose |

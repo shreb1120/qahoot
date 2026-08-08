@@ -1,0 +1,12 @@
+{
+  "name": "qaboom",
+  "private": true,
+  "description": "Build-time CSS toolchain. Not needed at runtime — the server only serves the built file.",
+  "scripts": {
+    "build:css": "tailwindcss -c tailwind.config.js -i ./static/src/tailwind.css -o ./static/tailwind.css --minify",
+    "watch:css": "tailwindcss -c tailwind.config.js -i ./static/src/tailwind.css -o ./static/tailwind.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.17"
+  }
+}

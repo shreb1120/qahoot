@@ -5,39 +5,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Qaboom{% endblock %}</title>
 
-  {# Tailwind CDN — preflight disabled to preserve browser defaults #}
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      corePlugins: { preflight: false },
-      theme: {
-        extend: {
-          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
-          colors: {
-            /* ── Design system: Direction A — Indigo Enterprise ── */
-            /* Primary brand: indigo. Neutral: slate. Semantic: emerald/red/amber. */
-            brand: { 50:'#eef2ff', 100:'#e0e7ff', 200:'#c7d2fe', 500:'#6366f1', 600:'#4f46e5', 700:'#4338ca', 800:'#3730a3', 900:'#312e81' },
-            surface: { DEFAULT:'#f5f6fa', card:'#ffffff', ink:'#0f172a', muted:'#64748b', border:'#e2e8f0' },
-            sidebar: { DEFAULT:'#0f172a', hover:'rgba(255,255,255,0.06)' },
-            ok: '#059669',   /* pass */
-            bad: '#dc2626',  /* fail */
-            warn: '#d97706', /* warning */
-          }
-        }
-      }
-    }
-  </script>
-
-  {# Inter font #}
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-
-  <link rel="stylesheet" href="{{ url_for('static', filename='overrides.css') }}">
+  {# Fonts and CSS are all same-origin: no third-party request blocks the
+     first paint. Tailwind is built ahead of time by `npm run build:css`
+     (config in tailwind.config.js) instead of compiled in the browser. #}
+  <link rel="preload" href="{{ static_url('fonts/inter-latin.woff2') }}" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="{{ static_url('fonts.css') }}">
+  <link rel="stylesheet" href="{{ static_url('tailwind.css') }}">
+  <link rel="stylesheet" href="{{ static_url('overrides.css') }}">
 
   <style>
-    *, *::before, *::after { font-family: 'Inter', system-ui, sans-serif; }
-    body { margin: 0; background: #f5f6fa; }
+    /* Scoped to body so <code> and .font-mono keep their own family — the old
+       universal selector forced Inter onto <code> too, which mattered most on
+       the auto-fail phrases where exact wording is the point. Form controls do
+       not inherit font by default, so they opt in explicitly. */
+    body { font-family: 'Inter', system-ui, sans-serif; margin: 0; background: #f5f6fa; }
+    button, input, select, textarea { font-family: inherit; font-size: 100%; }
   </style>
 
   {% block head %}{% endblock %}

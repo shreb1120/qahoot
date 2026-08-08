@@ -143,17 +143,17 @@
                 </td>
                 <td class="px-4 py-2.5 min-w-[130px]">
                   {% if ov == 'approved' %}
-                    <span class="inline-block text-xs font-semibold px-2 py-0.5 rounded bg-green-50 text-green-700 mb-1">✓ Approved</span>
+                    <span class="ov-pill inline-block text-xs font-semibold px-2 py-0.5 rounded bg-green-50 text-green-700 mb-1">✓ Approved</span>
                   {% elif ov == 'failed' %}
-                    <span class="inline-block text-xs font-semibold px-2 py-0.5 rounded bg-red-50 text-red-700 mb-1">✗ Flagged</span>
+                    <span class="ov-pill inline-block text-xs font-semibold px-2 py-0.5 rounded bg-red-50 text-red-700 mb-1">✗ Flagged</span>
                   {% endif %}
                   <div class="override-btns" data-section-key="{{ sk }}" data-item-name="{{ item.name }}">
-                    <button class="ov-btn ov-approve {{ 'ov-active' if ov == 'approved' }}"
-                            onclick="setOverride(this, 'approved')">Approve</button>
-                    <button class="ov-btn ov-flag {{ 'ov-active' if ov == 'failed' }}"
-                            onclick="setOverride(this, 'failed')">Flag</button>
+                    <button type="button" class="ov-btn ov-approve {{ 'ov-active' if ov == 'approved' }}"
+                            data-idle="Approve" onclick="setOverride(this, 'approved')">Approve</button>
+                    <button type="button" class="ov-btn ov-flag {{ 'ov-active' if ov == 'failed' }}"
+                            data-idle="Flag" onclick="setOverride(this, 'failed')">Flag</button>
                     {% if ov %}
-                      <button class="ov-btn ov-clear" onclick="setOverride(this, '')">Clear</button>
+                      <button type="button" class="ov-btn ov-clear" data-idle="Clear" onclick="setOverride(this, '')">Clear</button>
                     {% endif %}
                   </div>
                 </td>
@@ -239,6 +239,9 @@
   {% endif %}
 
   <p class="mt-6 text-sm"><a href="{{ url_for('calls.history') }}" class="text-slate-500 no-underline hover:text-slate-700">← Call history</a></p>
+
+  {# Announces override changes now that the page no longer reloads. #}
+  <p class="qb-sr-only" id="override-status" role="status" aria-live="polite"></p>
 </div>
 {% endblock %}
 
@@ -302,6 +305,57 @@ function seekTo(ts) {
 
 // Overrides are a compliance decision — a click that quietly does nothing is
 // worse than an error. Every failure path reports back into the row.
+// Repaint one override cell from the new status. A full reload here used to
+// stop audio playback and jump to the top of a long report on every click —
+// exactly when the reviewer is deepest in the task.
+function applyOverride(cell, status) {
+  const td = cell.parentElement;
+  cell.dataset.busy = '';
+
+  let pill = td.querySelector('.ov-pill');
+  if (!pill) {
+    pill = document.createElement('span');
+    pill.className = 'ov-pill';
+    td.insertBefore(pill, cell);
+  }
+  if (status === 'approved') {
+    pill.className = 'ov-pill inline-block text-xs font-semibold px-2 py-0.5 rounded bg-green-50 text-green-700 mb-1';
+    pill.textContent = '\u2713 Approved';
+  } else if (status === 'failed') {
+    pill.className = 'ov-pill inline-block text-xs font-semibold px-2 py-0.5 rounded bg-red-50 text-red-700 mb-1';
+    pill.textContent = '\u2717 Flagged';
+  } else {
+    pill.remove();
+  }
+
+  cell.querySelectorAll('.ov-btn').forEach(function (b) {
+    b.disabled = false;
+    if (b.dataset.idle) b.textContent = b.dataset.idle;
+    const target = b.classList.contains('ov-approve') ? 'approved'
+                 : b.classList.contains('ov-flag')    ? 'failed' : null;
+    if (target) b.classList.toggle('ov-active', status === target);
+  });
+
+  // The Clear button only exists while an override is set.
+  let clear = cell.querySelector('.ov-clear');
+  if (status && !clear) {
+    clear = document.createElement('button');
+    clear.type = 'button';
+    clear.className = 'ov-btn ov-clear';
+    clear.textContent = 'Clear';
+    clear.addEventListener('click', function () { setOverride(clear, ''); });
+    cell.appendChild(clear);
+  } else if (!status && clear) {
+    clear.remove();
+  }
+
+  const live = document.getElementById('override-status');
+  if (live) {
+    live.textContent = 'Override ' + (status === 'approved' ? 'approved'
+                     : status === 'failed' ? 'flagged' : 'cleared') + '.';
+  }
+}
+
 function setOverride(btn, status) {
   const cell = btn.closest('.override-btns');
   if (!cell || cell.dataset.busy === '1') return;
@@ -345,7 +399,7 @@ function setOverride(btn, status) {
     if (!r.ok) { fail('Could not save that override (error ' + r.status + '). Try again.'); return null; }
     return r.json();
   })
-  .then(data => { if (data) window.location.reload(); })
+  .then(data => { if (data) applyOverride(cell, status); })
   .catch(() => fail('Could not reach the server. Check your connection and try again.'));
 }
 </script>

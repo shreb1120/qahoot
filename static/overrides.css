@@ -128,11 +128,28 @@
 .status-complete     { background: #ecfdf5; color: #047857; }  /* 5.3:1 */
 .status-error        { background: #fef2f2; color: #b91c1c; }  /* 6.0:1 */
 
-/* ── Progress bar shimmer ── */
+/* ── Progress bar shimmer ──
+   The fill is full-width and scaled on the X axis, so progress animates on the
+   compositor via transform instead of reflowing every in-flight row on each
+   frame. JS sets --progress (0..1) rather than a width. */
 .progress-wrap { margin-top: 5px; height: 4px; background: #e2e8f0; border-radius: 999px; overflow: hidden; }
-.progress-fill { height: 4px; border-radius: 999px; background: var(--brand-600); transition: width 0.7s ease; position: relative; overflow: hidden; }
-.progress-fill::after { content: ''; position: absolute; top: 0; left: -80%; width: 60%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent); animation: bar-shimmer 1.6s infinite; }
-@keyframes bar-shimmer { to { left: 160%; } }
+.progress-fill {
+  height: 4px; border-radius: 999px; background: var(--brand-600);
+  position: relative; overflow: hidden;
+  width: 100%; transform-origin: left center;
+  transform: scaleX(var(--progress, 0));
+  transition: transform 0.7s ease;
+}
+/* Shimmer also rides transform; `left` would animate layout. */
+.progress-fill::after {
+  content: ''; position: absolute; top: 0; left: 0; width: 60%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent);
+  animation: bar-shimmer 1.6s linear infinite;
+}
+@keyframes bar-shimmer {
+  from { transform: translateX(-133%); }
+  to   { transform: translateX(266%); }
+}
 
 /* ── Transcript highlight ── */
 .transcript-line.playing { background: #fef9c3; border-left: 3px solid #eab308; padding-left: 0.6rem; }

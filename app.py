@@ -66,14 +66,17 @@ def create_app(config_class: type = Config) -> Flask:
         # CSP allows Clerk's CDN and API domains needed for the JS components.
         # 'unsafe-inline' for style-src is required by Clerk's embedded components;
         # this will be tightened with a nonce in Phase 4.
+        # Tailwind and Inter are now built and self-hosted, so cdn.tailwindcss.com,
+        # fonts.googleapis.com and fonts.gstatic.com are gone from every
+        # directive — the app no longer executes or loads anything from them.
         csp = (
             "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdn.tailwindcss.com https://*.clerk.accounts.dev https://*.clerk.com; "
-            "style-src 'self' 'unsafe-inline' https://*.clerk.accounts.dev https://fonts.googleapis.com; "
+            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://*.clerk.accounts.dev https://*.clerk.com; "
+            "style-src 'self' 'unsafe-inline' https://*.clerk.accounts.dev; "
             "img-src 'self' data: https://*.clerk.accounts.dev https://img.clerk.com; "
-            "connect-src 'self' https://cdn.tailwindcss.com https://*.clerk.accounts.dev https://*.clerk.com https://*.clerkinc.com wss://*.clerk.accounts.dev wss://*.clerk.com; "
+            "connect-src 'self' https://*.clerk.accounts.dev https://*.clerk.com https://*.clerkinc.com wss://*.clerk.accounts.dev wss://*.clerk.com; "
             "frame-src https://*.clerk.accounts.dev https://*.clerk.com; "
-            "font-src 'self' https://*.clerk.accounts.dev https://fonts.gstatic.com; "
+            "font-src 'self' https://*.clerk.accounts.dev; "
             "object-src 'none'; "
             "base-uri 'self'; "
             "frame-ancestors 'none'"
@@ -90,6 +93,59 @@ def create_app(config_class: type = Config) -> Flask:
     @app.context_processor
     def inject_clerk_key():
         return {"clerk_key": app.config.get("CLERK_PUBLISHABLE_KEY", "")}
+
+    # ── Cache-busted static URLs ──────────────────────────────────────────
+    # The built CSS and the font files never change without their content
+    # changing, so they can be cached hard — provided the URL moves when the
+    # file does. Hash is computed once per file per process.
+    _asset_hashes: dict = {}
+
+    def static_url(filename: str) -> str:
+        import hashlib
+        if filename not in _asset_hashes:
+            path = os.path.join(app.static_folder, filename)
+            try:
+                with open(path, "rb") as fh:
+                    _asset_hashes[filename] = hashlib.md5(fh.read()).hexdigest()[:10]
+            except OSError:
+                logger.warning("static_url: %s not found", filename)
+                _asset_hashes[filename] = "missing"
+        return url_for("static", filename=filename, v=_asset_hashes[filename])
+
+    app.jinja_env.globals["static_url"] = static_url
+
+    @app.after_request
+    def cache_static(response):
+        # Only fingerprinted URLs get a long max-age; anything else keeps
+        # Flask's conditional-request default so it can never go stale.
+        if request.path.startswith("/static/") and request.args.get("v"):
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        return response
+
+    # ── Built CSS freshness check ─────────────────────────────────────────
+    # Tailwind is compiled ahead of time, so a template edited after the last
+    # build gets classes that were never emitted — styles silently missing on
+    # that page. Cheap mtime check at boot turns that into a loud log line.
+    def _warn_if_css_stale():
+        css = os.path.join(app.static_folder, "tailwind.css")
+        if not os.path.exists(css):
+            logger.error("static/tailwind.css is MISSING — run ./build-css.sh")
+            return
+        built = os.path.getmtime(css)
+        newer = [
+            os.path.join(root, f)
+            for root, _, files in os.walk(app.template_folder)
+            for f in files if f.endswith(".html")
+            and os.path.getmtime(os.path.join(root, f)) > built
+        ]
+        if newer:
+            logger.warning(
+                "static/tailwind.css is older than %d template(s) — run "
+                "./build-css.sh or new classes will have no styles. First: %s",
+                len(newer), os.path.relpath(newer[0], app.root_path),
+            )
+
+    _warn_if_css_stale()
 
     # ── Upload directory ──────────────────────────────────────────────────
     import os as _os

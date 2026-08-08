@@ -1,0 +1,6 @@
+/* Source for static/tailwind.css — rebuild with `npm run build:css`.
+   `base` still emits Tailwind's --tw-* defaults (needed by ring/shadow
+   utilities) even though preflight is off. */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

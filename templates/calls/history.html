@@ -120,13 +120,13 @@
                     <span class="status-badge status-error" id="sbadge-{{ call.id }}">Error</span>
                   {% elif call.status == 'transcribing' %}
                     <span class="status-badge status-transcribing" id="sbadge-{{ call.id }}">Transcribing</span>
-                    <div class="progress-wrap"><div class="progress-fill" id="pfill-{{ call.id }}" style="width:40%"></div></div>
+                    <div class="progress-wrap"><div class="progress-fill" id="pfill-{{ call.id }}" style="--progress:.40"></div></div>
                   {% elif call.status == 'analyzing' %}
                     <span class="status-badge status-analyzing" id="sbadge-{{ call.id }}">Analyzing</span>
-                    <div class="progress-wrap"><div class="progress-fill" id="pfill-{{ call.id }}" style="width:75%"></div></div>
+                    <div class="progress-wrap"><div class="progress-fill" id="pfill-{{ call.id }}" style="--progress:.75"></div></div>
                   {% else %}
                     <span class="status-badge status-pending" id="sbadge-{{ call.id }}">Pending</span>
-                    <div class="progress-wrap"><div class="progress-fill" id="pfill-{{ call.id }}" style="width:8%"></div></div>
+                    <div class="progress-wrap"><div class="progress-fill" id="pfill-{{ call.id }}" style="--progress:.08"></div></div>
                   {% endif %}
                 </td>
                 <td class="px-4 py-3">
@@ -194,7 +194,7 @@
 (function () {
   const STATUS_LABEL = { pending:'Pending', transcribing:'Transcribing', analyzing:'Analyzing', complete:'Complete', error:'Error' };
   const STATUS_CLASS = { pending:'status-pending', transcribing:'status-transcribing', analyzing:'status-analyzing', complete:'status-complete', error:'status-error' };
-  const STATUS_WIDTH = { pending:'8%', transcribing:'40%', analyzing:'75%', complete:'100%' };
+  const STATUS_PROGRESS = { pending:'.08', transcribing:'.40', analyzing:'.75', complete:'1' };
 
   function getPendingRowIds() {
     return Array.from(document.querySelectorAll('tr[id^="row-"]'))
@@ -223,7 +223,7 @@
       badge.textContent = label;
     }
     const fill = document.getElementById('pfill-' + id);
-    if (fill) fill.style.width = STATUS_WIDTH[status] || fill.style.width;
+    if (fill && STATUS_PROGRESS[status]) fill.style.setProperty('--progress', STATUS_PROGRESS[status]);
   }
 
   function markComplete(id) {

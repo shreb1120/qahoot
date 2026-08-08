@@ -48,3 +48,6 @@ uploads/
 .claude/
 .impeccable/hook.cache.json
 .impeccable/config.local.json
+
+# Node build toolchain (CSS build only — not needed at runtime)
+node_modules/
