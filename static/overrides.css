@@ -22,10 +22,12 @@
   --ink:       #0f172a;   /* page titles            16.1:1 */
   --ink-2:     #334155;   /* body strong            10.4:1 */
   --muted:     #475569;   /* secondary text          7.4:1 */
-  --faint:     #64748b;   /* tertiary text, labels   4.8:1 — the AA floor */
+  --faint:     #5c6a80;   /* tertiary text, labels — the AA floor.
+                             5.07:1 on --c-bg, 5.49:1 on --c-panel. Was #64748b,
+                             which cleared 4.5:1 on white but only reached 4.40:1
+                             on the page ground, where much of this text sits. */
   --decor:     #94a3b8;   /* NON-TEXT ONLY           2.6:1 — icons, rules */
   --border:    #e5e7eb;
-  --surface:   #f5f6fa;   /* page background */
   --card:      #ffffff;
 
   /* ── Semantic ── */
@@ -163,8 +165,9 @@
 }
 .ov-btn:hover { background: var(--c-panel-2); border-color: var(--c-line-3); }
 .ov-btn:disabled { opacity: .55; cursor: not-allowed; }
-.ov-approve.ov-active { background: #ecfdf5; border-color: #059669; color: #059669; }
-.ov-flag.ov-active { background: #fef2f2; border-color: #dc2626; color: #dc2626; }
+/* Canon verdict colours. The pre-colorize pair was 3.58:1 and 4.41:1. */
+.ov-approve.ov-active { background: #ecfdf5; border-color: #a7f3d0; color: #047857; }  /* 5.21:1 */
+.ov-flag.ov-active    { background: #fef2f2; border-color: #fecaca; color: #b91c1c; }  /* 5.91:1 */
 .ov-clear { color: #64748b; }
 
 /* ── Timestamp links ── */
@@ -320,7 +323,7 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
    ============================================================================ */
 
 :root {
-  --c-bg:      #f5f6f8;
+  --c-bg:      #f5f6f8;   /* the page ground — the only one */
   --c-panel:   #ffffff;
   --c-panel-2: #fafbfc;
   --c-line:    #e4e7ec;
@@ -407,11 +410,14 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 .rp-time b { color: var(--ink); font-weight: 600; }
 
 /* ── Timeline ── */
+/* role=slider lives on .rp-track, not here: the evidence markers are focusable
+   buttons and a slider may not contain focusable children (axe nested-interactive). */
 .rp-timeline { position: relative; flex: 1; min-width: 0; cursor: pointer; padding: .75rem 0 .25rem; }
 .rp-track {
   position: relative; height: 1.75rem; border-radius: var(--c-radius-sm);
   background: var(--c-track); overflow: hidden;
 }
+.rp-track:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .rp-band { position: absolute; top: 0; height: 100%; }
 .rp-band--a { background: var(--spk-a); opacity: .78; }
 .rp-band--b { background: var(--spk-b); opacity: .78; }
@@ -443,6 +449,15 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 .rp-marker--ok::before   { background: #94a3b8; }
 .rp-marker:hover::before, .rp-marker:focus-visible::before { transform: rotate(45deg) scale(1.45); }
 .rp-marker:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+/* Marker positions come from timestamps, so on a narrow track they collide:
+   two disclosures 30s apart on a 6-minute call sit 18px apart at 390px wide,
+   and no target size can fix overlapping targets. Below the split breakpoint
+   the markers become indicators. Nothing is lost — every marker's timestamp is
+   also a >=24px button in the items table, doing exactly the same seek. */
+@media (max-width: 1179.98px) {
+  .rp-marker { pointer-events: none; }
+} 
 
 .rp-legend { display: flex; flex-wrap: wrap; align-items: center; gap: .875rem; margin-top: .5rem; }
 .rp-legend-item {

@@ -8,7 +8,7 @@
     <h1 class="qb-page-title mb-4">Compliance checklist</h1>
     <div class="rp-panel rp-empty">
       <h2 class="qb-section-title mb-1">No compliance profile yet</h2>
-      <p class="text-sm text-slate-600 max-w-md mx-auto">This organization has no active checklist, so calls cannot be graded. Contact support if you expected one here.</p>
+      <p class="text-sm text-muted max-w-md mx-auto">This organization has no active checklist, so calls cannot be graded. Contact support if you expected one here.</p>
     </div>
   {% else %}
     {% set sections = profile.script_sections_json.get('sections', []) %}
@@ -24,7 +24,7 @@
     <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
       <div class="min-w-0">
         <h1 class="qb-page-title">Compliance checklist</h1>
-        <p class="text-xs text-slate-600 mt-1.5 rp-num">
+        <p class="text-xs text-muted mt-1.5 rp-num">
           {{ profile.name }} · {{ sections | length }} section{{ 's' if sections | length != 1 }}
           · {{ ns.items }} item{{ 's' if ns.items != 1 }} ({{ ns.required }} required)
           · {{ phrases | length }} auto-fail phrase{{ 's' if phrases | length != 1 }}
@@ -35,7 +35,7 @@
       {% endif %}
     </div>
 
-    <p class="text-sm text-slate-600 mb-4 max-w-2xl">
+    <p class="text-sm text-muted mb-4 max-w-2xl">
       Every uploaded call is graded against these items. Sections group related
       disclosures; auto-fail phrases fail a call outright wherever they appear.
     </p>
@@ -54,7 +54,7 @@
         <div class="rp-panel-head">
           <h2 class="rp-panel-title">{{ section.name }}</h2>
           <div class="flex items-center gap-3">
-            <span class="text-xs text-slate-600 rp-num">{{ items | length }} item{{ 's' if items | length != 1 }}</span>
+            <span class="text-xs text-muted rp-num">{{ items | length }} item{{ 's' if items | length != 1 }}</span>
             {% if is_admin %}
               <form method="post" action="{{ url_for('profile.delete_section', section_idx=si) }}"
                     data-confirm="Delete the section &quot;{{ section.name }}&quot; and all {{ items | length }} of its items? Existing reports keep their results; future calls will no longer be graded on them.">
@@ -97,7 +97,7 @@
                                      value="{{ item.get('notes', '') }}" maxlength="500"
                                      placeholder="How a grader should judge this">
                             </div>
-                            <label class="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer whitespace-nowrap h-8">
+                            <label class="flex items-center gap-1.5 text-xs text-ink-2 cursor-pointer whitespace-nowrap h-8">
                               <input type="checkbox" name="required" value="true" {% if item.get('required', True) %}checked{% endif %}> Required
                             </label>
                             <button type="submit" class="rp-btn">Save</button>
@@ -126,7 +126,7 @@
             </table>
           </div>
         {% else %}
-          <p class="px-3.5 py-3 text-sm text-slate-600">No items in this section yet{{ ' — add one below.' if is_admin else '.' }}</p>
+          <p class="px-3.5 py-3 text-sm text-muted">No items in this section yet{{ ' — add one below.' if is_admin else '.' }}</p>
         {% endif %}
 
         {% if is_admin %}
@@ -145,7 +145,7 @@
                   <input class="rp-input" type="text" id="a-notes-{{ si }}" name="notes" maxlength="500"
                          placeholder="How a grader should judge this">
                 </div>
-                <label class="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer whitespace-nowrap h-8">
+                <label class="flex items-center gap-1.5 text-xs text-ink-2 cursor-pointer whitespace-nowrap h-8">
                   <input type="checkbox" name="required" value="true" checked> Required
                 </label>
                 <button type="submit" class="rp-btn">Add item</button>
@@ -159,7 +159,7 @@
     {% if not sections %}
       <div class="rp-panel rp-empty mb-4">
         <h2 class="qb-section-title mb-1">No sections yet</h2>
-        <p class="text-sm text-slate-600 max-w-md mx-auto">{{ 'Add a section below to start building your checklist.' if is_admin else 'Ask an admin to set up your compliance checklist.' }}</p>
+        <p class="text-sm text-muted max-w-md mx-auto">{{ 'Add a section below to start building your checklist.' if is_admin else 'Ask an admin to set up your compliance checklist.' }}</p>
       </div>
     {% endif %}
 
@@ -183,7 +183,7 @@
     <div class="rp-panel overflow-hidden" style="border-color:#fecaca">
       <div class="rp-panel-head" style="background:#fef2f2;border-color:#fecaca">
         <h2 class="rp-panel-title" style="color:#b91c1c">Auto-fail phrases</h2>
-        <span class="text-xs text-slate-700">Saying any of these fails the call outright</span>
+        <span class="text-xs text-ink-2">Saying any of these fails the call outright</span>
       </div>
 
       {% if phrases %}
@@ -216,7 +216,7 @@
           </table>
         </div>
       {% else %}
-        <p class="px-3.5 py-3 text-sm text-slate-600">No auto-fail phrases defined{{ ' — add one below.' if is_admin else '.' }}</p>
+        <p class="px-3.5 py-3 text-sm text-muted">No auto-fail phrases defined{{ ' — add one below.' if is_admin else '.' }}</p>
       {% endif %}
 
       {% if is_admin %}

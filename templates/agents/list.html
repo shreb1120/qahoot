@@ -7,7 +7,7 @@
   <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
     <div class="min-w-0">
       <h1 class="qb-page-title">Agents</h1>
-      <p class="text-xs text-slate-600 mt-1.5 rp-num">
+      <p class="text-xs text-muted mt-1.5 rp-num">
         {{ agents | length }} agent{{ 's' if agents | length != 1 }} · calls are attributed and scored per agent
       </p>
     </div>
@@ -34,8 +34,8 @@
           <tbody>
             {% for agent in agents %}
               <tr>
-                <td class="qb-break font-medium text-slate-800">{{ agent.name }}</td>
-                <td class="rp-num text-slate-600">{{ agent.created_at.strftime('%b %d, %Y') }}</td>
+                <td class="qb-break font-medium text-ink-2">{{ agent.name }}</td>
+                <td class="rp-num text-muted">{{ agent.created_at.strftime('%b %d, %Y') }}</td>
                 {% if is_admin %}
                   <td>
                     <form method="post" action="{{ url_for('agents.delete_agent', agent_id=agent.id) }}"
@@ -56,14 +56,14 @@
         <svg fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z"/></svg>
       </div>
       <h2 class="qb-section-title mb-1">No agents yet</h2>
-      <p class="text-sm text-slate-600 max-w-sm mx-auto">{{ "Add your team's agents so every uploaded call can be attributed and scored per person." if is_admin else "Ask an admin to add your team's agents." }}</p>
+      <p class="text-sm text-muted max-w-sm mx-auto">{{ "Add your team's agents so every uploaded call can be attributed and scored per person." if is_admin else "Ask an admin to add your team's agents." }}</p>
     </div>
   {% endif %}
 
   {% if is_admin %}
     <div class="rp-panel p-4">
       <h2 class="qb-section-title mb-1">Add an agent</h2>
-      <p class="text-xs text-slate-600 mb-3">Enter the full name as it should appear on reports and write-ups.</p>
+      <p class="text-xs text-muted mb-3">Enter the full name as it should appear on reports and write-ups.</p>
       <form method="post" action="{{ url_for('agents.add_agent') }}" class="flex flex-wrap items-end gap-2" data-busy-label="Adding…">
         <div class="rp-field flex-1 min-w-[220px]">
           <label class="rp-field-label" for="agent-name">Agent full name</label>

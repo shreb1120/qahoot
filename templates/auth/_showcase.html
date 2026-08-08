@@ -17,8 +17,8 @@
     <span class="rp-demo-label">Sample</span>
     <div class="rp-demo-head">
       <div class="min-w-0">
-        <div class="text-xs font-semibold text-slate-900">Approval call · 6:19</div>
-        <div class="text-xs text-slate-500 rp-num">ALV-88214</div>
+        <div class="text-xs font-semibold text-ink">Approval call · 6:19</div>
+        <div class="text-xs text-faint rp-num">ALV-88214</div>
       </div>
       <span class="rp-verdict rp-verdict--sm rp-verdict--fail"><span class="rp-verdict-dot" aria-hidden="true"></span>FAIL</span>
     </div>
@@ -42,8 +42,8 @@
         {% else %}
           <span class="rp-status rp-status--miss"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></span>
         {% endif %}
-        <span class="flex-1 min-w-0 text-slate-700 truncate">{{ name }}</span>
-        <span class="rp-num text-slate-500">{{ ts or '—' }}</span>
+        <span class="flex-1 min-w-0 text-ink-2 truncate">{{ name }}</span>
+        <span class="rp-num text-faint">{{ ts or '—' }}</span>
       </div>
     {% endfor %}
   </div>

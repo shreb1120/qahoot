@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-08-08T22:26:19.056833+00:00",
+  "generatedAt": "2026-08-08T23:20:22.529335+00:00",
   "title": "Design System: Qaboom",
   "extensions": {
     "colorMeta": {
@@ -367,11 +367,6 @@
         "body": "Green, red and oxblood mean pass, fail and auto-fail. Nothing else on any screen may use them."
       },
       {
-        "name": "The Non-Text Floor Rule",
-        "section": "colors",
-        "body": "decor (#94a3b8) is 2.6:1 and may never carry text. When a value looks too light, take the next tier up, never a new lighter value."
-      },
-      {
         "name": "The Speaker Colour Rule",
         "section": "colors",
         "body": "Indigo and teal identify speakers. A surface not about who was talking does not use them as accents."
@@ -400,6 +395,16 @@
         "name": "The Three Radii Rule",
         "section": "shapes",
         "body": "6px contains, 4px controls, 2px marks. The 2px tier is only available to elements under 8px tall; anything larger takes 4px. A fourth value is drift."
+      },
+      {
+        "name": "The Non-Text Floor Rule",
+        "section": "colors",
+        "body": "decor (#94a3b8) is 2.6:1 and may never carry text. Every other tier clears 4.5:1 against the ground, not merely against panel \u2014 the ground is the darker surface and the one that decides."
+      },
+      {
+        "name": "The One Ramp Rule",
+        "section": "colors",
+        "body": "Text colour comes from ink / ink-2 / muted / faint, bound in tailwind.config.js to the CSS custom properties so a token change reaches every template. A raw text-slate-* utility puts that element outside the system."
       }
     ],
     "dos": [

@@ -7,7 +7,7 @@
   <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
     <div class="min-w-0">
       <h1 class="qb-page-title qb-break">{{ org.name }}</h1>
-      <p class="text-xs text-slate-600 mt-1.5">
+      <p class="text-xs text-muted mt-1.5">
         {{ user.email }}
         <span class="ml-1 inline-block px-1.5 py-0.5 rounded text-xs font-semibold border
           {% if user.role == 'admin' %}bg-indigo-50 text-indigo-700 border-indigo-200{% else %}bg-sky-50 text-sky-800 border-sky-200{% endif %}">{{ user.role }}</span>
@@ -33,7 +33,7 @@
         <div class="rp-metric-value {% if stats.pass_rate >= 80 %}!text-emerald-700{% elif stats.pass_rate >= 60 %}!text-amber-700{% else %}!text-red-700{% endif %}">{{ stats.pass_rate }}%</div>
         <div class="rp-metric-note">{{ stats.pass_count }} of {{ stats.completed }} passed</div>
       {% else %}
-        <div class="rp-metric-value !text-slate-400">—</div>
+        <div class="rp-metric-value !text-decor">—</div>
         <div class="rp-metric-note">no completed calls</div>
       {% endif %}
     </div>
@@ -56,7 +56,7 @@
     <div class="rp-panel mt-4">
       <div class="rp-panel-head"><h2 class="rp-panel-title">Get started</h2></div>
       <div class="p-4">
-        <p class="text-sm text-slate-600 mb-4">Three steps to your first compliance report.</p>
+        <p class="text-sm text-muted mb-4">Three steps to your first compliance report.</p>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {% for step in [
             (1, 'Add your agents', 'So every call can be attributed and scored per person.', url_for('agents.list_agents'), 'Manage agents'),
@@ -65,9 +65,9 @@
             <div class="rp-step">
               <div class="flex items-center gap-2 mb-1.5">
                 <span class="rp-step-n" aria-hidden="true">{{ step[0] }}</span>
-                <span class="text-sm font-semibold text-slate-800">{{ step[1] }}</span>
+                <span class="text-sm font-semibold text-ink-2">{{ step[1] }}</span>
               </div>
-              <p class="text-xs text-slate-600 mb-2">{{ step[2] }}</p>
+              <p class="text-xs text-muted mb-2">{{ step[2] }}</p>
               <a href="{{ step[3] }}" class="rp-link text-xs">{{ step[4] }} →</a>
             </div>
           {% endfor %}
@@ -81,7 +81,7 @@
       <div class="rp-panel mt-4" style="border-color:#fecaca">
         <div class="rp-panel-head" style="background:#fef2f2;border-color:#fecaca">
           <h2 class="rp-panel-title" style="color:#b91c1c">Needs review</h2>
-          <span class="text-xs text-slate-700 rp-num">{{ needs_review_total }} failed call{{ 's' if needs_review_total != 1 }} with no manager decision</span>
+          <span class="text-xs text-ink-2 rp-num">{{ needs_review_total }} failed call{{ 's' if needs_review_total != 1 }} with no manager decision</span>
         </div>
         <div>
           {% for call in needs_review %}
@@ -93,7 +93,7 @@
                 <span class="rp-verdict rp-verdict--sm rp-verdict--fail flex-shrink-0"><span class="rp-verdict-dot" aria-hidden="true"></span>FAIL</span>
               {% endif %}
               <span class="rp-activity-main">
-                <span class="rp-activity-name block text-slate-900">{{ call.agent.name if call.agent else 'Unassigned' }}</span>
+                <span class="rp-activity-name block text-ink">{{ call.agent.name if call.agent else 'Unassigned' }}</span>
                 <span class="rp-activity-meta">{% if call.alv_id %}ALV-{{ call.alv_id }} · {% endif %}{{ call.upload_date.strftime('%b %d, %H:%M') }}</span>
               </span>
               <span class="rp-link text-xs flex-shrink-0">Review →</span>
@@ -114,7 +114,7 @@
       <div class="lg:col-span-2 rp-panel overflow-hidden rp-col">
         <div class="rp-panel-head">
           <h2 class="rp-panel-title">Agent performance</h2>
-          <span class="text-xs text-slate-500">lowest pass rate first</span>
+          <span class="text-xs text-faint">lowest pass rate first</span>
         </div>
         <div class="rp-col-body">
           {% if agent_stats %}
@@ -131,7 +131,7 @@
                 <tbody>
                   {% for a in agent_stats %}
                     <tr>
-                      <td class="qb-break font-medium text-slate-800">{{ a.name }}</td>
+                      <td class="qb-break font-medium text-ink-2">{{ a.name }}</td>
                       <td>
                         <div class="flex items-center gap-2">
                           <span class="rp-num text-xs font-semibold {% if a.pass_rate >= 80 %}text-emerald-700{% elif a.pass_rate >= 60 %}text-amber-700{% else %}text-red-700{% endif %}" style="min-width:2.5rem">{{ a.pass_rate }}%</span>
@@ -140,15 +140,15 @@
                           </span>
                         </div>
                       </td>
-                      <td class="rp-num text-slate-600">{{ a.graded }}</td>
-                      <td class="rp-num {{ 'text-red-800 font-semibold' if a.critical else 'text-slate-500' }}">{{ a.critical or '—' }}</td>
+                      <td class="rp-num text-muted">{{ a.graded }}</td>
+                      <td class="rp-num {{ 'text-red-800 font-semibold' if a.critical else 'text-faint' }}">{{ a.critical or '—' }}</td>
                     </tr>
                   {% endfor %}
                 </tbody>
               </table>
             </div>
           {% else %}
-            <p class="p-4 text-sm text-slate-600">No graded calls attributed to an agent yet. Pass rates appear here once analysis finishes.</p>
+            <p class="p-4 text-sm text-muted">No graded calls attributed to an agent yet. Pass rates appear here once analysis finishes.</p>
           {% endif %}
         </div>
         <div class="rp-col-foot px-3.5 pb-3">
@@ -167,17 +167,17 @@
                 ('Failed',   stats.fail_count,     '#b91c1c'),
                 ('Critical', stats.critical_count, '#7f1d1d')] %}
                 <div class="rp-bar-row">
-                  <span class="text-xs font-medium text-slate-700">{{ label }}</span>
-                  <span class="text-xs font-bold text-slate-900 rp-num">{{ count }}</span>
+                  <span class="text-xs font-medium text-ink-2">{{ label }}</span>
+                  <span class="text-xs font-bold text-ink rp-num">{{ count }}</span>
                   <div class="rp-bar-track">
                     <div class="rp-bar-fill" style="--v:{{ (count / stats.completed) if stats.completed else 0 }};background:{{ colour }}"></div>
                   </div>
                 </div>
               {% endfor %}
             </div>
-            <p class="text-xs text-slate-500 mt-2.5 rp-num">{{ stats.completed }} completed call{{ 's' if stats.completed != 1 }}</p>
+            <p class="text-xs text-faint mt-2.5 rp-num">{{ stats.completed }} completed call{{ 's' if stats.completed != 1 }}</p>
           {% else %}
-            <p class="text-sm text-slate-600">No completed calls yet. Results appear here once analysis finishes.</p>
+            <p class="text-sm text-muted">No completed calls yet. Results appear here once analysis finishes.</p>
           {% endif %}
 
           {% if volume_peak %}
@@ -192,7 +192,7 @@
                         title="{{ v.day.strftime('%b %d') }}: {{ v.count }} call{{ 's' if v.count != 1 }}"></span>
                 {% endfor %}
               </div>
-              <div class="flex justify-between text-xs text-slate-500 mt-1 rp-num">
+              <div class="flex justify-between text-xs text-faint mt-1 rp-num">
                 <span>{{ volume[0].day.strftime('%b %d') }}</span>
                 <span>today</span>
               </div>
@@ -234,7 +234,7 @@
             {% elif 'FAIL' in det %}
               <span class="rp-verdict rp-verdict--sm rp-verdict--fail"><span class="rp-verdict-dot" aria-hidden="true"></span>FAIL</span>
             {% else %}
-              <span class="text-xs text-slate-500">—</span>
+              <span class="text-xs text-faint">—</span>
             {% endif %}
           </div>
         {% endfor %}

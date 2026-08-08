@@ -136,13 +136,18 @@ def test_agent_performance_does_not_count_another_orgs_call(tenants, db):
     assert "Acme Agent" in table, "agent performance row not rendered"
     assert "Borden" not in table, "another org's agent appeared in this org's table"
 
-    # Acme's agent owns exactly one graded call. The contaminated row would make
-    # it two, and would drag the pass rate from 0% to 50%.
-    graded = re.search(r'Acme Agent.*?rp-num text-slate-600">\s*(\d+)', table, re.S)
-    assert graded, "could not read the graded count"
-    assert graded.group(1) == "1", (
+    # Read the Graded column by position, not by CSS class — a styling rename
+    # should not be able to turn this assertion off. (It did once: the class was
+    # text-slate-600 until the ramp moved onto tokens.)
+    row = re.search(r"<tr>(?:(?!</tr>).)*?Acme Agent.*?</tr>", table, re.S)
+    assert row, "agent performance row not found"
+    cells = [re.sub(r"<[^>]+>", " ", c).strip()
+             for c in re.findall(r"<td[^>]*>(.*?)</td>", row.group(0), re.S)]
+    assert len(cells) >= 4, f"unexpected column count: {cells}"
+    graded = cells[2].split()[0]          # Agent | Pass rate | Graded | Critical
+    assert graded == "1", (
         f"another org's call was counted into this org's agent performance "
-        f"(graded={graded.group(1)}, expected 1)"
+        f"(graded={graded}, expected 1). Row cells: {cells}"
     )
 
 

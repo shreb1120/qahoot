@@ -4,7 +4,7 @@
 {% block content %}
 <div class="max-w-md mx-auto text-center pt-10">
   <h1 class="qb-page-title mb-2">Analyzing Call</h1>
-  <p class="text-sm text-slate-500 mb-6 qb-break">{{ call.filename }}</p>
+  <p class="text-sm text-faint mb-6 qb-break">{{ call.filename }}</p>
 
   <div id="status-display" class="mb-4" role="status" aria-live="polite">
     {% if call.status == 'pending' %}
@@ -24,7 +24,7 @@
   {% if call.status == 'error' %}
     <p><a href="{{ url_for('calls.upload_form') }}" class="rp-btn">Try again</a></p>
   {% else %}
-    <p class="text-sm text-slate-500 mb-4" id="wait-note">This usually takes 1–3 minutes depending on call length. This page will update automatically.</p>
+    <p class="text-sm text-faint mb-4" id="wait-note">This usually takes 1–3 minutes depending on call length. This page will update automatically.</p>
     <div class="spinner mx-auto" id="spinner" aria-hidden="true"></div>
     <div id="stalled-note" class="hidden mt-4 rp-panel p-3.5 text-sm text-left" style="background:#fffbeb;border-color:#fcd34d">
       <strong>This is taking longer than usual.</strong>
@@ -33,7 +33,7 @@
     </div>
   {% endif %}
 
-  <p class="mt-8 text-sm"><a href="{{ url_for('calls.history') }}" class="text-slate-500 no-underline hover:text-slate-700">← Call history</a></p>
+  <p class="mt-8 text-sm"><a href="{{ url_for('calls.history') }}" class="text-faint no-underline hover:text-ink-2">← Call history</a></p>
 </div>
 {% endblock %}
 

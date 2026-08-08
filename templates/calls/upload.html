@@ -6,13 +6,13 @@
 <div class="max-w-4xl">
   <div class="mb-4">
     <h1 class="qb-page-title">Upload a call</h1>
-    <p class="text-xs text-slate-600 mt-1.5">Audio or video, up to {{ max_upload_mb }} MB. Transcription and grading run automatically.</p>
+    <p class="text-xs text-muted mt-1.5">Audio or video, up to {{ max_upload_mb }} MB. Transcription and grading run automatically.</p>
   </div>
 
   {% if not has_profile %}
     <div class="rp-panel p-4" style="background:#fffbeb;border-color:#fcd34d">
       <h2 class="qb-section-title mb-1">No compliance checklist yet</h2>
-      <p class="text-sm text-slate-700">
+      <p class="text-sm text-ink-2">
         Calls are graded against your organization's checklist, so one has to exist first.
         {% if g.user.role == 'admin' %}
           <a href="{{ url_for('profile.view') }}" class="rp-link">Set up your checklist</a> to start uploading.
@@ -41,8 +41,8 @@
             <span class="rp-drop-icon" aria-hidden="true">
               <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/></svg>
             </span>
-            <span class="text-sm font-semibold text-slate-800" id="drop-label">Drag &amp; drop, or press Enter to browse</span>
-            <span class="text-xs text-slate-600" id="file-hint">MP3, MP4, WAV, M4A, OGG, WEBM and similar · up to {{ max_upload_mb }} MB</span>
+            <span class="text-sm font-semibold text-ink-2" id="drop-label">Drag &amp; drop, or press Enter to browse</span>
+            <span class="text-xs text-muted" id="file-hint">MP3, MP4, WAV, M4A, OGG, WEBM and similar · up to {{ max_upload_mb }} MB</span>
             <span class="text-xs font-medium text-indigo-800 qb-break max-w-full" id="drop-filename"></span>
             <input type="file" id="file" name="file" accept="audio/*,video/*" class="qb-sr-only"
                    aria-label="Call recording" aria-describedby="file-hint file-error">
@@ -57,7 +57,7 @@
                 {% if not loop.last %}<span class="rp-pipe-arrow" aria-hidden="true">→</span>{% endif %}
               {% endfor %}
             </div>
-            <p class="text-xs text-slate-600 mt-2">Usually 1–3 minutes. You can leave this page — the call appears in history either way.</p>
+            <p class="text-xs text-muted mt-2">Usually 1–3 minutes. You can leave this page — the call appears in history either way.</p>
           </div>
         </div>
       </div>
@@ -77,7 +77,7 @@
               </select>
               <p class="qb-field-error" id="agent-error" role="alert"></p>
             {% else %}
-              <p class="text-xs text-slate-700 p-2 rounded" style="background:#fffbeb;border:1px solid #fcd34d">
+              <p class="text-xs text-ink-2 p-2 rounded" style="background:#fffbeb;border:1px solid #fcd34d">
                 No agents yet.
                 {% if g.user.role == 'admin' %}<a href="{{ url_for('agents.list_agents') }}" class="rp-link">Add agents</a> first.{% else %}Ask an admin to add them.{% endif %}
               </p>
@@ -108,8 +108,8 @@
           {% if profile_summary %}
             <div class="pt-3 border-t border-slate-100">
               <div class="rp-metric-label mb-1">Graded against</div>
-              <p class="text-xs text-slate-700 font-medium qb-break">{{ profile_summary.name }}</p>
-              <p class="text-xs text-slate-600 rp-num">
+              <p class="text-xs text-ink-2 font-medium qb-break">{{ profile_summary.name }}</p>
+              <p class="text-xs text-muted rp-num">
                 {{ profile_summary.item_count }} item{{ 's' if profile_summary.item_count != 1 }} across
                 {{ profile_summary.sections }} section{{ 's' if profile_summary.sections != 1 }}{% if profile_summary.phrases %},
                 {{ profile_summary.phrases }} auto-fail phrase{{ 's' if profile_summary.phrases != 1 }}{% endif %}
@@ -124,7 +124,7 @@
     </form>
   {% endif %}
 
-  <p class="mt-4 text-xs"><a href="{{ url_for('calls.history') }}" class="text-slate-600 no-underline hover:text-slate-900">← Call history</a></p>
+  <p class="mt-4 text-xs"><a href="{{ url_for('calls.history') }}" class="text-muted no-underline hover:text-ink">← Call history</a></p>
 </div>
 {% endblock %}
 

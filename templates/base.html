@@ -18,7 +18,7 @@
        universal selector forced Inter onto <code> too, which mattered most on
        the auto-fail phrases where exact wording is the point. Form controls do
        not inherit font by default, so they opt in explicitly. */
-    body { font-family: 'Inter', system-ui, sans-serif; margin: 0; background: #f5f6fa; }
+    body { font-family: 'Inter', system-ui, sans-serif; margin: 0; background: var(--c-bg); }
     button, input, select, textarea { font-family: inherit; font-size: 100%; }
   </style>
 
@@ -74,7 +74,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
       <a href="{{ url_for('dashboard.index') }}" class="text-white font-bold text-lg tracking-tight no-underline flex items-center gap-2.5">
         <span class="w-2.5 h-2.5 rounded-sm bg-indigo-400 ring-2 ring-indigo-400/30" aria-hidden="true"></span>Qaboom
       </a>
-      <button id="sidebar-close" type="button" class="qb-icon-btn lg:hidden text-slate-400 hover:text-white" aria-label="Close menu">
+      <button id="sidebar-close" type="button" class="qb-icon-btn lg:hidden text-decor hover:text-white" aria-label="Close menu">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
       </button>
     </div>
@@ -152,7 +152,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
     {# ── Footer watermark ── #}
     {% if show_sidebar %}
     <div class="mt-12 pb-4 text-center">
-      <span class="text-xs text-slate-500 font-medium tracking-wide">Qaboom</span>
+      <span class="text-xs text-faint font-medium tracking-wide">Qaboom</span>
     </div>
     {% endif %}
   </div>

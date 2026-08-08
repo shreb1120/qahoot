@@ -5,7 +5,7 @@ colors:
   ink: "#0f172a"
   ink-strong: "#334155"
   muted: "#475569"
-  faint: "#64748b"
+  faint: "#5c6a80"
   decor: "#94a3b8"
   panel: "#ffffff"
   panel-recessed: "#fafbfc"
@@ -204,7 +204,9 @@ speaker hues, and a three-step verdict scale that nothing else may borrow.
 - **Ink** (`#0f172a`): page titles and primary numerics.
 - **Strong Ink** (`#334155`): body text, table cell content.
 - **Muted** (`#475569`): secondary text, panel header labels.
-- **Faint** (`#64748b`): tertiary text and field labels — the AA floor at 4.8:1.
+- **Faint** (`#5c6a80`): tertiary text and field labels — the AA floor. 5.07:1
+  on the ground, 5.49:1 on a panel. The earlier value cleared 4.5:1 on white but
+  reached only 4.40:1 on the page ground, which is where much of this text sits.
 - **Decor** (`#94a3b8`): **non-text only.** Empty-state glyphs and rules.
 - **Ground** (`#f5f6f8`), **Panel** (`#ffffff`), **Recessed** (`#fafbfc`):
   the three surface levels. Recessed marks panel headers and inline editors.
@@ -223,8 +225,16 @@ hover state, not an icon. If a new element needs to signal something, it takes
 a neutral or the action colour.
 
 **The Non-Text Floor Rule.** `decor` (`#94a3b8`) is 2.6:1 and may never carry
-text. Every other tier clears 4.5:1 against `panel`. When a value looks too
-light for its job, the answer is the next tier up, never a new lighter value.
+text. Every other tier clears 4.5:1 against **the ground**, not merely against
+`panel` — the ground is the darker of the two surfaces and the one that decides.
+Verify new text colours against `ground`. When a value looks too light for its
+job, the answer is the next tier up, never a new lighter value.
+
+**The One Ramp Rule.** Text colour comes from `ink` / `ink-2` / `muted` /
+`faint` — bound in `tailwind.config.js` to the CSS custom properties, so a token
+change reaches every template. Reaching for a raw `text-slate-*` utility puts
+that element outside the system, which is exactly how `faint` sat at 4.40:1
+across eight surfaces while the token itself read as fixed.
 
 **The Speaker Colour Rule.** Indigo and teal identify speakers. A surface that
 is not about who was talking does not get to use them as accents.
