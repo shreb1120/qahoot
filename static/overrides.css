@@ -71,7 +71,6 @@
 }
 .qb-page-title { color: var(--ink); }
 .qb-section-title { font-size: var(--fs-title); font-weight: 700; color: var(--ink); line-height: 1.25; margin: 0; }
-.qb-label { font-size: var(--fs-meta); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--faint); }
 
 /* ── Card primitives ── */
 .qb-card {
@@ -80,22 +79,6 @@
   border-radius: var(--radius);
   box-shadow: var(--shadow-sm);
 }
-.qb-card-hover { transition: box-shadow .15s, border-color .15s, transform .15s; }
-.qb-card-hover:hover { box-shadow: var(--shadow-md); border-color: var(--brand-200, #c7d2fe); }
-
-/* ── Stat card (dashboard KPIs) ── */
-.qb-stat {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-top: 3px solid var(--brand-600);
-  border-radius: var(--radius);
-  padding: var(--pad-card);
-  box-shadow: var(--shadow-sm);
-}
-.qb-stat-value { font-size: 1.875rem; font-weight: 800; letter-spacing: -0.02em; color: var(--ink); line-height: 1; }
-.qb-stat-icon  { width: 2rem; height: 2rem; border-radius: .5rem; display: flex; align-items: center; justify-content: center; }
-.qb-stat-icon svg { width: 1rem; height: 1rem; }
-
 /* ── Buttons ── */
 .qb-btn-primary {
   display: inline-flex; align-items: center; gap: .375rem;
@@ -162,9 +145,6 @@
   to   { transform: translateX(266%); }
 }
 
-/* ── Transcript highlight ── */
-.transcript-line.playing { background: #fef9c3; border-left: 3px solid #eab308; padding-left: 0.6rem; }
-
 /* ── Spinner ── */
 .spinner { display: inline-block; width: 36px; height: 36px; border: 3px solid #e2e8f0; border-top-color: var(--brand-600); border-radius: 50%; animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -180,9 +160,6 @@
 /* ── Timestamp links ── */
 .ts-link { font-family: monospace; font-size: 0.85rem; color: var(--brand-700); background: none; border: none; padding: 0; cursor: pointer; text-decoration: underline; white-space: nowrap; }
 .ts-link:hover { color: var(--brand-600); }
-
-/* ── Truncating filename cell + hover tooltip ── */
-.qb-truncate { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ── Global polish: fade-in for main content ── */
 .qb-main-content {
@@ -625,3 +602,57 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   cursor: pointer; padding: .25rem; line-height: 1; min-width: 24px; min-height: 24px;
 }
 .rp-toast button:hover { opacity: 1; }
+
+/* ── Canon: metric strip ──
+   One panel divided by hairlines rather than four floating cards with coloured
+   top borders. Denser, and it reads as instrumentation instead of decoration. */
+.rp-metrics {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  background: var(--c-panel);
+  border: 1px solid var(--c-line); border-radius: var(--c-radius);
+  overflow: hidden;
+}
+@media (min-width: 900px) { .rp-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.rp-metric { padding: .875rem 1rem; border-right: 1px solid var(--c-line); border-bottom: 1px solid var(--c-line); }
+.rp-metric:nth-child(2n) { border-right: none; }
+.rp-metric:nth-last-child(-n+2) { border-bottom: none; }
+@media (min-width: 900px) {
+  .rp-metric { border-bottom: none; }
+  .rp-metric:nth-child(2n) { border-right: 1px solid var(--c-line); }
+  .rp-metric:last-child { border-right: none; }
+}
+.rp-metric-label {
+  font-size: var(--fs-meta); font-weight: 600; color: var(--faint);
+  letter-spacing: .03em; text-transform: uppercase;
+}
+.rp-metric-value {
+  font-size: 1.5rem; font-weight: 700; letter-spacing: -.02em; line-height: 1.15;
+  color: var(--ink); font-variant-numeric: tabular-nums; margin-top: .25rem;
+}
+.rp-metric-note { font-size: var(--fs-meta); color: var(--muted); margin-top: .125rem; }
+
+/* ── Canon: activity rows ── */
+.rp-activity { display: flex; align-items: center; gap: .75rem; padding: .5rem .875rem; border-bottom: 1px solid var(--c-line); }
+.rp-activity:last-child { border-bottom: none; }
+.rp-activity:hover { background: var(--c-panel-2); }
+.rp-activity-main { min-width: 0; flex: 1; }
+.rp-activity-name {
+  font-size: var(--fs-body); font-weight: 500; color: var(--ink-2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.rp-activity-meta { font-size: var(--fs-meta); color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* ── Canon: breakdown bars ── */
+.rp-bar-row { display: grid; grid-template-columns: 1fr auto; gap: .25rem .75rem; align-items: baseline; }
+.rp-bar-track { grid-column: 1 / -1; height: 6px; border-radius: 2px; background: #eef1f4; overflow: hidden; }
+.rp-bar-fill { height: 100%; border-radius: 2px; transform-origin: left center; transform: scaleX(var(--v, 0)); transition: transform .4s ease; }
+@media (prefers-reduced-motion: reduce) { .rp-bar-fill { transition: none; } }
+
+/* ── Canon: step cards for first-run ── */
+.rp-step { border: 1px solid var(--c-line); border-radius: var(--c-radius); padding: .875rem; background: var(--c-panel); }
+.rp-step-n {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 1.25rem; height: 1.25rem; border-radius: 999px;
+  background: var(--spk-a); color: #fff;
+  font-size: .625rem; font-weight: 700; font-variant-numeric: tabular-nums;
+}
