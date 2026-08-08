@@ -113,15 +113,17 @@
       </div>
       <div class="qb-scroll-x">
         <table class="rp-table">
-          <thead><tr><th>Phrase</th><th>At</th><th>Speaker</th><th>Quote</th><th>Violation</th></tr></thead>
+          <thead><tr><th>Phrase &amp; quote</th><th style="width:4.5rem">At</th><th style="width:6rem">Speaker</th><th style="width:30%">Violation</th></tr></thead>
           <tbody>
             {% for p in af.get('phrases', []) %}
               <tr class="rp-row--miss">
-                <td class="font-semibold qb-break">{{ p.phrase }}</td>
+                <td class="qb-break">
+                  <div class="rp-req font-semibold text-slate-900">{{ p.phrase }}</div>
+                  {% if p.quote %}<div class="rp-evidence">{{ p.quote }}</div>{% endif %}
+                </td>
                 <td>{% if p.timestamp and p.timestamp != '—' %}<button type="button" class="rp-ts" data-ts="{{ p.timestamp }}">{{ p.timestamp }}</button>{% else %}—{% endif %}</td>
                 <td class="text-slate-600">{{ p.speaker or '—' }}</td>
-                <td class="rp-quote qb-break">{{ p.quote or '' }}</td>
-                <td class="text-slate-600 qb-break">{{ p.violation or '' }}</td>
+                <td class="rp-violation qb-break">{{ p.violation or '' }}</td>
               </tr>
             {% endfor %}
           </tbody>
@@ -192,10 +194,9 @@
             <table class="rp-table">
               <thead>
                 <tr>
-                  <th style="width:32%">Requirement</th>
+                  <th>Requirement &amp; evidence</th>
                   <th style="width:8.5rem">Status</th>
                   <th style="width:4.5rem">At</th>
-                  <th>Evidence</th>
                   <th style="width:11rem">Override</th>
                 </tr>
               </thead>
@@ -203,7 +204,10 @@
                 {% for item in section.get('items', []) %}
                   {% set ov = overrides.get(sk ~ '::' ~ item.name, '') %}
                   <tr class="{{ 'rp-row--miss' if item.status != 'covered' }}">
-                    <td class="qb-break font-medium text-slate-800">{{ item.name }}</td>
+                    <td class="qb-break">
+                      <div class="rp-req">{{ item.name }}</div>
+                      {% if item.evidence %}<div class="rp-evidence">{{ item.evidence }}</div>{% endif %}
+                    </td>
                     <td>
                       {% if item.status == 'covered' %}
                         <span class="rp-status rp-status--ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 13 4 4L19 7"/></svg>Covered</span>
@@ -216,7 +220,6 @@
                         <button type="button" class="rp-ts" data-ts="{{ item.timestamp }}">{{ item.timestamp }}</button>
                       {% else %}<span class="text-slate-400">—</span>{% endif %}
                     </td>
-                    <td class="rp-quote qb-break">{{ item.evidence or '' }}</td>
                     <td>
                       {% if ov == 'approved' %}
                         <span class="ov-pill inline-block text-xs font-semibold px-2 py-0.5 rounded bg-green-50 text-green-700 mb-1">✓ Approved</span>
