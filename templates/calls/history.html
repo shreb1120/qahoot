@@ -4,7 +4,7 @@
 {% block content %}
 <div>
   <div class="flex items-center justify-between mb-5">
-    <h1 class="text-2xl font-bold text-slate-900">Call History</h1>
+    <h1 class="qb-page-title">Call History</h1>
     <a href="{{ url_for('calls.upload_form') }}" class="qb-btn-primary">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
       Upload Call
@@ -53,7 +53,7 @@
   {% if not calls and (filters.agent_id or filters.status or filters.result or filters.date_from or filters.date_to or filters.phone) %}
     {# ── No matches for the active filters ── #}
     <div class="text-center py-16 bg-white border border-slate-200 rounded-xl shadow-sm">
-      <h3 class="text-lg font-semibold text-slate-900 mb-1">No calls match these filters</h3>
+      <h3 class="qb-section-title mb-1">No calls match these filters</h3>
       <p class="text-sm text-slate-500 mb-5">Try widening the date range, or clearing a filter.</p>
       <a href="{{ url_for('calls.history') }}" class="qb-btn-secondary">Clear all filters</a>
     </div>
@@ -63,7 +63,7 @@
       <svg class="w-16 h-16 mx-auto text-slate-300 mb-4" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 0 0 2.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 0 1-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 0 0-1.091-.852H4.5A2.25 2.25 0 0 0 2.25 4.5v2.25Z"/>
       </svg>
-      <h3 class="text-lg font-semibold text-slate-900 mb-1">No calls yet</h3>
+      <h3 class="qb-section-title mb-1">No calls yet</h3>
       <p class="text-sm text-slate-500 mb-5">Upload your first recording to get started with AI-powered compliance analysis.</p>
       <a href="{{ url_for('calls.upload_form') }}" class="qb-btn-primary">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/></svg>
@@ -104,10 +104,10 @@
                 <td class="px-4 py-3 whitespace-nowrap">
                   {% if call.call_date %}
                     {{ call.call_date.strftime('%b %d, %Y') }}
-                    {% if call.call_date != call.upload_date.date() %}<div class="text-[11px] text-slate-500">Uploaded {{ call.upload_date.strftime('%b %d') }}</div>{% endif %}
+                    {% if call.call_date != call.upload_date.date() %}<div class="text-xs text-slate-500">Uploaded {{ call.upload_date.strftime('%b %d') }}</div>{% endif %}
                   {% else %}
                     <span class="text-slate-500">{{ call.upload_date.strftime('%b %d, %Y') }}</span>
-                    <div class="text-[11px] text-slate-500">uploaded</div>
+                    <div class="text-xs text-slate-500">uploaded</div>
                   {% endif %}
                 </td>
                 <td class="px-4 py-3">

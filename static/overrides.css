@@ -34,11 +34,23 @@
   --critical:  #991b1b;
   --warn:      #d97706;
 
-  /* ── Type scale ── */
-  --fs-title:   1.75rem;  /* page H1  / 800 */
-  --fs-section: 1rem;     /* card/section H2 / 700 */
-  --fs-body:    0.875rem; /* body / 400-500 */
-  --fs-label:   0.6875rem;/* uppercase labels / 700 */
+  /* ── Type scale ──
+     Four sizes, not nine. The old set (10/11/12/14/16/18/20/24/30px) put 80%
+     of the interface into 12px and 14px and made section headings 16px — only
+     1.14x over body — so nothing read as more important than anything else.
+
+       display  28px  page H1                    1.56x over title
+       title    18px  card / section H2          1.29x over body
+       body     14px  body, table cells, controls
+       meta     12px  secondary text and labels  (body/meta is 1.17x)
+
+     Below body the step is deliberately tight: 12px is the floor for readable
+     secondary text in a dense table, and weight, case and colour carry the
+     distinction there instead of size. */
+  --fs-display: 1.75rem;   /* 28px — page H1 / 800 */
+  --fs-title:   1.125rem;  /* 18px — card + section H2 / 700 */
+  --fs-body:    0.875rem;  /* 14px — body / 400-500 */
+  --fs-meta:    0.75rem;   /* 12px — secondary text, uppercase labels / 700 */
 
   /* ── Spacing rhythm ── */
   --pad-card:   1.25rem;  /* 20px — standard card padding */
@@ -50,10 +62,16 @@
   --shadow-md: 0 4px 16px rgba(49,46,129,.08);
 }
 
-/* ── Typography helpers ── */
-.qb-page-title  { font-size: var(--fs-title); font-weight: 800; letter-spacing: -0.02em; color: var(--ink); line-height: 1.1; }
-.qb-section-title { font-size: var(--fs-section); font-weight: 700; color: var(--ink); margin: 0; }
-.qb-label { font-size: var(--fs-label); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--faint); }
+/* ── Typography helpers ──
+   .qb-display carries size only, so it can sit on the dark auth panel;
+   .qb-page-title is the same step plus the page-title colour. */
+.qb-display, .qb-page-title {
+  font-size: var(--fs-display); font-weight: 800;
+  letter-spacing: -0.02em; line-height: 1.1;
+}
+.qb-page-title { color: var(--ink); }
+.qb-section-title { font-size: var(--fs-title); font-weight: 700; color: var(--ink); line-height: 1.25; margin: 0; }
+.qb-label { font-size: var(--fs-meta); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--faint); }
 
 /* ── Card primitives ── */
 .qb-card {

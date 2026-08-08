@@ -9,7 +9,7 @@
       <h1 class="qb-page-title">{{ org.name }}</h1>
       <p class="text-sm text-slate-500 mt-2">
         Signed in as <strong class="text-slate-700">{{ user.email }}</strong>
-        <span class="ml-1.5 inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold
+        <span class="ml-1.5 inline-block px-2 py-0.5 rounded-full text-xs font-semibold
           {% if user.role == 'admin' %}bg-indigo-100 text-indigo-700{% else %}bg-sky-100 text-sky-700{% endif %}">
           {{ user.role }}
         </span>
@@ -76,7 +76,7 @@
       <div class="w-14 h-14 mx-auto rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-4">
         <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/></svg>
       </div>
-      <h2 class="text-lg font-bold text-slate-900">Let's get your first call analyzed</h2>
+      <h2 class="qb-section-title">Let's get your first call analyzed</h2>
       <p class="text-sm text-slate-500 mt-1 max-w-md mx-auto">Three quick steps and you'll have your first compliance report.</p>
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-6 text-left">
         <div class="rounded-lg border border-slate-200 p-4">
@@ -126,15 +126,15 @@
                 <div class="text-xs text-slate-500">{{ call.agent.name if call.agent else 'Unassigned' }} · {{ call.upload_date.strftime('%b %d, %H:%M') }}</div>
               </div>
               {% if call.status in ('pending','transcribing','analyzing') %}
-                <span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-500">Processing</span>
+                <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-500">Processing</span>
               {% elif call.status == 'error' %}
-                <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-red-50 text-red-700 border border-red-200">ERROR</span>
+                <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-50 text-red-700 border border-red-200">ERROR</span>
               {% elif 'CRITICAL' in det %}
-                <a href="{{ url_for('calls.report', call_id=call.id) }}" class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-red-50 text-red-800 border border-red-200 no-underline">CRITICAL</a>
+                <a href="{{ url_for('calls.report', call_id=call.id) }}" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-50 text-red-800 border border-red-200 no-underline">CRITICAL</a>
               {% elif 'PASS' in det and 'FAIL' not in det %}
-                <a href="{{ url_for('calls.report', call_id=call.id) }}" class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 no-underline">PASS</a>
+                <a href="{{ url_for('calls.report', call_id=call.id) }}" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 no-underline">PASS</a>
               {% elif 'FAIL' in det %}
-                <a href="{{ url_for('calls.report', call_id=call.id) }}" class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-red-50 text-red-700 border border-red-200 no-underline">FAIL</a>
+                <a href="{{ url_for('calls.report', call_id=call.id) }}" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-50 text-red-700 border border-red-200 no-underline">FAIL</a>
               {% else %}
                 <span class="text-xs text-slate-500">—</span>
               {% endif %}

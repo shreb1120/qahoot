@@ -4,6 +4,13 @@
     "ignoreFiles": [
       "static/tailwind.css"
     ],
-    "ignoreValues": []
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "createdAt": "2026-08-08T21:14:07.073Z",
+        "reason": "Operate-mode dense data UI: Inter's disambiguated 1/l/I and tabular figures serve table scanning at 11-14px. Distinctiveness carried by hierarchy and the exported report, not UI chrome."
+      }
+    ]
   }
 }

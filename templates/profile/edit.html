@@ -3,7 +3,7 @@
 
 {% block content %}
 <div>
-  <h1 class="text-2xl font-bold text-slate-900 mb-1">Compliance Checklist</h1>
+  <h1 class="qb-page-title mb-1">Compliance Checklist</h1>
 
   {% if not profile %}
     <div class="bg-amber-50 border border-amber-300 text-amber-900 rounded-lg px-4 py-3 text-sm mt-4">No compliance profile found for this org.</div>
@@ -24,7 +24,7 @@
       {% set si = loop.index0 %}
       <div class="bg-white border border-slate-200 rounded-xl mb-4 overflow-hidden shadow-sm" style="border-left: 3px solid #4f46e5">
         <div class="flex items-center justify-between px-5 py-3 border-b border-slate-200">
-          <h2 class="text-base font-bold text-slate-900 m-0">{{ section.name }}</h2>
+          <h2 class="qb-section-title">{{ section.name }}</h2>
           {% if g.user.role == 'admin' %}
             <form method="post" action="{{ url_for('profile.delete_section', section_idx=si) }}"
                   data-confirm="Delete the section &quot;{{ section.name }}&quot; and all {{ section.get('items', []) | length }} of its items? Existing reports keep their results; future calls will no longer be graded on them.">
@@ -121,7 +121,7 @@
     {# ── Auto-fail phrases ── #}
     <div class="bg-white border border-slate-200 rounded-xl mb-4 overflow-hidden shadow-sm" style="border-left: 3px solid #dc2626">
       <div class="flex items-center justify-between px-5 py-3 border-b border-slate-200">
-        <h2 class="text-base font-bold text-slate-900 m-0">Auto-Fail Phrases</h2>
+        <h2 class="qb-section-title">Auto-Fail Phrases</h2>
         <span class="text-xs text-slate-500">If any of these appear in a call, it's an automatic failure.</span>
       </div>
 
