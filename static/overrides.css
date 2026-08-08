@@ -136,15 +136,8 @@
 }
 .sidebar-link svg { width: 20px; height: 20px; flex-shrink: 0; }
 
-/* ── Status badges (JS toggles these class names) ──
-   0.8rem/600 is not "large text", so every pair here needs the full 4.5:1.
-   The three darkened below were at 3.6–4.4:1; ratios are against each own bg. */
-.status-badge { display: inline-block; padding: 0.2rem 0.65rem; border-radius: 999px; font-size: 0.8rem; font-weight: 600; }
-.status-pending      { background: #f1f5f9; color: #475569; }  /* 6.8:1 */
-.status-transcribing { background: #eef2ff; color: #4338ca; }  /* 7.0:1 */
-.status-analyzing    { background: #f5f3ff; color: #6d28d9; }  /* 6.6:1 */
-.status-complete     { background: #ecfdf5; color: #047857; }  /* 5.3:1 */
-.status-error        { background: #fef2f2; color: #b91c1c; }  /* 6.0:1 */
+/* Status badges live in the canon layer below — the pill-and-shadow version
+   they replaced was removed rather than left to be overridden. */
 
 /* ── Progress bar shimmer ──
    The fill is full-width and scaled on the X axis, so progress animates on the
@@ -543,3 +536,92 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   .rp-meter-fill { transition: none; }
   .rp-marker:hover::before, .rp-marker:focus-visible::before { transform: rotate(45deg); }
 }
+
+/* ── Canon: filter toolbar ── */
+.rp-toolbar {
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: .625rem;
+  background: var(--c-panel); border: 1px solid var(--c-line);
+  border-radius: var(--c-radius); padding: .75rem .875rem;
+}
+.rp-field { display: flex; flex-direction: column; gap: .25rem; min-width: 0; }
+.rp-field-label {
+  font-size: var(--fs-meta); font-weight: 600; color: var(--faint);
+  letter-spacing: .02em;
+}
+.rp-select, .rp-input {
+  height: 32px; padding: 0 .5rem;
+  font-size: var(--fs-meta); color: var(--ink-2);
+  background: var(--c-panel); border: 1px solid var(--c-line-2);
+  border-radius: var(--c-radius-sm);
+}
+.rp-select { padding-right: 1.5rem; }
+.rp-select:focus, .rp-input:focus {
+  border-color: var(--spk-a) !important;
+  box-shadow: 0 0 0 3px rgba(67, 56, 202, .15);
+  outline: none;
+}
+
+/* ── Canon: status + verdict indicators ──
+   Restyled from the pill-and-shadow badges into the flatter register. The class
+   names are unchanged because the history poller writes them at runtime.
+   Colour pairs are the AA-verified ones; only the shape changed. */
+.status-badge {
+  display: inline-flex; align-items: center; gap: .375rem;
+  padding: .1875rem .5rem; border-radius: var(--c-radius-sm);
+  font-size: var(--fs-meta); font-weight: 600; line-height: 1.4;
+  border: 1px solid transparent; white-space: nowrap;
+}
+.status-pending      { background: #f1f5f9; color: #475569; border-color: #e2e8f0; }
+.status-transcribing { background: #eef2ff; color: #4338ca; border-color: #c7d2fe; }
+.status-analyzing    { background: #f5f3ff; color: #6d28d9; border-color: #ddd6fe; }
+.status-complete     { background: #ecfdf5; color: #047857; border-color: #a7f3d0; }
+.status-error        { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+
+.rp-verdict--sm { padding: .1875rem .5rem; font-size: var(--fs-meta); font-weight: 700; }
+.rp-verdict--sm .rp-verdict-dot { width: .375rem; height: .375rem; }
+
+/* ── Canon: data rows ── */
+.rp-table--rows tbody tr { transition: background .1s; }
+.rp-table--rows tbody tr:hover { background: var(--c-panel-2); }
+.rp-table--rows tbody tr.is-clickable { cursor: pointer; }
+.rp-table--rows td { padding: .5rem .875rem; }
+.rp-link {
+  color: var(--spk-a); font-weight: 500; text-decoration: none;
+}
+.rp-link:hover { text-decoration: underline; }
+.rp-file { max-width: 22rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── Canon: summary strip ── */
+.rp-summary {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 1rem;
+  font-size: var(--fs-meta); color: var(--muted);
+  padding: 0 .125rem .5rem;
+}
+.rp-summary-count { display: inline-flex; align-items: center; gap: .375rem; font-weight: 600; }
+.rp-dot { width: .4375rem; height: .4375rem; border-radius: 999px; flex-shrink: 0; }
+
+/* ── Canon: empty state ── */
+.rp-empty { padding: 4rem 1.5rem; text-align: center; }
+.rp-empty-icon {
+  width: 2.75rem; height: 2.75rem; margin: 0 auto .875rem;
+  border-radius: var(--c-radius); background: var(--c-panel-2);
+  border: 1px solid var(--c-line); color: var(--faint);
+  display: flex; align-items: center; justify-content: center;
+}
+.rp-empty-icon svg { width: 1.25rem; height: 1.25rem; }
+
+/* ── Canon: toast ── */
+.rp-toast {
+  position: fixed; left: 50%; top: 1rem; transform: translateX(-50%);
+  display: none; align-items: center; gap: 1rem; z-index: 9999;
+  background: var(--ink); color: #fff;
+  padding: .625rem .875rem; border-radius: var(--c-radius);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, .22);
+  font-size: var(--fs-body); font-weight: 500; white-space: nowrap;
+}
+.rp-toast a { color: #fff; font-weight: 600; text-decoration: underline; }
+.rp-toast button {
+  background: none; border: none; color: #fff; opacity: .65;
+  cursor: pointer; padding: .25rem; line-height: 1; min-width: 24px; min-height: 24px;
+}
+.rp-toast button:hover { opacity: 1; }
