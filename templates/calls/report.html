@@ -17,7 +17,7 @@
         <span class="qb-break">{{ call.filename }}</span>
         {% if call.call_date %}&nbsp;&middot;&nbsp; {{ call.call_date.strftime('%b %d, %Y') }}{% endif %}
         {% if call.duration %}&nbsp;&middot;&nbsp; {{ (call.duration // 60) }}m {{ (call.duration % 60) }}s{% endif %}
-        &nbsp;&middot;&nbsp; <span class="text-slate-400">Uploaded {{ call.upload_date.strftime('%b %d, %Y') }}</span>
+        &nbsp;&middot;&nbsp; <span class="text-slate-500">Uploaded {{ call.upload_date.strftime('%b %d, %Y') }}</span>
       </p>
     </div>
     <div>
@@ -64,7 +64,7 @@
   <div class="bg-white border border-slate-200 rounded-xl p-5 mb-5 flex flex-wrap gap-6 items-center shadow-sm">
     {# SVG circular progress ring #}
     <div class="flex-shrink-0 relative" style="width:100px;height:100px">
-      <svg viewBox="0 0 36 36" class="w-full h-full -rotate-90">
+      <svg viewBox="0 0 36 36" class="w-full h-full -rotate-90" aria-hidden="true">
         <circle cx="18" cy="18" r="15.9155" fill="none" stroke="#e2e8f0" stroke-width="2.5"/>
         <circle cx="18" cy="18" r="15.9155" fill="none"
                 stroke="{{ ring_color }}" stroke-width="2.5"
@@ -74,7 +74,7 @@
       </svg>
       <div class="absolute inset-0 flex flex-col items-center justify-center">
         <span class="text-xl font-bold text-slate-900">{{ score_pct }}%</span>
-        <span class="text-[10px] text-slate-400 uppercase tracking-wide">score</span>
+        <span class="text-[10px] text-slate-500 uppercase tracking-wide">score</span>
       </div>
     </div>
     <div class="flex-1">

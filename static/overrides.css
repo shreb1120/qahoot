@@ -15,11 +15,15 @@
   --brand-700: #4338ca;   /* primary hover / gradient end */
   --brand-900: #312e81;
 
-  /* ── Neutral (slate) ── */
-  --ink:       #0f172a;   /* page titles */
-  --ink-2:     #334155;   /* body strong */
-  --muted:     #64748b;   /* secondary text */
-  --faint:     #94a3b8;   /* labels / tertiary */
+  /* ── Neutral text ramp (slate) ──
+     Four legible tiers plus one explicitly decorative tier. Every tier that
+     carries meaning clears WCAG AA (4.5:1 on --card); --decor is the only
+     value below it and must never be used for text. Ratios are against #fff. */
+  --ink:       #0f172a;   /* page titles            16.1:1 */
+  --ink-2:     #334155;   /* body strong            10.4:1 */
+  --muted:     #475569;   /* secondary text          7.4:1 */
+  --faint:     #64748b;   /* tertiary text, labels   4.8:1 — the AA floor */
+  --decor:     #94a3b8;   /* NON-TEXT ONLY           2.6:1 — icons, rules */
   --border:    #e5e7eb;
   --surface:   #f5f6fa;   /* page background */
   --card:      #ffffff;
@@ -114,13 +118,15 @@
 }
 .sidebar-link svg { width: 20px; height: 20px; flex-shrink: 0; }
 
-/* ── Status badges (JS toggles these class names) ── */
+/* ── Status badges (JS toggles these class names) ──
+   0.8rem/600 is not "large text", so every pair here needs the full 4.5:1.
+   The three darkened below were at 3.6–4.4:1; ratios are against each own bg. */
 .status-badge { display: inline-block; padding: 0.2rem 0.65rem; border-radius: 999px; font-size: 0.8rem; font-weight: 600; }
-.status-pending { background: #f1f5f9; color: #64748b; }
-.status-transcribing { background: #eef2ff; color: #4338ca; }
-.status-analyzing { background: #f5f3ff; color: #6d28d9; }
-.status-complete { background: #ecfdf5; color: #059669; }
-.status-error { background: #fef2f2; color: #dc2626; }
+.status-pending      { background: #f1f5f9; color: #475569; }  /* 6.8:1 */
+.status-transcribing { background: #eef2ff; color: #4338ca; }  /* 7.0:1 */
+.status-analyzing    { background: #f5f3ff; color: #6d28d9; }  /* 6.6:1 */
+.status-complete     { background: #ecfdf5; color: #047857; }  /* 5.3:1 */
+.status-error        { background: #fef2f2; color: #b91c1c; }  /* 6.0:1 */
 
 /* ── Progress bar shimmer ── */
 .progress-wrap { margin-top: 5px; height: 4px; background: #e2e8f0; border-radius: 999px; overflow: hidden; }
