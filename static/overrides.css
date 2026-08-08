@@ -753,3 +753,77 @@ details[open] > .rp-disclosure::before { content: '\2212'; }
 }
 .rp-flash--ok  { background: #ecfdf5; color: #065f46; border-color: #a7f3d0; }
 .rp-flash--err { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
+
+/* ── Canon: upload ── */
+.rp-drop {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: .5rem; padding: 2.25rem 1.25rem; text-align: center;
+  border: 1px dashed var(--c-line-2); border-radius: var(--c-radius);
+  background: var(--c-panel-2); cursor: pointer;
+  transition: border-color .12s, background .12s;
+}
+.rp-drop:hover { border-color: var(--spk-a); background: var(--spk-a-soft); }
+.rp-drop:focus-within {
+  border-color: var(--spk-a); background: var(--spk-a-soft);
+  box-shadow: 0 0 0 3px rgba(67, 56, 202, .18);
+}
+.rp-drop.is-armed { border-style: solid; border-color: var(--spk-a); background: var(--spk-a-soft); }
+.rp-drop.is-invalid { border-color: #dc2626; background: #fef2f2; }
+.rp-drop-icon { color: var(--faint); }
+.rp-drop-icon svg { width: 1.75rem; height: 1.75rem; }
+
+/* Pipeline: what happens after the button, so a first upload is not a mystery. */
+.rp-pipeline { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.rp-pipe-step {
+  display: inline-flex; align-items: center; gap: .375rem;
+  font-size: var(--fs-meta); color: var(--muted);
+}
+.rp-pipe-n {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 1.125rem; height: 1.125rem; border-radius: 999px;
+  background: var(--c-panel-2); border: 1px solid var(--c-line-2);
+  font-size: .625rem; font-weight: 700; color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+.rp-pipe-arrow { color: var(--decor); }
+
+/* ── Canon: auth ──
+   Full-bleed split. The left panel shows the product's own artifact rather than
+   claim bullets — a compact, clearly-labelled sample of a graded call, built
+   from the same components the real report uses. */
+.rp-auth { display: grid; grid-template-columns: minmax(0, 1fr); min-height: 100vh; }
+@media (min-width: 1024px) { .rp-auth { grid-template-columns: 1.05fr 1fr; } }
+
+.rp-auth-show {
+  display: none; position: relative; overflow: hidden;
+  padding: 3rem; align-content: center;
+  background: #0f172a;
+  background-image:
+    radial-gradient(120% 90% at 12% 0%, #1e2a52 0%, transparent 55%),
+    radial-gradient(90% 80% at 90% 100%, #241d52 0%, transparent 60%);
+}
+@media (min-width: 1024px) { .rp-auth-show { display: grid; } }
+
+.rp-auth-form { display: flex; align-items: center; justify-content: center; padding: 2.5rem 1.5rem; background: var(--c-panel); }
+.rp-auth-inner { width: 100%; max-width: 24rem; }
+
+/* Sample artifact */
+.rp-demo {
+  background: var(--c-panel); border-radius: 8px;
+  border: 1px solid rgba(255,255,255,.08);
+  box-shadow: 0 24px 48px -12px rgba(0,0,0,.5);
+  overflow: hidden; max-width: 30rem;
+}
+.rp-demo-head {
+  display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+  padding: .625rem .75rem; border-bottom: 1px solid var(--c-line); background: var(--c-panel-2);
+}
+.rp-demo-track { position: relative; height: 1.25rem; border-radius: 3px; background: #eef1f4; overflow: hidden; margin: .75rem; }
+.rp-demo-band { position: absolute; top: 0; height: 100%; }
+.rp-demo-row { display: flex; align-items: center; gap: .5rem; padding: .4375rem .75rem; border-top: 1px solid var(--c-line); font-size: .6875rem; }
+.rp-demo-label {
+  position: absolute; top: .75rem; right: .75rem; z-index: 2;
+  font-size: .625rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: rgba(255,255,255,.62); border: 1px solid rgba(255,255,255,.22);
+  border-radius: 3px; padding: .125rem .375rem;
+}

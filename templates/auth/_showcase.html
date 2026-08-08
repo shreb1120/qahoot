@@ -1,0 +1,50 @@
+{# Sample artifact for the auth panel.
+
+   Shows the product doing its job instead of asserting three bullet points.
+   Every value here is invented and the panel is labelled SAMPLE, because a
+   visitor could otherwise read it as a real customer's call. No claim is made
+   about customers, volumes or outcomes — PRODUCT.md has none to make yet. #}
+<div class="relative">
+  <span class="rp-demo-label">Sample</span>
+
+  <p class="text-white/90 text-sm font-semibold tracking-wide uppercase mb-2" style="letter-spacing:.08em">Qaboom</p>
+  <h2 class="qb-display text-white mb-2">Every call, graded against your own checklist.</h2>
+  <p class="text-slate-300 text-sm mb-6 max-w-md">
+    Upload a recording. Qaboom transcribes it, marks every required disclosure
+    it heard — and every one it did not — and points you at the exact second.
+  </p>
+
+  <div class="rp-demo">
+    <div class="rp-demo-head">
+      <div class="min-w-0">
+        <div class="text-xs font-semibold text-slate-900">Approval call · 6:19</div>
+        <div class="text-xs text-slate-500 rp-num">ALV-88214</div>
+      </div>
+      <span class="rp-verdict rp-verdict--sm rp-verdict--fail"><span class="rp-verdict-dot" aria-hidden="true"></span>FAIL</span>
+    </div>
+
+    <div class="rp-demo-track" aria-hidden="true">
+      {% for left, width, slot in [(0,14,'a'), (15,9,'b'), (25,18,'a'), (44,7,'b'), (52,21,'a'), (74,11,'b'), (86,12,'a')] %}
+        <span class="rp-demo-band" style="left:{{ left }}%;width:{{ width }}%;background:var(--spk-{{ slot }});opacity:.75"></span>
+      {% endfor %}
+      <span style="position:absolute;top:0;bottom:0;left:42%;width:2px;background:#7f1d1d"></span>
+      <span style="position:absolute;top:0;bottom:0;left:63%;width:2px;background:#dc2626"></span>
+    </div>
+
+    {% for name, ok, ts in [
+      ('Fee structure disclosed', True,  '0:32'),
+      ('Credit impact disclosed', True,  '1:48'),
+      ('Cancellation policy',     False, None),
+      ('“guaranteed settlement”', False, '2:41')] %}
+      <div class="rp-demo-row">
+        {% if ok %}
+          <span class="rp-status rp-status--ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 13 4 4L19 7"/></svg></span>
+        {% else %}
+          <span class="rp-status rp-status--miss"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></span>
+        {% endif %}
+        <span class="flex-1 min-w-0 text-slate-700 truncate">{{ name }}</span>
+        <span class="rp-num text-slate-500">{{ ts or '—' }}</span>
+      </div>
+    {% endfor %}
+  </div>
+</div>

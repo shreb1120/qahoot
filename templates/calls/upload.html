@@ -1,19 +1,25 @@
 {% extends "base.html" %}
-{% block title %}Upload Call — Qaboom{% endblock %}
+{% block title %}Upload a call — Qaboom{% endblock %}
 
 {% block content %}
 {% set form = form | default({}) %}
-<div class="max-w-xl">
-  <h1 class="qb-page-title mb-5">Upload a Call</h1>
+<div class="max-w-4xl">
+  <div class="mb-4">
+    <h1 class="qb-page-title">Upload a call</h1>
+    <p class="text-xs text-slate-600 mt-1.5">Audio or video, up to {{ max_upload_mb }} MB. Transcription and grading run automatically.</p>
+  </div>
 
   {% if not has_profile %}
-    <div class="bg-amber-50 border border-amber-300 text-amber-900 rounded-lg px-4 py-3 text-sm">
-      <strong>No compliance profile set up yet.</strong>
-      {% if g.user.role == 'admin' %}
-        <a href="{{ url_for('profile.view') }}" class="font-semibold underline">Set up your checklist</a> before uploading calls.
-      {% else %}
-        Ask your org admin to set up a compliance checklist first.
-      {% endif %}
+    <div class="rp-panel p-4" style="background:#fffbeb;border-color:#fcd34d">
+      <h2 class="qb-section-title mb-1">No compliance checklist yet</h2>
+      <p class="text-sm text-slate-700">
+        Calls are graded against your organization's checklist, so one has to exist first.
+        {% if g.user.role == 'admin' %}
+          <a href="{{ url_for('profile.view') }}" class="rp-link">Set up your checklist</a> to start uploading.
+        {% else %}
+          Ask an admin to set one up.
+        {% endif %}
+      </p>
     </div>
   {% else %}
     {% if error %}
@@ -22,85 +28,103 @@
 
     <form method="post" action="{{ url_for('calls.upload') }}" enctype="multipart/form-data"
           id="upload-form" novalidate data-busy-label="Uploading…"
-          class="rp-panel p-5 space-y-4 max-w-xl">
+          class="grid grid-cols-1 lg:grid-cols-5 gap-4 items-start">
 
-      {# ── Drop zone ──
-         The input is visually hidden but still focusable and still validated.
-         Tailwind's `hidden` (display:none) would remove it from the tab order
-         entirely, leaving keyboard users with no way to choose a file. #}
-      <div>
-        <span class="block text-sm font-semibold text-slate-700 mb-1" id="file-label">Call recording</span>
-        <p class="text-xs text-slate-500 mb-2" id="file-hint">Audio or video file — MP3, MP4, WAV, M4A, OGG, WEBM, and similar. Up to {{ max_upload_mb }} MB.</p>
-        <label id="drop-zone"
-               class="qb-dropzone flex flex-col items-center justify-center gap-2 px-6 py-8 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/40 transition text-center">
-          <svg class="w-10 h-10 text-slate-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/>
-          </svg>
-          <span class="text-sm font-medium text-slate-600" id="drop-label">Drag &amp; drop, or press Enter to browse</span>
-          <span class="text-xs text-slate-500 qb-break max-w-full" id="drop-filename"></span>
-          <input type="file" id="file" name="file" accept="audio/*,video/*"
-                 class="qb-sr-only"
-                 aria-labelledby="file-label" aria-describedby="file-hint file-error">
-        </label>
-        <p class="qb-field-error" id="file-error" role="alert"></p>
+      {# ── Recording ── #}
+      <div class="lg:col-span-3 rp-panel">
+        <div class="rp-panel-head"><h2 class="rp-panel-title">Recording</h2></div>
+        <div class="p-4">
+          {# The input is visually hidden but focusable and validated. Tailwind's
+             `hidden` would drop it from the tab order, leaving keyboard users
+             with no way to reach the file picker at all. #}
+          <label id="drop-zone" class="rp-drop">
+            <span class="rp-drop-icon" aria-hidden="true">
+              <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/></svg>
+            </span>
+            <span class="text-sm font-semibold text-slate-800" id="drop-label">Drag &amp; drop, or press Enter to browse</span>
+            <span class="text-xs text-slate-600" id="file-hint">MP3, MP4, WAV, M4A, OGG, WEBM and similar · up to {{ max_upload_mb }} MB</span>
+            <span class="text-xs font-medium text-indigo-800 qb-break max-w-full" id="drop-filename"></span>
+            <input type="file" id="file" name="file" accept="audio/*,video/*" class="qb-sr-only"
+                   aria-label="Call recording" aria-describedby="file-hint file-error">
+          </label>
+          <p class="qb-field-error" id="file-error" role="alert"></p>
+
+          <div class="mt-4 pt-3 border-t border-slate-100">
+            <div class="rp-metric-label mb-2">What happens next</div>
+            <div class="rp-pipeline">
+              {% for n, step in [(1, 'Upload'), (2, 'Transcribe'), (3, 'Grade'), (4, 'Report')] %}
+                <span class="rp-pipe-step"><span class="rp-pipe-n" aria-hidden="true">{{ n }}</span>{{ step }}</span>
+                {% if not loop.last %}<span class="rp-pipe-arrow" aria-hidden="true">→</span>{% endif %}
+              {% endfor %}
+            </div>
+            <p class="text-xs text-slate-600 mt-2">Usually 1–3 minutes. You can leave this page — the call appears in history either way.</p>
+          </div>
+        </div>
       </div>
 
-      <div>
-        <label class="block text-sm font-semibold text-slate-700 mb-1" for="agent_id">Agent <span class="text-red-600" aria-hidden="true">*</span></label>
-        {% if agents %}
-          <select id="agent_id" name="agent_id" required aria-describedby="agent-error"
-                  class="rp-select w-full">
-            <option value="">— Select agent —</option>
-            {% for agent in agents %}
-              <option value="{{ agent.id }}" {% if form.get('agent_id') == agent.id %}selected{% endif %}>{{ agent.name }}</option>
-            {% endfor %}
-          </select>
-          <p class="qb-field-error" id="agent-error" role="alert"></p>
-        {% else %}
-          <p class="text-sm bg-amber-50 border border-amber-300 text-amber-900 rounded-lg px-3 py-2">
-            No agents added yet.
-            {% if g.user.role == 'admin' %}
-              <a href="{{ url_for('agents.list_agents') }}" class="font-semibold underline">Add agents</a> first.
+      {# ── Call details ── #}
+      <div class="lg:col-span-2 rp-panel">
+        <div class="rp-panel-head"><h2 class="rp-panel-title">Call details</h2></div>
+        <div class="p-4 space-y-3">
+          <div class="rp-field">
+            <label class="rp-field-label" for="agent_id">Agent <span class="text-red-600" aria-hidden="true">*</span></label>
+            {% if agents %}
+              <select class="rp-select w-full" id="agent_id" name="agent_id" required aria-describedby="agent-error">
+                <option value="">Select agent…</option>
+                {% for agent in agents %}
+                  <option value="{{ agent.id }}" {% if form.get('agent_id') == agent.id %}selected{% endif %}>{{ agent.name }}</option>
+                {% endfor %}
+              </select>
+              <p class="qb-field-error" id="agent-error" role="alert"></p>
             {% else %}
-              Ask your admin to add agents.
+              <p class="text-xs text-slate-700 p-2 rounded" style="background:#fffbeb;border:1px solid #fcd34d">
+                No agents yet.
+                {% if g.user.role == 'admin' %}<a href="{{ url_for('agents.list_agents') }}" class="rp-link">Add agents</a> first.{% else %}Ask an admin to add them.{% endif %}
+              </p>
+              <input type="hidden" name="agent_id" value="">
             {% endif %}
-          </p>
-          <input type="hidden" name="agent_id" value="">
-        {% endif %}
-      </div>
+          </div>
 
-      <div>
-        <label class="block text-sm font-semibold text-slate-700 mb-1" for="alv_id">ALV / ID # <span class="text-red-600" aria-hidden="true">*</span></label>
-        <input type="text" id="alv_id" name="alv_id" placeholder="e.g. 12345" maxlength="50" required
-               value="{{ form.get('alv_id', '') }}" aria-describedby="alv-error"
-               class="rp-input w-full">
-        <p class="qb-field-error" id="alv-error" role="alert"></p>
-      </div>
+          <div class="rp-field">
+            <label class="rp-field-label" for="alv_id">ALV / internal ID <span class="text-red-600" aria-hidden="true">*</span></label>
+            <input class="rp-input w-full" type="text" id="alv_id" name="alv_id" placeholder="e.g. 88214"
+                   maxlength="50" required value="{{ form.get('alv_id', '') }}" aria-describedby="alv-error">
+            <p class="qb-field-error" id="alv-error" role="alert"></p>
+          </div>
 
-      <div>
-        <label class="block text-sm font-semibold text-slate-700 mb-1" for="call_date">Call date <span class="text-red-600" aria-hidden="true">*</span></label>
-        <input type="date" id="call_date" name="call_date" required
-               value="{{ form.get('call_date', '') }}" max="{{ today }}" aria-describedby="date-error"
-               class="rp-input w-full">
-        <p class="qb-field-error" id="date-error" role="alert"></p>
-      </div>
+          <div class="rp-field">
+            <label class="rp-field-label" for="call_date">Call date <span class="text-red-600" aria-hidden="true">*</span></label>
+            <input class="rp-input w-full" type="date" id="call_date" name="call_date" required
+                   value="{{ form.get('call_date', '') }}" max="{{ today }}" aria-describedby="date-error">
+            <p class="qb-field-error" id="date-error" role="alert"></p>
+          </div>
 
-      <div>
-        <label class="block text-sm font-semibold text-slate-700 mb-1" for="client_phone">Client phone <span class="text-xs text-slate-500 font-normal">(optional)</span></label>
-        <input type="text" id="client_phone" name="client_phone" placeholder="e.g. 8005551234" maxlength="30"
-               value="{{ form.get('client_phone', '') }}"
-               class="rp-input w-full">
-      </div>
+          <div class="rp-field">
+            <label class="rp-field-label" for="client_phone">Client phone <span class="font-normal">(optional)</span></label>
+            <input class="rp-input w-full" type="text" id="client_phone" name="client_phone"
+                   placeholder="8005551234" maxlength="30" inputmode="numeric" value="{{ form.get('client_phone', '') }}">
+          </div>
 
-      <button type="submit"
-              class="qb-btn-primary w-full justify-center">
-        Upload &amp; Analyze
-      </button>
-      <p class="text-xs text-slate-500 text-center">Large files can take a few minutes to upload. Keep this tab open.</p>
+          {% if profile_summary %}
+            <div class="pt-3 border-t border-slate-100">
+              <div class="rp-metric-label mb-1">Graded against</div>
+              <p class="text-xs text-slate-700 font-medium qb-break">{{ profile_summary.name }}</p>
+              <p class="text-xs text-slate-600 rp-num">
+                {{ profile_summary.items }} item{{ 's' if profile_summary.items != 1 }} across
+                {{ profile_summary.sections }} section{{ 's' if profile_summary.sections != 1 }}{% if profile_summary.phrases %},
+                {{ profile_summary.phrases }} auto-fail phrase{{ 's' if profile_summary.phrases != 1 }}{% endif %}
+              </p>
+              <a href="{{ url_for('profile.view') }}" class="rp-link text-xs">View checklist →</a>
+            </div>
+          {% endif %}
+
+          <button type="submit" class="qb-btn-primary w-full justify-center">Upload &amp; analyze</button>
+        </div>
+      </div>
     </form>
   {% endif %}
 
-  <p class="mt-6 text-sm"><a href="{{ url_for('calls.history') }}" class="text-slate-500 no-underline hover:text-slate-700">← Call history</a></p>
+  <p class="mt-4 text-xs"><a href="{{ url_for('calls.history') }}" class="text-slate-600 no-underline hover:text-slate-900">← Call history</a></p>
 </div>
 {% endblock %}
 
@@ -118,27 +142,23 @@
   const MAX_BYTES = {{ max_upload_bytes }};
   const MAX_LABEL = '{{ max_upload_mb }} MB';
   const ALLOWED = {{ allowed_extensions | tojson }};
+  const TODAY = '{{ today }}';
 
   const ALERT_ICON =
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">' +
     '<path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"/></svg>';
 
   function setError(el, message) {
-    if (!el) return;
-    el.innerHTML = message ? ALERT_ICON + '<span>' + message + '</span>' : '';
+    if (el) el.innerHTML = message ? ALERT_ICON + '<span>' + message + '</span>' : '';
   }
-
   function formatSize(bytes) {
     const mb = bytes / (1024 * 1024);
     return mb >= 1 ? mb.toFixed(1) + ' MB' : Math.max(1, Math.round(bytes / 1024)) + ' KB';
   }
-
   function extensionOf(name) {
     const dot = name.lastIndexOf('.');
     return dot === -1 ? '' : name.slice(dot + 1).toLowerCase();
   }
-
-  // Returns an error string, or '' when the chosen file is usable.
   function checkFile(file) {
     if (!file) return 'Choose a call recording to upload.';
     if (!ALLOWED.includes(extensionOf(file.name))) {
@@ -154,45 +174,36 @@
   function showFile(file) {
     const problem = checkFile(file);
     setError(fileError, problem);
-    dropZone.classList.toggle('border-red-400', !!problem);
-
+    dropZone.classList.toggle('is-invalid', !!problem);
+    dropZone.classList.toggle('is-armed', !problem);
     if (problem) {
       dropLabel.textContent = 'Drag & drop, or press Enter to browse';
       dropFilename.textContent = '';
-      dropZone.classList.remove('border-indigo-400', 'bg-indigo-50/40');
       return;
     }
-
-    dropLabel.textContent = 'File selected';
+    dropLabel.textContent = 'Ready to upload';
     dropFilename.textContent = file.name + ' · ' + formatSize(file.size);
-    dropZone.classList.add('border-indigo-400', 'bg-indigo-50/40');
   }
 
   fileInput.addEventListener('change', function() {
     const file = this.files && this.files[0];
     if (!file) { setError(fileError, ''); return; }
     showFile(file);
-
-    // Recordings are named like 20240116-143052_8005551234.mp3 — prefill from
-    // that when the fields are still untouched.
+    // Recordings are named like 20240116-143052_8005551234.mp3.
     const m = file.name.match(/^(\d{4})(\d{2})(\d{2})-(\d{6})_(\d{7,15})/);
     if (m) {
-      const dateField = document.getElementById('call_date');
-      const phoneField = document.getElementById('client_phone');
-      if (dateField && !dateField.value) dateField.value = m[1] + '-' + m[2] + '-' + m[3];
-      if (phoneField && !phoneField.value) phoneField.value = m[5];
+      const d = document.getElementById('call_date'), p = document.getElementById('client_phone');
+      if (d && !d.value) d.value = m[1] + '-' + m[2] + '-' + m[3];
+      if (p && !p.value) p.value = m[5];
     }
   });
 
   ['dragenter', 'dragover'].forEach(function(evt) {
-    dropZone.addEventListener(evt, function(e) {
-      e.preventDefault();
-      dropZone.classList.add('border-indigo-400', 'bg-indigo-50/40');
-    });
+    dropZone.addEventListener(evt, function(e) { e.preventDefault(); dropZone.classList.add('is-armed'); });
   });
   dropZone.addEventListener('dragleave', function(e) {
     e.preventDefault();
-    if (!fileInput.files.length) dropZone.classList.remove('border-indigo-400', 'bg-indigo-50/40');
+    if (!fileInput.files.length) dropZone.classList.remove('is-armed');
   });
   dropZone.addEventListener('drop', function(e) {
     e.preventDefault();
@@ -201,27 +212,18 @@
     fileInput.dispatchEvent(new Event('change'));
   });
 
-  // The form is `novalidate` so every problem is reported in one pass, in the
-  // page, rather than one native bubble at a time.
-  const TODAY = '{{ today }}';
   const FIELDS = [
     { id: 'agent_id',  error: 'agent-error', message: 'Select which agent took this call.' },
     { id: 'alv_id',    error: 'alv-error',   message: 'Enter the ALV or internal ID for this call.' },
-    {
-      id: 'call_date', error: 'date-error',  message: 'Enter the date the call took place.',
-      // ISO dates compare correctly as strings, so no Date parsing (and no
-      // timezone surprises) is needed here.
-      check: function (value) {
-        return value > TODAY ? 'A call cannot have happened in the future.' : '';
-      }
-    }
+    { id: 'call_date', error: 'date-error',  message: 'Enter the date the call took place.',
+      check: function (v) { return v > TODAY ? 'A call cannot have happened in the future.' : ''; } }
   ];
 
   form.addEventListener('submit', function(e) {
     let firstInvalid = null;
-
     const fileProblem = checkFile(fileInput.files && fileInput.files[0]);
     setError(fileError, fileProblem);
+    dropZone.classList.toggle('is-invalid', !!fileProblem);
     if (fileProblem) firstInvalid = fileInput;
 
     FIELDS.forEach(function(field) {
@@ -236,7 +238,6 @@
     });
 
     if (!firstInvalid) return;
-
     e.preventDefault();
     e.stopImmediatePropagation();   // keep base.html's busy-state guard from firing
     if (firstInvalid === fileInput) dropZone.scrollIntoView({ block: 'center' });

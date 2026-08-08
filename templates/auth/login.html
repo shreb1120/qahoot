@@ -1,52 +1,28 @@
 {% extends "base.html" %}
 {% block title %}Sign in — Qaboom{% endblock %}
 
-{% block content %}
-<div class="min-h-[calc(100vh-4rem)] flex">
-  {# ── Left panel: gradient brand ── #}
-  <div class="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-[#0f172a] via-[#1e3a8a] to-[#4338ca] text-white flex-col justify-center px-12 xl:px-16">
-    <div class="max-w-md">
-      <div class="flex items-center gap-2.5 mb-8">
-        <span class="w-3 h-3 rounded-sm bg-blue-400 ring-2 ring-blue-400/30"></span>
-        <span class="text-2xl font-bold tracking-tight">Qaboom</span>
-      </div>
-      <h2 class="qb-display mb-4">Built for compliance teams</h2>
-      <ul class="space-y-3 text-blue-100 text-sm">
-        <li class="flex items-start gap-2.5">
-          <svg class="w-5 h-5 text-blue-300 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
-          AI-powered call analysis against your custom checklist
-        </li>
-        <li class="flex items-start gap-2.5">
-          <svg class="w-5 h-5 text-blue-300 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
-          Instant pass/fail reports with timestamped evidence
-        </li>
-        <li class="flex items-start gap-2.5">
-          <svg class="w-5 h-5 text-blue-300 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
-          Manager overrides, PDF exports, and team management
-        </li>
-      </ul>
-    </div>
+{% block main %}
+<div class="rp-auth">
+  <div class="rp-auth-show">
+    {% include "auth/_showcase.html" %}
   </div>
 
-  {# ── Right panel: form ── #}
-  <div class="flex-1 flex flex-col">
-    {# Mobile accent strip #}
-    <div class="lg:hidden h-2 bg-gradient-to-r from-[#1e3a8a] to-[#4338ca]"></div>
-    <div class="flex-1 flex items-center justify-center px-6 py-12">
-      <div class="w-full max-w-md">
-        <div class="lg:hidden flex items-center gap-2 mb-6 justify-center">
-          <span class="w-2.5 h-2.5 rounded-sm bg-blue-600"></span>
-          <span class="text-xl font-bold text-slate-900 tracking-tight">Qaboom</span>
-        </div>
-        <h1 class="qb-page-title mb-1 text-center">Sign in to Qaboom</h1>
-        <p class="text-sm text-slate-500 mb-6 text-center">Call compliance QA — for your whole team.</p>
-        <div id="clerk-component" data-mode="sign-in"></div>
+  <div class="rp-auth-form">
+    <div class="rp-auth-inner">
+      <div class="lg:hidden flex items-center gap-2 mb-6">
+        <span class="w-2.5 h-2.5 rounded-sm bg-indigo-600" aria-hidden="true"></span>
+        <span class="text-lg font-bold text-slate-900 tracking-tight">Qaboom</span>
       </div>
+
+      <h1 class="qb-section-title mb-1">Sign in</h1>
+      <p class="text-sm text-slate-600 mb-6">Call compliance QA for your whole team.</p>
+
+      <div id="clerk-component" data-mode="sign-in"></div>
     </div>
   </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='auth.js') }}"></script>
+<script src="{{ static_url('auth.js') }}"></script>
 {% endblock %}

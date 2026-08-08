@@ -212,8 +212,24 @@ def _upload_context(**overrides):
         .all()
     )
     max_bytes = current_app.config.get("MAX_CONTENT_LENGTH") or 0
+
+    # What this call will actually be graded against. A reviewer about to spend
+    # an API call on a 40-minute recording should be able to see the checklist
+    # is the one they expect before committing to it.
+    profile_summary = None
+    if profile:
+        sections = (profile.script_sections_json or {}).get("sections", []) or []
+        phrases = (profile.script_sections_json or {}).get("auto_fail_phrases", []) or []
+        profile_summary = {
+            "name": profile.name,
+            "sections": len(sections),
+            "items": sum(len(sec.get("items", []) or []) for sec in sections),
+            "phrases": len(phrases),
+        }
+
     ctx = {
         "has_profile": bool(profile),
+        "profile_summary": profile_summary,
         "agents": agents,
         "form": {},
         "error": None,
