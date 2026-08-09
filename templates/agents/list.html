@@ -61,7 +61,7 @@
   {% endif %}
 
   {% if is_admin %}
-    <div class="rp-panel p-4">
+    <div class="rp-panel p-4 mb-4">
       <h2 class="qb-section-title mb-1">Add an agent</h2>
       <p class="text-xs text-muted mb-3">Enter the full name as it should appear on reports and write-ups.</p>
       <form method="post" action="{{ url_for('agents.add_agent') }}" class="flex flex-wrap items-end gap-2" data-busy-label="Adding…">
@@ -71,6 +71,35 @@
         </div>
         <button type="submit" class="qb-btn-primary">Add agent</button>
       </form>
+    </div>
+
+    <div class="rp-panel p-4">
+      <h2 class="qb-section-title mb-1">Import from CSV</h2>
+      <p class="text-xs text-muted mb-3">Onboarding a whole team? Upload a roster instead of typing each name.</p>
+      <form method="post" action="{{ url_for('agents.import_agents') }}"
+            enctype="multipart/form-data" class="flex flex-wrap items-end gap-2"
+            data-busy-label="Importing…">
+        <div class="rp-field flex-1 min-w-[220px]">
+          <label class="rp-field-label" for="agent-csv">CSV file</label>
+          <input class="rp-input w-full" type="file" id="agent-csv" name="file" accept=".csv,text/csv">
+        </div>
+        <button type="submit" class="rp-btn">Import</button>
+      </form>
+      <details class="mt-3">
+        <summary class="rp-disclosure">What the file should look like</summary>
+        <div class="rp-inline block">
+          <p class="text-xs text-muted mb-2">Two columns of names, with or without a header row:</p>
+          <pre class="rp-code block" style="white-space:pre">First,Last
+Jose,Alvarez
+Dana,Whitfield</pre>
+          <ul class="text-xs text-muted mt-2 space-y-1">
+            <li>A single column of full names works too.</li>
+            <li>Extra columns such as email are ignored.</li>
+            <li>Names already on your list are skipped, so re-uploading is safe.</li>
+            <li>Up to {{ '{:,}'.format(5000) }} rows, 1 MB.</li>
+          </ul>
+        </div>
+      </details>
     </div>
   {% endif %}
 </div>

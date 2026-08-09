@@ -97,8 +97,11 @@ proving the core idea works before it was turned into a product.
   Jinja templates + Tailwind (CDN) + vanilla JS. AssemblyAI for transcription,
   Anthropic Claude for grading. Deployed at qaboom.io behind nginx + TLS.
 - **v1 non-goals (do not assume these exist):** Stripe/billing, bulk/batch
-  upload, multiple simultaneous active profiles per org, a cross-customer admin
-  dashboard, CSV export.
+  upload *of calls*, multiple simultaneous active profiles per org, a
+  cross-customer admin dashboard, CSV *export*.
+- **Shipped since:** agent rosters can be imported from CSV (names only), and
+  call metadata — agent, internal id, date, phone — is optional at upload, with
+  the agent assignable afterwards from the report.
 
 ## Brand Commitments
 
