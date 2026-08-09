@@ -26,7 +26,7 @@ DENIED = {401, 403, 404}
 def test_the_route_inventory_is_not_empty(app):
     """Guards the two tests below: if the derivation breaks they would pass vacuously."""
     assert len(_id_routes(app, "call_id")) >= 6
-    assert len(_id_routes(app, "agent_id")) >= 1
+    assert len(_id_routes(app, "agent_id")) >= 2   # delete + profile
 
 
 def test_no_call_route_serves_another_orgs_call(app, tenants):

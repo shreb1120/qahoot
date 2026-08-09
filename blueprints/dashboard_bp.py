@@ -10,6 +10,7 @@ from flask import Blueprint, g, render_template
 from sqlalchemy import Date, case, cast, func
 
 from auth import org_required
+from stats import agent_performance_rows
 from models import Agent, Call, Report
 
 dashboard_bp = Blueprint("dashboard", __name__)
@@ -81,43 +82,9 @@ def index():
     needs_review_total = len(unreviewed)
 
     # ── Per-agent performance ──
-    # The comparison a QA manager actually opens this tool to make. Only agents
-    # with a graded call appear; an agent with none has nothing to compare.
-    is_pass = case(
-        (Report.pass_fail_status.ilike("%PASS%") & ~Report.pass_fail_status.ilike("%FAIL%"), 1),
-        else_=0,
-    )
-    is_critical = case((Report.pass_fail_status.ilike("%CRITICAL%"), 1), else_=0)
-    agent_rows = (
-        db.query(
-            Agent.name.label("name"),
-            func.count(Report.id).label("graded"),
-            func.sum(is_pass).label("passed"),
-            func.sum(is_critical).label("critical"),
-        )
-        .join(Call, Call.agent_id == Agent.id)
-        .join(Report, Report.call_id == Call.id)
-        # Both sides scoped, not just the agent. Reaching calls through an
-        # agent join means a call carrying another org's id would be counted
-        # here if only Agent.org_id were checked — every other query in this
-        # file scopes on Call.org_id, and this one now matches.
-        .filter(Agent.org_id == org_id, Call.org_id == org_id)
-        .group_by(Agent.id, Agent.name)
-        .all()
-    )
-    agent_stats = sorted(
-        (
-            {
-                "name": r.name,
-                "graded": r.graded,
-                "passed": int(r.passed or 0),
-                "critical": int(r.critical or 0),
-                "pass_rate": round((r.passed or 0) / r.graded * 100) if r.graded else 0,
-            }
-            for r in agent_rows
-        ),
-        key=lambda a: (a["pass_rate"], a["graded"]),
-    )
+    # The comparison a QA manager actually opens this tool to make. Shared with
+    # the agents list and the agent profile so the three cannot disagree.
+    agent_stats = agent_performance_rows(db, org_id)
 
     # ── 14-day upload volume ──
     since = datetime.now(timezone.utc) - timedelta(days=13)

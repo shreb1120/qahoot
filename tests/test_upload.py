@@ -145,3 +145,10 @@ def test_an_internal_id_that_looks_like_an_old_alv_tag_renders_once(tenants, mon
     for path in ["/calls/", "/"]:
         body = tenants.a_admin.get(path).get_data(as_text=True)
         assert "ALV-ALV" not in body, f"{path} double-prefixed the internal ID"
+
+    # Absence alone is a weak assertion: it also passes when the field stops
+    # rendering entirely, which is exactly what happened when history.html kept
+    # reading the old `alv_id` attribute after the rename — Jinja resolved it to
+    # Undefined, the `{% if %}` went falsy, and the ID silently disappeared.
+    body = tenants.a_admin.get("/calls/").get_data(as_text=True)
+    assert body.count("ALV-88214") == 1, "history stopped showing the internal ID"

@@ -23,7 +23,9 @@
     <div class="min-w-0">
       <div class="flex items-center gap-2 flex-wrap">
         {% if call.agent %}
-          <h1 class="qb-section-title">{{ call.agent.name }}</h1>
+          <h1 class="qb-section-title">
+            <a class="rp-link" href="{{ url_for('agents.agent_profile', agent_id=call.agent.id) }}">{{ call.agent.name }}</a>
+          </h1>
         {% else %}
           <h1 class="qb-section-title text-warn">Unassigned</h1>
         {% endif %}

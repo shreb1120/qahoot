@@ -8,7 +8,11 @@
     <div class="min-w-0">
       <h1 class="qb-page-title">Agents</h1>
       <p class="text-xs text-muted mt-1.5 rp-num">
-        {{ agents | length }} agent{{ 's' if agents | length != 1 }} · calls are attributed and scored per agent
+        {% if q %}
+          {{ agents | length }} of {{ total }} agent{{ 's' if total != 1 }} match “{{ q }}”
+        {% else %}
+          {{ total }} agent{{ 's' if total != 1 }} · calls are attributed and scored per agent
+        {% endif %}
       </p>
     </div>
     <a href="{{ url_for('org.settings') }}" class="rp-btn">← Team</a>
@@ -20,6 +24,22 @@
     {% endfor %}
   {% endwith %}
 
+  {# Search appears once the list is long enough to need it; below that it is
+     just a control to skip past. #}
+  {% if total > 8 or q %}
+    <form method="get" action="{{ url_for('agents.list_agents') }}" class="rp-toolbar mb-3">
+      <div class="rp-field flex-1 min-w-[220px]">
+        <label class="rp-field-label" for="agent-search">Find an agent</label>
+        <input class="rp-input" type="search" id="agent-search" name="q" value="{{ q }}"
+               maxlength="120" placeholder="Name">
+      </div>
+      <div class="flex gap-2">
+        <button type="submit" class="rp-btn">Search</button>
+        {% if q %}<a href="{{ url_for('agents.list_agents') }}" class="rp-btn">Clear</a>{% endif %}
+      </div>
+    </form>
+  {% endif %}
+
   {% if agents %}
     <div class="rp-panel overflow-hidden mb-4">
       <div class="qb-scroll-x">
@@ -27,14 +47,29 @@
           <thead>
             <tr>
               <th>Name</th>
+              <th style="width:8rem">Pass rate</th>
+              <th style="width:5.5rem">Graded</th>
               <th style="width:9rem">Added</th>
               {% if is_admin %}<th style="width:7rem">Actions</th>{% endif %}
             </tr>
           </thead>
           <tbody>
-            {% for agent in agents %}
+            {% for row in rows %}
+              {% set agent = row.agent %}
+              {% set perf = row.perf %}
               <tr>
-                <td class="qb-break font-medium text-ink-2">{{ agent.name }}</td>
+                <td class="qb-break font-medium">
+                  <a class="rp-link" href="{{ url_for('agents.agent_profile', agent_id=agent.id) }}">{{ agent.name }}</a>
+                </td>
+                <td class="rp-num">
+                  {% if perf %}
+                    <span class="font-semibold {% if perf.pass_rate >= 80 %}text-emerald-700{% elif perf.pass_rate >= 60 %}text-amber-700{% else %}text-red-700{% endif %}">{{ perf.pass_rate }}%</span>
+                    {% if perf.critical %}<div class="text-xs text-red-800">{{ perf.critical }} critical</div>{% endif %}
+                  {% else %}
+                    <span class="text-faint">—</span>
+                  {% endif %}
+                </td>
+                <td class="rp-num text-muted">{{ perf.graded if perf else '—' }}</td>
                 <td class="rp-num text-muted">{{ agent.created_at.strftime('%b %d, %Y') }}</td>
                 {% if is_admin %}
                   <td>
@@ -49,6 +84,12 @@
           </tbody>
         </table>
       </div>
+    </div>
+  {% elif q %}
+    <div class="rp-panel rp-empty mb-4">
+      <h2 class="qb-section-title mb-1">No agent matches “{{ q }}”</h2>
+      <p class="text-sm text-muted mb-4">Check the spelling, or clear the search to see all {{ total }}.</p>
+      <a href="{{ url_for('agents.list_agents') }}" class="rp-btn">Clear search</a>
     </div>
   {% else %}
     <div class="rp-panel rp-empty mb-4">

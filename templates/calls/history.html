@@ -114,14 +114,18 @@
               <tr id="row-{{ call.id }}"
                   data-report-url="{{ url_for('calls.report', call_id=call.id) }}"
                   {% if call.status == 'complete' %}class="is-clickable"{% endif %}>
-                <td class="qb-break font-medium text-ink-2">{{ call.agent.name if call.agent else '—' }}</td>
+                <td class="qb-break font-medium text-ink-2">
+                  {% if call.agent %}
+                    <a class="rp-link" href="{{ url_for('agents.agent_profile', agent_id=call.agent.id) }}">{{ call.agent.name }}</a>
+                  {% else %}—{% endif %}
+                </td>
                 <td>
                   {% if call.status == 'complete' %}
                     <a class="rp-link rp-file block" href="{{ url_for('calls.report', call_id=call.id) }}" title="{{ call.filename }}">{{ call.filename }}</a>
                   {% else %}
                     <span class="rp-file block text-muted" title="{{ call.filename }}">{{ call.filename }}</span>
                   {% endif %}
-                  {% if call.alv_id %}<span class="rp-num text-xs text-faint">ALV-{{ call.alv_id }}</span>{% endif %}
+                  {% if call.internal_id %}<span class="rp-num text-xs text-faint">{{ call.internal_id }}</span>{% endif %}
                 </td>
                 <td class="rp-num text-muted">{{ call.client_phone or '—' }}</td>
                 <td class="rp-num whitespace-nowrap text-muted">

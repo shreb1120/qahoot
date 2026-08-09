@@ -131,7 +131,9 @@
                 <tbody>
                   {% for a in agent_stats %}
                     <tr>
-                      <td class="qb-break font-medium text-ink-2">{{ a.name }}</td>
+                      <td class="qb-break font-medium">
+                        <a class="rp-link" href="{{ url_for('agents.agent_profile', agent_id=a.id) }}">{{ a.name }}</a>
+                      </td>
                       <td>
                         <div class="flex items-center gap-2">
                           <span class="rp-num text-xs font-semibold {% if a.pass_rate >= 80 %}text-emerald-700{% elif a.pass_rate >= 60 %}text-amber-700{% else %}text-red-700{% endif %}" style="min-width:2.5rem">{{ a.pass_rate }}%</span>

@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+{% block title %}{{ agent.name }} — Qaboom{% endblock %}
+
+{% block content %}
+{#  The page a QA manager opens right before a coaching conversation. Its whole
+    job is to answer "what should I say to this person?", so the ranked misses
+    outrank the headline numbers in weight, and every rate carries the count it
+    was computed from — a bare 100% from one call would misdirect that
+    conversation entirely. #}
+<div class="max-w-4xl">
+  <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+    <div class="min-w-0">
+      <h1 class="qb-page-title qb-break">{{ agent.name }}</h1>
+      <p class="text-xs text-muted mt-1.5 rp-num">
+        {{ total_calls }} call{{ 's' if total_calls != 1 }} uploaded ·
+        {{ stats.graded }} graded ·
+        added {{ agent.created_at.strftime('%b %d, %Y') }}
+      </p>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      <a href="{{ url_for('agents.list_agents') }}" class="rp-btn">← Agents</a>
+      {% if total_calls %}
+        <a href="{{ url_for('calls.history', agent_id=agent.id) }}" class="qb-btn-primary">View all calls</a>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if stats.graded %}
+    <div class="rp-metrics mb-4">
+      <div class="rp-metric">
+        <div class="rp-metric-label">Pass rate</div>
+        <div class="rp-metric-value {% if stats.pass_rate >= 80 %}!text-emerald-700{% elif stats.pass_rate >= 60 %}!text-amber-700{% else %}!text-red-700{% endif %}">{{ stats.pass_rate }}%</div>
+        <div class="rp-metric-note">{{ stats.passed }} of {{ stats.graded }} passed</div>
+      </div>
+      <div class="rp-metric">
+        <div class="rp-metric-label">Calls graded</div>
+        <div class="rp-metric-value">{{ stats.graded }}</div>
+        <div class="rp-metric-note">
+          {% if total_calls > stats.graded %}{{ total_calls - stats.graded }} still processing{% else %}all uploads analyzed{% endif %}
+        </div>
+      </div>
+      <div class="rp-metric">
+        <div class="rp-metric-label">Failed</div>
+        <div class="rp-metric-value {% if stats.graded - stats.passed %}!text-red-700{% endif %}">{{ stats.graded - stats.passed }}</div>
+        <div class="rp-metric-note">missed a requirement</div>
+      </div>
+      <div class="rp-metric">
+        <div class="rp-metric-label">Critical fails</div>
+        <div class="rp-metric-value {% if stats.critical %}!text-red-800{% endif %}">{{ stats.critical }}</div>
+        <div class="rp-metric-note">prohibited phrase used</div>
+      </div>
+    </div>
+  {% endif %}
+
+  {# ── Most missed requirements ──
+       The coaching list. Ranked by how often this agent misses a requirement,
+       not by how bad the requirement sounds. #}
+  <div class="rp-panel overflow-hidden mb-4">
+    <div class="rp-panel-head">
+      <h2 class="rp-panel-title">Most missed requirements</h2>
+      {% if misses.ranked %}
+        <span class="text-xs text-muted rp-num">
+          across {{ sampled }} graded call{{ 's' if sampled != 1 }}{% if capped %} (most recent {{ sample_limit }}){% endif %}
+        </span>
+      {% endif %}
+    </div>
+
+    {% if misses.ranked %}
+      <div class="qb-scroll-x">
+        <table class="rp-table rp-table--rows">
+          <thead>
+            <tr>
+              <th>Requirement</th>
+              <th style="width:11rem">Miss rate</th>
+              <th style="width:8rem">Missed</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for m in misses.ranked %}
+              <tr>
+                <td class="qb-break">
+                  <div class="font-medium text-ink-2">{{ m.name }}</div>
+                  <div class="text-xs text-faint">{{ m.section }}</div>
+                </td>
+                <td>
+                  <div class="flex items-center gap-2">
+                    <span class="rp-num text-xs font-semibold {% if m.rate >= 50 %}text-red-700{% elif m.rate >= 25 %}text-amber-700{% else %}text-muted{% endif %}" style="min-width:2.5rem">{{ m.rate }}%</span>
+                    <span class="rp-agent-bar flex-1" style="margin-top:0">
+                      <span class="rp-agent-fill block" style="--v:{{ m.rate / 100 }};background:{{ '#b91c1c' if m.rate >= 50 else '#b45309' if m.rate >= 25 else '#5c6a80' }}"></span>
+                    </span>
+                  </div>
+                </td>
+                {# The denominator travels with the rate, always. #}
+                <td class="rp-num text-muted whitespace-nowrap">{{ m.missed }} of {{ m.occurrences }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% set unassessed = misses.ranked | sum(attribute='not_assessed') %}
+      {% if unassessed %}
+        <p class="px-3.5 py-2.5 text-xs text-muted" style="border-top:1px solid var(--c-line)">
+          {{ unassessed }} item{{ 's' if unassessed != 1 }} above returned no verdict during analysis.
+          Those are excluded from the miss counts — they are not marks against {{ agent.name.split()[0] }}.
+        </p>
+      {% endif %}
+
+    {% elif misses.seen_once %}
+      <div class="p-4">
+        <p class="text-sm text-muted mb-3">
+          Nothing has been missed more than once yet, so there is no reliable pattern to
+          coach against. These came up on a single call each:
+        </p>
+        <ul class="space-y-1.5">
+          {% for m in misses.seen_once %}
+            <li class="text-sm text-ink-2 qb-break">
+              {{ m.name }}
+              <span class="text-xs text-faint">· {{ m.section }} · missed on 1 of 1 call</span>
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% elif sampled %}
+      <div class="p-4 flex items-start gap-2.5">
+        <svg class="w-4 h-4 mt-0.5 flex-shrink-0" style="color:#047857" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 13 4 4L19 7"/></svg>
+        <p class="text-sm text-muted">
+          {{ agent.name }} has covered every required item on
+          {{ 'both' if sampled == 2 else 'all' }} {{ sampled }} graded call{{ 's' if sampled != 1 }}.
+        </p>
+      </div>
+    {% else %}
+      <div class="p-4">
+        <p class="text-sm text-muted">
+          {% if total_calls %}
+            Analysis hasn't finished on {{ agent.name.split()[0] }}'s call{{ 's' if total_calls != 1 }} yet.
+            Weak spots appear here once a report exists.
+          {% else %}
+            No calls attributed to {{ agent.name.split()[0] }} yet.
+            Upload a call and pick their name to start building a scorecard.
+          {% endif %}
+        </p>
+      </div>
+    {% endif %}
+  </div>
+
+  {# ── Retired requirements ──
+       Names are matched verbatim against the active checklist; a drifted name
+       is reported as retired rather than fuzzily merged, because a wrong merge
+       would fabricate a compliance statistic. #}
+  {% if misses.retired %}
+    <div class="rp-panel overflow-hidden mb-4">
+      <div class="rp-panel-head">
+        <h2 class="rp-panel-title">No longer on your checklist</h2>
+        <span class="text-xs text-faint">historical</span>
+      </div>
+      <div class="p-4">
+        <p class="text-sm text-muted mb-3">
+          These were missed on past calls but aren't in
+          {% if checklist_name %}<b class="text-ink-2">{{ checklist_name }}</b>{% else %}your current checklist{% endif %}
+          any more — either the wording changed or the requirement was removed. Not counted above.
+        </p>
+        <ul class="space-y-1.5">
+          {% for m in misses.retired %}
+            <li class="text-sm text-muted qb-break">
+              {{ m.name }}
+              <span class="text-xs text-faint rp-num">· missed {{ m.missed }} of {{ m.occurrences }}</span>
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  {% endif %}
+
+  {# ── Their calls ── #}
+  {% if recent %}
+    <div class="rp-panel overflow-hidden">
+      <div class="rp-panel-head">
+        <h2 class="rp-panel-title">Recent calls</h2>
+        {% if total_calls > recent | length %}
+          <a href="{{ url_for('calls.history', agent_id=agent.id) }}" class="rp-link text-xs">All {{ total_calls }} →</a>
+        {% endif %}
+      </div>
+      <div class="qb-scroll-x">
+        <table class="rp-table rp-table--rows">
+          <thead>
+            <tr>
+              <th>Recording</th>
+              <th style="width:9rem">Call date</th>
+              <th style="width:6rem">Score</th>
+              <th style="width:8rem">Result</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in recent %}
+              {% set call = r.call %}
+              <tr {% if call.status == 'complete' %}class="is-clickable" data-report-url="{{ url_for('calls.report', call_id=call.id) }}"{% endif %}>
+                <td>
+                  {% if call.status == 'complete' %}
+                    <a class="rp-link rp-file block" href="{{ url_for('calls.report', call_id=call.id) }}" title="{{ call.filename }}">{{ call.filename }}</a>
+                  {% else %}
+                    <span class="rp-file block text-muted" title="{{ call.filename }}">{{ call.filename }}</span>
+                  {% endif %}
+                  {% if call.internal_id %}<span class="rp-num text-xs text-faint">{{ call.internal_id }}</span>{% endif %}
+                </td>
+                <td class="rp-num whitespace-nowrap text-muted">
+                  {% if call.call_date %}
+                    {{ call.call_date.strftime('%b %d, %Y') }}
+                  {% else %}
+                    {{ call.upload_date.strftime('%b %d, %Y') }}
+                    <div class="text-xs text-faint">uploaded</div>
+                  {% endif %}
+                </td>
+                <td class="rp-num text-muted">{% if r.score is not none %}{{ r.score }}%{% else %}—{% endif %}</td>
+                <td>
+                  {% if call.report %}
+                    {% set det = call.report.pass_fail_status or '' %}
+                    {% if 'PASS' in det and 'FAIL' not in det %}
+                      <span class="rp-verdict rp-verdict--sm rp-verdict--pass"><span class="rp-verdict-dot" aria-hidden="true"></span>PASS</span>
+                    {% elif 'CRITICAL' in det %}
+                      <span class="rp-verdict rp-verdict--sm rp-verdict--crit"><span class="rp-verdict-dot" aria-hidden="true"></span>CRITICAL</span>
+                    {% else %}
+                      <span class="rp-verdict rp-verdict--sm rp-verdict--fail"><span class="rp-verdict-dot" aria-hidden="true"></span>FAIL</span>
+                    {% endif %}
+                  {% else %}
+                    <span class="text-xs text-faint">{{ call.status | capitalize }}</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  // Same row behaviour as call history: the whole row opens the report, but the
+  // filename stays a real link so keyboard and screen-reader users have a target.
+  document.querySelectorAll('tr.is-clickable').forEach(function (row) {
+    row.addEventListener('click', function (e) {
+      if (e.target.closest('a, button, input, select, label')) return;
+      if (window.getSelection().toString()) return;
+      const url = row.dataset.reportUrl;
+      if (url) window.location.href = url;
+    });
+  });
+})();
+</script>
+{% endblock %}
