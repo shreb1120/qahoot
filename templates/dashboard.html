@@ -108,7 +108,11 @@
       </div>
     {% endif %}
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4 items-start">
+    {# No `items-start`: the two panels carry .rp-col precisely so they stretch
+       to a shared height and pin their footer links to the same baseline.
+       Aligning to start defeated that and left a ragged hole under the shorter
+       panel on the product's most-viewed page. #}
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
 
       {# ── Agent performance: the comparison a QA manager opens this tool to make ── #}
       <div class="lg:col-span-2 rp-panel overflow-hidden rp-col">

@@ -320,7 +320,12 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 /* ── Long unbroken input (filenames, phrases, org names, pasted URLs) ──
    Applied where user text lands in a table cell or flex row that would
    otherwise be stretched past the viewport by a single long token. */
-.qb-break { overflow-wrap: anywhere; word-break: break-word; min-width: 0; }
+/* `anywhere` also shrinks min-content width, so a table column could collapse
+   to a single character and render "Marcus Webb" as Marcu/s/Webb on a phone.
+   `break-word` breaks an unbreakable string (a filename, a long email) only
+   when it genuinely does not fit, and never offers a person's name as a break
+   point when a space is available. */
+.qb-break { overflow-wrap: break-word; word-break: normal; min-width: 0; }
 
 /* ── Horizontal scroll affordance for wide tables ── */
 .qb-scroll-x {
@@ -511,6 +516,10 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 
 /* ── Items table ── */
 .rp-table { width: 100%; border-collapse: collapse; font-size: var(--fs-body); }
+/* Inside a scroll container, give the table a floor so narrow screens scroll
+   it instead of crushing every column. Without this the scroller never
+   engages: width:100% always "fits", however unreadable the result. */
+.qb-scroll-x > .rp-table { min-width: 30rem; }
 .rp-table th {
   text-align: left; padding: .5rem .875rem;
   font-size: var(--fs-meta); font-weight: 600; letter-spacing: .04em;

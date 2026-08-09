@@ -7,7 +7,8 @@ Phase 2: call upload, analysis results, and history live here.
 from datetime import date, datetime, timedelta, timezone
 
 from flask import Blueprint, g, render_template
-from sqlalchemy import Date, case, cast, func
+from sqlalchemy import Date, cast, func
+from sqlalchemy.orm import joinedload
 
 from auth import org_required
 from stats import agent_performance_rows
@@ -59,6 +60,7 @@ def index():
     # Recent activity feed — latest calls with their agent + report (if any).
     recent_calls = (
         db.query(Call)
+        .options(joinedload(Call.agent), joinedload(Call.report))
         .filter(Call.org_id == org_id)
         .order_by(Call.upload_date.desc())
         .limit(6)
@@ -71,6 +73,7 @@ def index():
     # rather than with a fragile SQL comparison; the query is bounded first.
     failing = (
         db.query(Call)
+        .options(joinedload(Call.agent), joinedload(Call.report))
         .join(Report, Report.call_id == Call.id)
         .filter(Call.org_id == org_id, Report.pass_fail_status.ilike("%FAIL%"))
         .order_by(Call.upload_date.desc())
