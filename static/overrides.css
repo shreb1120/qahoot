@@ -300,8 +300,12 @@ main:focus { outline: none; }
   color: inherit; cursor: pointer; line-height: 0;
   border-radius: var(--c-radius-sm);
   min-width: 32px; min-height: 32px;
-  display: inline-flex; align-items: center; justify-content: center;
+  align-items: center; justify-content: center;
 }
+/* display goes through :where() so it carries zero specificity. This file loads
+   after tailwind.css, so a plain rule here beat `lg:hidden` and left the sidebar
+   close button visible on desktop. */
+:where(.qb-icon-btn) { display: inline-flex; }
 .qb-icon-btn:hover { background: rgba(255,255,255,.08); }
 
 /* ── Busy submit buttons ── */

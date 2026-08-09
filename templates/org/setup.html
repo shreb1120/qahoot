@@ -23,24 +23,27 @@
       </div>
 
       <div class="mb-6">
-        <label class="block text-sm font-semibold text-ink-2 mb-2">Compliance checklist starting point</label>
+        <span class="rp-field-label block mb-2">Compliance checklist starting point</span>
+        <p class="text-xs text-muted mb-2">
+          Pick the closest fit — everything is editable afterwards, and you can
+          switch templates at any time.
+        </p>
 
-        <label class="flex items-start gap-3 p-3 border border-slate-200 rounded-lg mb-2 cursor-pointer hover:bg-slate-50 transition">
-          <input type="radio" name="template" value="debt_settlement" checked class="mt-1 flex-shrink-0">
-          <span>
-            <strong class="text-sm">Debt settlement starter template</strong><br>
-            <small class="text-xs text-faint">Pre-loaded with 18 approval-script items, 15 post-enrollment items,
-            and 11 auto-fail phrases. You can edit everything after setup.</small>
-          </span>
-        </label>
-
-        <label class="flex items-start gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition">
-          <input type="radio" name="template" value="blank" class="mt-1 flex-shrink-0">
-          <span>
-            <strong class="text-sm">Blank profile</strong><br>
-            <small class="text-xs text-faint">Start from scratch and define your own checklist.</small>
-          </span>
-        </label>
+        <div class="space-y-2 max-h-72 overflow-y-auto pr-1">
+          {% for t in library %}
+            <label class="flex items-start gap-3 p-3 border rounded cursor-pointer transition"
+                   style="border-color:var(--c-line-2);border-radius:var(--c-radius)"
+                   onmouseover="this.style.background='var(--c-panel-2)'"
+                   onmouseout="this.style.background=''">
+              <input type="radio" name="template" value="{{ t.key }}"
+                     class="mt-0.5 flex-shrink-0" {% if loop.first %}checked{% endif %}>
+              <span class="min-w-0">
+                <span class="block text-sm font-semibold text-ink">{{ t.name }}</span>
+                <span class="block text-xs text-muted">{{ t.summary }}</span>
+              </span>
+            </label>
+          {% endfor %}
+        </div>
       </div>
 
       <button type="submit"

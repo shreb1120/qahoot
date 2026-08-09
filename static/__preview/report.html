@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jose Alvarez — Report — Qaboom</title>
+
+  
+  <link rel="preload" href="/static/fonts/inter-latin.woff2?v=260c81a475" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/static/fonts.css?v=73982dcda6">
+  <link rel="stylesheet" href="/static/tailwind.css?v=a06013f0b2">
+  <link rel="stylesheet" href="/static/overrides.css?v=6b29a3e33a">
+
+  <style>
+    /* Scoped to body so <code> and .font-mono keep their own family — the old
+       universal selector forced Inter onto <code> too, which mattered most on
+       the auto-fail phrases where exact wording is the point. Form controls do
+       not inherit font by default, so they opt in explicitly. */
+    body { font-family: 'Inter', system-ui, sans-serif; margin: 0; background: var(--c-bg); }
+    button, input, select, textarea { font-family: inherit; font-size: 100%; }
+  </style>
+
+  
+</head>
+<body>
+<!--
+QABOOM — DIRECTION CONTRACT (canon: call-intelligence category, full fidelity)
+THESIS: The graded call is the artifact. This surface owns the loop "read the
+  finding, hear the moment, judge it" — and refuses the vertical stack of
+  rounded cards with the transcript dumped at the bottom and a naked browser
+  audio control, which is what made it read as unfinished.
+OWN-WORLD: Category canon, per the owner's chosen bar (Gong / Chorus /
+  Observe.ai). Near-neutral ground, white panels, 1px hairlines, 6px radius,
+  no decorative shadow. Dense small type, tabular figures everywhere numeric.
+  Two speaker colours as data, not decoration. Semantic colour reserved for
+  verdicts so nothing competes with pass/fail.
+STORY: A reviewer opens a graded call, sees the verdict and where the call went
+  wrong on a timeline, plays straight to that moment, reads the evidence
+  beside it, and approves or flags the item without losing their place.
+FIRST VIEWPORT: verdict + call identity header; full-width sticky transport
+  with a real speaker timeline and evidence markers on it; then scorecard and
+  items as the working column with the synced transcript as its right rail.
+FORM: category canon, taken via the standing exit (no direction roll — the
+  owner asked for the familiar path in plain words). Bar: Gong/Chorus/Observe.ai.
+FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
+-->
+
+
+
+<a href="#main-content" class="qb-skip-link">Skip to main content</a>
+
+
+  
+  <div class="lg:hidden fixed top-0 inset-x-0 z-40 h-14 bg-[#0f172a] flex items-center px-4 border-b border-white/10 shadow-lg">
+    <button id="sidebar-open" type="button" class="qb-icon-btn text-white" aria-label="Open menu"
+            aria-controls="sidebar" aria-expanded="false">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/></svg>
+    </button>
+    <a href="/" class="ml-3 text-white font-bold text-lg tracking-tight no-underline flex items-center gap-2">
+      <span class="w-2 h-2 rounded-sm bg-indigo-500"></span>Qaboom
+    </a>
+  </div>
+
+  
+  <div id="sidebar-backdrop" class="fixed inset-0 bg-black/50 z-40 hidden lg:hidden"></div>
+
+  
+  <aside id="sidebar" class="fixed top-0 left-0 z-50 h-full w-64 flex flex-col transform -translate-x-full lg:translate-x-0 transition-transform duration-200 ease-in-out shadow-xl"
+         style="background:linear-gradient(180deg,#0f172a 0%,var(--nav-mid) 55%,#312e81 100%)">
+    
+    <div class="flex items-center justify-between px-5 h-14 lg:h-16">
+      <a href="/" class="text-white font-bold text-lg tracking-tight no-underline flex items-center gap-2.5">
+        <span class="w-2.5 h-2.5 rounded-sm bg-indigo-400 ring-2 ring-indigo-400/30" aria-hidden="true"></span>Qaboom
+      </a>
+      <button id="sidebar-close" type="button" class="qb-icon-btn lg:hidden text-decor hover:text-white" aria-label="Close menu">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    
+    <nav class="flex-1 px-3 py-2 space-y-0.5 overflow-y-auto" aria-label="Main">
+      <a href="/" class="sidebar-link ">
+        <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955a1.126 1.126 0 0 1 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/></svg>
+        Dashboard
+      </a>
+      <a href="/calls/upload" class="sidebar-link ">
+        <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/></svg>
+        Upload
+      </a>
+      <a href="/calls/" class="sidebar-link ">
+        <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+        History
+      </a>
+      <a href="/profile/" class="sidebar-link ">
+        <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15a2.25 2.25 0 0 1 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25Z"/></svg>
+        Checklist
+      </a>
+      <a href="/agents/" class="sidebar-link ">
+        <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z"/></svg>
+        Agents
+      </a>
+      
+      <a href="/org/settings" class="sidebar-link ">
+        <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
+        Team
+      </a>
+      
+    </nav>
+
+    
+    <div class="px-3 pt-2 pb-3 space-y-2">
+      <div class="border-t border-white/10 pt-2">
+        <a href="/auth/logout" class="sidebar-link">
+          <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9"/></svg>
+          Sign out
+        </a>
+      </div>
+      <div class="mx-2 px-3 py-1.5 rounded-md bg-white/5 border border-white/10 text-xs text-indigo-200 truncate">Acme Debt Solutions</div>
+    </div>
+  </aside>
+
+
+
+<main id="main-content" tabindex="-1" class="lg:pl-64 pt-14 lg:pt-0 min-h-screen flex flex-col">
+  
+  
+  <div class="qb-main-content w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8 flex-1 flex flex-col">
+    
+      
+    
+
+    <div class="flex-1">
+      
+
+
+
+
+
+
+
+  
+  
+
+  
+  
+
+
+
+
+
+<div>
+
+  
+  <div class="flex flex-wrap items-start justify-between gap-4 mb-4">
+    <div class="min-w-0">
+      <div class="flex items-center gap-2 flex-wrap">
+        <h1 class="qb-section-title">Jose Alvarez</h1>
+        
+          <span class="rp-num text-xs font-semibold text-muted bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5">ALV-88214</span>
+        
+      </div>
+      <p class="text-xs text-faint mt-1 rp-num qb-break">
+        Aug 08, 2026 &middot; 
+        6:19 &middot; 
+        8005551234 &middot; 
+        20260808-143052_8005551234.mp3
+      </p>
+    </div>
+
+    <div class="flex items-center gap-3">
+      
+        <span class="rp-verdict rp-verdict--crit"><span class="rp-verdict-dot" aria-hidden="true"></span>CRITICAL FAIL</span>
+      
+    </div>
+  </div>
+
+  
+  
+  <div class="rp-transport">
+    <audio id="call-audio" preload="metadata" class="qb-sr-only">
+      <source src="/calls/c1/audio">
+    </audio>
+
+    <div class="rp-transport-row">
+      <button type="button" class="rp-play" id="rp-play" aria-label="Play call">
+        <svg id="rp-icon-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.14v13.72a1 1 0 0 0 1.52.85l11.14-6.86a1 1 0 0 0 0-1.7L9.52 4.29A1 1 0 0 0 8 5.14Z"/></svg>
+        <svg id="rp-icon-pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="display:none"><path d="M7 4h3v16H7zM14 4h3v16h-3z"/></svg>
+      </button>
+
+      
+        <div class="rp-timeline" id="rp-timeline">
+          <div class="rp-markers">
+            
+              <button type="button" class="rp-marker rp-marker--ok"
+                      style="left:8.443%" data-ts="0:32"
+                      title="0:32 · Covered — Disclose that enrollment may adversely affect credit rating"
+                      aria-label="Jump to 0:32 — Covered — Disclose that enrollment may adversely affect credit rating"></button>
+            
+              <button type="button" class="rp-marker rp-marker--ok"
+                      style="left:17.15%" data-ts="1:05"
+                      title="1:05 · Covered — Disclose fee structure as a percentage of enrolled debt"
+                      aria-label="Jump to 1:05 — Covered — Disclose fee structure as a percentage of enrolled debt"></button>
+            
+              <button type="button" class="rp-marker rp-marker--ok"
+                      style="left:34.301%" data-ts="2:10"
+                      title="2:10 · Covered — Explain the draft schedule"
+                      aria-label="Jump to 2:10 — Covered — Explain the draft schedule"></button>
+            
+              <button type="button" class="rp-marker rp-marker--crit"
+                      style="left:59.103%" data-ts="3:44"
+                      title="3:44 · Auto-fail — guaranteed settlement"
+                      aria-label="Jump to 3:44 — Auto-fail — guaranteed settlement"></button>
+            
+          </div>
+          <div class="rp-track" id="rp-track" role="slider" tabindex="0"
+               aria-label="Call position" aria-valuemin="0" aria-valuemax="379"
+               aria-valuenow="0" aria-valuetext="0:00">
+            
+              <span class="rp-band rp-band--a" style="left:0.0%;width:1.055%"></span>
+            
+              <span class="rp-band rp-band--b" style="left:1.214%;width:1.847%"></span>
+            
+              <span class="rp-band rp-band--a" style="left:3.219%;width:2.639%"></span>
+            
+              <span class="rp-band rp-band--b" style="left:6.016%;width:3.43%"></span>
+            
+              <span class="rp-band rp-band--a" style="left:9.604%;width:1.055%"></span>
+            
+              <span class="rp-band rp-band--b" style="left:10.818%;width:1.847%"></span>
+            
+              <span class="rp-band rp-band--a" style="left:12.823%;width:2.639%"></span>
+            
+              <span class="rp-band rp-band--b" style="left:15.62%;width:3.43%"></span>
+            
+              <span class="rp-band rp-band--a" style="left:19.208%;width:1.055%"></span>
+            
+              <span class="rp-band rp-band--b" style="left:20.422%;width:1.847%"></span>
+            
+              <span class="rp-band rp-band--a" style="left:22.427%;width:2.639%"></span>
+            
+              <span class="rp-band rp-band--b" style="left:25.224%;width:3.43%"></span>
+            
+          </div>
+          <div class="rp-playhead" id="rp-playhead" style="left:0%"></div>
+        </div>
+      
+
+      <div class="rp-time"><b id="rp-current">0:00</b> / 6:19</div>
+    </div>
+
+    
+      <div class="rp-legend">
+        <span class="rp-legend-item"><span class="rp-swatch" style="background:var(--spk-a)" aria-hidden="true"></span>Speaker A · 41% talk</span>
+        
+          <span class="rp-legend-item"><span class="rp-swatch" style="background:var(--spk-b)" aria-hidden="true"></span>Speaker B · 59% talk</span>
+        
+        
+          <span class="rp-legend-item"><span class="rp-swatch" style="background:#94a3b8;transform:rotate(45deg)" aria-hidden="true"></span>Disclosure covered</span>
+        
+        
+        
+          <span class="rp-legend-item"><span class="rp-swatch" style="background:#7f1d1d;transform:rotate(45deg)" aria-hidden="true"></span>Auto-fail</span>
+        
+      </div>
+    
+  </div>
+  
+
+  
+    <div class="rp-panel mt-4" style="border-color:#fecaca">
+      <div class="rp-panel-head" style="background:#fef2f2;border-color:#fecaca">
+        <h2 class="rp-panel-title" style="color:#b91c1c">Auto-fail phrase detected</h2>
+        <span class="text-xs font-semibold text-red-800">1 occurrence</span>
+      </div>
+      <div class="qb-scroll-x">
+        <table class="rp-table">
+          <thead><tr><th>Phrase &amp; quote</th><th style="width:4.5rem">At</th><th style="width:6rem">Speaker</th><th style="width:30%">Violation</th></tr></thead>
+          <tbody>
+            
+              <tr class="rp-row--miss">
+                <td class="qb-break">
+                  <div class="rp-req font-semibold text-ink">guaranteed settlement</div>
+                  <div class="rp-evidence">I can tell you you&#39;ll get a guaranteed settlement on all of these accounts.</div>
+                </td>
+                <td><button type="button" class="rp-ts" data-ts="3:44">3:44</button></td>
+                <td class="text-muted">A</td>
+                <td class="rp-violation qb-break">Guarantees a specific outcome, prohibited under FTC telemarketing rules.</td>
+              </tr>
+            
+          </tbody>
+        </table>
+      </div>
+    </div>
+  
+
+  
+  <div class="rp-grid">
+    <div class="min-w-0">
+
+      
+      <div class="rp-panel">
+        <div class="rp-panel-head">
+          <h2 class="rp-panel-title">Compliance score</h2>
+          <div class="rp-actions">
+            <form method="post" action="/calls/c1/writeup" data-busy-label="Generating…">
+              <button type="submit" class="rp-btn">Write-up (.docx)</button>
+            </form>
+            <a href="/calls/c1/report.pdf" class="rp-btn">PDF</a>
+            <a href="/calls/c1/report.pdf?fails_only=1" class="rp-btn">Fails only</a>
+          </div>
+        </div>
+        <div class="p-4">
+          <div class="rp-score">
+            <span class="rp-score-value">50%</span>
+            <span class="rp-score-of">3 of 6 items covered</span>
+          </div>
+          <div class="rp-meter">
+            <div class="rp-meter-fill" style="transform:scaleX(0.5);background:#b91c1c"></div>
+          </div>
+          
+            <div class="flex flex-wrap gap-x-5 gap-y-1.5 mt-3">
+              
+                
+                <span class="text-xs text-muted">
+                  Approval Script
+                  <b class="rp-num text-red-700">2/4</b>
+                </span>
+              
+                
+                <span class="text-xs text-muted">
+                  Post-Enrollment
+                  <b class="rp-num text-red-700">1/2</b>
+                </span>
+              
+            </div>
+          
+          
+            <p class="text-xs text-muted mt-3 pt-3 border-t border-slate-100 leading-relaxed">Agent covered fee structure and credit impact but never stated the cancellation policy, and guaranteed a settlement outcome.</p>
+          
+        </div>
+      </div>
+
+      
+
+      
+      
+        
+        
+        <div class="rp-panel mt-4">
+          <div class="rp-panel-head">
+            <h2 class="rp-panel-title">Approval Script</h2>
+            <span class="rp-num text-xs font-semibold text-red-700">2/4 covered</span>
+          </div>
+          <div class="qb-scroll-x">
+            <table class="rp-table">
+              <thead>
+                <tr>
+                  <th>Requirement &amp; evidence</th>
+                  <th style="width:8.5rem">Status</th>
+                  <th style="width:4.5rem">At</th>
+                  <th style="width:11rem">Override</th>
+                </tr>
+              </thead>
+              <tbody>
+                
+                  
+                  <tr class="">
+                    <td class="qb-break">
+                      <div class="rp-req">Disclose that enrollment may adversely affect credit rating</div>
+                      <div class="rp-evidence">Enrolling in this program may adversely affect your credit rating, and results vary by creditor.</div>
+                    </td>
+                    <td>
+                      
+                        <span class="rp-status rp-status--ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 13 4 4L19 7"/></svg>Covered</span>
+                      
+                    </td>
+                    <td>
+                      
+                        <button type="button" class="rp-ts" data-ts="0:32">0:32</button>
+                      
+                    </td>
+                    <td>
+                      
+                      <div class="override-btns" data-section-key="approval_script" data-item-name="Disclose that enrollment may adversely affect credit rating">
+                        <button type="button" class="ov-btn ov-approve " data-idle="Approve" onclick="setOverride(this, 'approved')">Approve</button>
+                        <button type="button" class="ov-btn ov-flag " data-idle="Flag" onclick="setOverride(this, 'failed')">Flag</button>
+                        
+                      </div>
+                    </td>
+                  </tr>
+                
+                  
+                  <tr class="">
+                    <td class="qb-break">
+                      <div class="rp-req">Disclose fee structure as a percentage of enrolled debt</div>
+                      <div class="rp-evidence">Our fee is twenty-two percent of the total enrolled debt, rolled into your monthly payment.</div>
+                    </td>
+                    <td>
+                      
+                        <span class="rp-status rp-status--ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 13 4 4L19 7"/></svg>Covered</span>
+                      
+                    </td>
+                    <td>
+                      
+                        <button type="button" class="rp-ts" data-ts="1:05">1:05</button>
+                      
+                    </td>
+                    <td>
+                      
+                        <span class="ov-pill inline-block text-xs font-semibold px-2 py-0.5 rounded bg-green-50 text-green-700 mb-1">✓ Approved</span>
+                      
+                      <div class="override-btns" data-section-key="approval_script" data-item-name="Disclose fee structure as a percentage of enrolled debt">
+                        <button type="button" class="ov-btn ov-approve ov-active" data-idle="Approve" onclick="setOverride(this, 'approved')">Approve</button>
+                        <button type="button" class="ov-btn ov-flag " data-idle="Flag" onclick="setOverride(this, 'failed')">Flag</button>
+                        
+                          <button type="button" class="ov-btn ov-clear" data-idle="Clear" onclick="setOverride(this, '')">Clear</button>
+                        
+                      </div>
+                    </td>
+                  </tr>
+                
+                  
+                  <tr class="rp-row--miss">
+                    <td class="qb-break">
+                      <div class="rp-req">State the cancellation policy</div>
+                      <div class="rp-evidence">Not mentioned at any point in the call.</div>
+                    </td>
+                    <td>
+                      
+                        <span class="rp-status rp-status--miss"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>Missing</span>
+                      
+                    </td>
+                    <td>
+                      <span class="text-decor">—</span>
+                    </td>
+                    <td>
+                      
+                      <div class="override-btns" data-section-key="approval_script" data-item-name="State the cancellation policy">
+                        <button type="button" class="ov-btn ov-approve " data-idle="Approve" onclick="setOverride(this, 'approved')">Approve</button>
+                        <button type="button" class="ov-btn ov-flag " data-idle="Flag" onclick="setOverride(this, 'failed')">Flag</button>
+                        
+                      </div>
+                    </td>
+                  </tr>
+                
+                  
+                  <tr class="rp-row--miss">
+                    <td class="qb-break">
+                      <div class="rp-req">Confirm client identity before disclosures</div>
+                      
+                    </td>
+                    <td>
+                      
+                        <span class="rp-status rp-status--miss"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>Missing</span>
+                      
+                    </td>
+                    <td>
+                      <span class="text-decor">—</span>
+                    </td>
+                    <td>
+                      
+                      <div class="override-btns" data-section-key="approval_script" data-item-name="Confirm client identity before disclosures">
+                        <button type="button" class="ov-btn ov-approve " data-idle="Approve" onclick="setOverride(this, 'approved')">Approve</button>
+                        <button type="button" class="ov-btn ov-flag " data-idle="Flag" onclick="setOverride(this, 'failed')">Flag</button>
+                        
+                      </div>
+                    </td>
+                  </tr>
+                
+              </tbody>
+            </table>
+          </div>
+        </div>
+      
+        
+        
+        <div class="rp-panel mt-4">
+          <div class="rp-panel-head">
+            <h2 class="rp-panel-title">Post-Enrollment</h2>
+            <span class="rp-num text-xs font-semibold text-red-700">1/2 covered</span>
+          </div>
+          <div class="qb-scroll-x">
+            <table class="rp-table">
+              <thead>
+                <tr>
+                  <th>Requirement &amp; evidence</th>
+                  <th style="width:8.5rem">Status</th>
+                  <th style="width:4.5rem">At</th>
+                  <th style="width:11rem">Override</th>
+                </tr>
+              </thead>
+              <tbody>
+                
+                  
+                  <tr class="">
+                    <td class="qb-break">
+                      <div class="rp-req">Explain the draft schedule</div>
+                      <div class="rp-evidence">First draft is on the fifteenth.</div>
+                    </td>
+                    <td>
+                      
+                        <span class="rp-status rp-status--ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 13 4 4L19 7"/></svg>Covered</span>
+                      
+                    </td>
+                    <td>
+                      
+                        <button type="button" class="rp-ts" data-ts="2:10">2:10</button>
+                      
+                    </td>
+                    <td>
+                      
+                      <div class="override-btns" data-section-key="post_enrollment" data-item-name="Explain the draft schedule">
+                        <button type="button" class="ov-btn ov-approve " data-idle="Approve" onclick="setOverride(this, 'approved')">Approve</button>
+                        <button type="button" class="ov-btn ov-flag " data-idle="Flag" onclick="setOverride(this, 'failed')">Flag</button>
+                        
+                      </div>
+                    </td>
+                  </tr>
+                
+                  
+                  <tr class="rp-row--miss">
+                    <td class="qb-break">
+                      <div class="rp-req">Provide written agreement</div>
+                      
+                    </td>
+                    <td>
+                      
+                        <span class="rp-status rp-status--miss"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>Missing</span>
+                      
+                    </td>
+                    <td>
+                      <span class="text-decor">—</span>
+                    </td>
+                    <td>
+                      
+                      <div class="override-btns" data-section-key="post_enrollment" data-item-name="Provide written agreement">
+                        <button type="button" class="ov-btn ov-approve " data-idle="Approve" onclick="setOverride(this, 'approved')">Approve</button>
+                        <button type="button" class="ov-btn ov-flag " data-idle="Flag" onclick="setOverride(this, 'failed')">Flag</button>
+                        
+                      </div>
+                    </td>
+                  </tr>
+                
+              </tbody>
+            </table>
+          </div>
+        </div>
+      
+    </div>
+
+    
+    <div class="rp-rail">
+      <div class="rp-panel">
+        <div class="rp-panel-head">
+          <h2 class="rp-panel-title">Transcript</h2>
+          <label class="flex items-center gap-1.5 text-xs text-muted cursor-pointer select-none">
+            <input type="checkbox" id="rp-follow" checked>Follow playback
+          </label>
+        </div>
+        
+          <div class="rp-transcript" id="rp-transcript">
+            
+              <div class="rp-line" data-start="0" data-end="4000">
+                <button type="button" class="rp-line-ts" data-ts="0:00" aria-label="Play from 0:00">0:00</button>
+                <div>
+                  <span class="rp-spk rp-spk--a">Speaker A</span>
+                  <span class="rp-line-text">Thanks for calling Acme, my name is Jose. Am I speaking with the account holder?</span>
+                </div>
+              </div>
+            
+              <div class="rp-line" data-start="4600" data-end="11600">
+                <button type="button" class="rp-line-ts" data-ts="0:04" aria-label="Play from 0:04">0:04</button>
+                <div>
+                  <span class="rp-spk rp-spk--b">Speaker B</span>
+                  <span class="rp-line-text">Yes, that&#39;s me.</span>
+                </div>
+              </div>
+            
+              <div class="rp-line" data-start="12200" data-end="22200">
+                <button type="button" class="rp-line-ts" data-ts="0:12" aria-label="Play from 0:12">0:12</button>
+                <div>
+                  <span class="rp-spk rp-spk--a">Speaker A</span>
+                  <span class="rp-line-text">Great. Before we go further I need to read you a few required disclosures.</span>
+                </div>
+              </div>
+            
+              <div class="rp-line" data-start="22800" data-end="35800">
+                <button type="button" class="rp-line-ts" data-ts="0:22" aria-label="Play from 0:22">0:22</button>
+                <div>
+                  <span class="rp-spk rp-spk--b">Speaker B</span>
+                  <span class="rp-line-text">Okay, go ahead.</span>
+                </div>
+              </div>
+            
+              <div class="rp-line" data-start="36400" data-end="40400">
+                <button type="button" class="rp-line-ts" data-ts="0:36" aria-label="Play from 0:36">0:36</button>
+                <div>
+                  <span class="rp-spk rp-spk--a">Speaker A</span>
+                  <span class="rp-line-text">Enrolling in this program may adversely affect your credit rating, and results vary by creditor.</span>
+                </div>
+              </div>
+            
+              <div class="rp-line" data-start="41000" data-end="48000">
+                <button type="button" class="rp-line-ts" data-ts="0:41" aria-label="Play from 0:41">0:41</button>
+                <div>
+                  <span class="rp-spk rp-spk--b">Speaker B</span>
+                  <span class="rp-line-text">I understand.</span>
+                </div>
+              </div>
+            
+              <div class="rp-line" data-start="48600" data-end="58600">
+                <button type="button" class="rp-line-ts" data-ts="0:48" aria-label="Play from 0:48">0:48</button>
+                <div>
+                  <span class="rp-spk rp-spk--a">Speaker A</span>
+                  <span class="rp-line-text">Our fee is twenty-two percent of the total enrolled debt, rolled into your monthly payment.</span>
+                </div>
+              </div>
+            
+              <div class="rp-line" data-start="59200" data-end="72200">
+                <button type="button" class="rp-line-ts" data-ts="0:59" aria-label="Play from 0:59">0:59</button>
+                <div>
+                  <span class="rp-spk rp-spk--b">Speaker B</span>
+                  <span class="rp-line-text">And there&#39;s no upfront cost?</span>
+                </div>
+              </div>
+            
+              <div class="rp-line" data-start="72800" data-end="76800">
+                <button type="button" class="rp-line-ts" data-ts="1:12" aria-label="Play from 1:12">1:12</button>
+                <div>
+                  <span class="rp-spk rp-spk--a">Speaker A</span>
+                  <span class="rp-line-text">Correct, no upfront fees. You&#39;ll never pay more than the amount quoted today.</span>
+                </div>
+              </div>
+            
+              <div class="rp-line" data-start="77400" data-end="84400">
+                <button type="button" class="rp-line-ts" data-ts="1:17" aria-label="Play from 1:17">1:17</button>
+                <div>
+                  <span class="rp-spk rp-spk--b">Speaker B</span>
+                  <span class="rp-line-text">That sounds good.</span>
+                </div>
+              </div>
+            
+              <div class="rp-line" data-start="85000" data-end="95000">
+                <button type="button" class="rp-line-ts" data-ts="1:25" aria-label="Play from 1:25">1:25</button>
+                <div>
+                  <span class="rp-spk rp-spk--a">Speaker A</span>
+                  <span class="rp-line-text">I can tell you you&#39;ll get a guaranteed settlement on all of these accounts.</span>
+                </div>
+              </div>
+            
+              <div class="rp-line" data-start="95600" data-end="108600">
+                <button type="button" class="rp-line-ts" data-ts="1:35" aria-label="Play from 1:35">1:35</button>
+                <div>
+                  <span class="rp-spk rp-spk--b">Speaker B</span>
+                  <span class="rp-line-text">Really? That&#39;s great to hear.</span>
+                </div>
+              </div>
+            
+          </div>
+        
+      </div>
+    </div>
+  </div>
+
+  <p class="qb-sr-only" id="override-status" role="status" aria-live="polite"></p>
+
+  <p class="mt-5 text-xs"><a href="/calls/" class="text-muted no-underline hover:text-ink">← Call history</a></p>
+</div>
+
+    </div>
+
+    
+    
+      <div class="qb-watermark">Qaboom</div>
+    
+  </div>
+  
+</main>
+
+
+<script async
+  src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@5/dist/clerk.browser.js"
+  data-clerk-publishable-key="pk_test_c21pbGluZy1nbmF0LTcxLmNsZXJrLmFjY291bnRzLmRldiQ"
+  crossorigin="anonymous">
+</script>
+
+
+<script>
+(function () {
+  document.addEventListener('submit', function (e) {
+    const form = e.target;
+    if (!(form instanceof HTMLFormElement)) return;
+
+    const confirmMsg = form.dataset.confirm;
+    if (confirmMsg && !window.confirm(confirmMsg)) {
+      e.preventDefault();
+      return;
+    }
+
+    if (form.dataset.busyLabel === undefined) return;
+
+    if (form.dataset.submitted === '1') { e.preventDefault(); return; }
+    // Native validation runs before this fires only for valid forms; guard anyway
+    // so a rejected submit does not leave the button stuck in its busy state.
+    if (typeof form.checkValidity === 'function' && !form.checkValidity()) return;
+
+    form.dataset.submitted = '1';
+    const btn = form.querySelector('button[type="submit"], input[type="submit"]');
+    if (!btn) return;
+    btn.dataset.idleLabel = btn.textContent;
+    if (form.dataset.busyLabel) btn.textContent = form.dataset.busyLabel;
+    btn.setAttribute('aria-busy', 'true');
+    // Deferred: disabling a submit button synchronously drops it from the payload.
+    setTimeout(function () { btn.disabled = true; }, 0);
+  });
+
+  // Restore after a back-navigation, which serves the page from bfcache with
+  // the button still disabled from the previous submit.
+  window.addEventListener('pageshow', function (e) {
+    if (!e.persisted) return;
+    document.querySelectorAll('form[data-busy-label]').forEach(function (form) {
+      form.dataset.submitted = '';
+      const btn = form.querySelector('button[type="submit"], input[type="submit"]');
+      if (!btn) return;
+      btn.disabled = false;
+      btn.removeAttribute('aria-busy');
+      if (btn.dataset.idleLabel) btn.textContent = btn.dataset.idleLabel;
+    });
+  });
+})();
+</script>
+
+
+<script>
+(function() {
+  const sidebar  = document.getElementById('sidebar');
+  const backdrop = document.getElementById('sidebar-backdrop');
+  const openBtn  = document.getElementById('sidebar-open');
+  const closeBtn = document.getElementById('sidebar-close');
+  if (!sidebar) return;
+
+  const desktop = window.matchMedia('(min-width: 1024px)');
+  const supportsInert = 'inert' in HTMLElement.prototype;
+  let isOpen = false;
+
+  function focusables() {
+    return Array.prototype.slice.call(
+      sidebar.querySelectorAll('a[href], button:not([disabled])')
+    ).filter(function (el) { return el.offsetParent !== null || desktop.matches; });
+  }
+
+  // On desktop the sidebar is permanently visible and must never be hidden.
+  // Below lg, `visibility` (set in overrides.css via .is-open) is what removes
+  // the closed sidebar from the tab order and the accessibility tree.
+  function sync() {
+    if (supportsInert) sidebar.inert = !desktop.matches && !isOpen;
+    if (openBtn) openBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  }
+
+  function open() {
+    isOpen = true;
+    sidebar.classList.remove('-translate-x-full');
+    sidebar.classList.add('is-open');
+    backdrop.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    sync();
+    const first = focusables()[0];
+    if (first) first.focus();
+  }
+
+  function close(returnFocus) {
+    isOpen = false;
+    sidebar.classList.add('-translate-x-full');
+    sidebar.classList.remove('is-open');
+    backdrop.classList.add('hidden');
+    document.body.style.overflow = '';
+    sync();
+    if (returnFocus && openBtn) openBtn.focus();
+  }
+
+  if (openBtn)  openBtn.addEventListener('click', open);
+  if (closeBtn) closeBtn.addEventListener('click', function () { close(true); });
+  if (backdrop) backdrop.addEventListener('click', function () { close(true); });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape' || !isOpen || desktop.matches) return;
+    close(true);
+  });
+
+  // Keep focus inside the drawer while it covers the page.
+  sidebar.addEventListener('keydown', function (e) {
+    if (e.key !== 'Tab' || !isOpen || desktop.matches) return;
+    const items = focusables();
+    if (!items.length) return;
+    const first = items[0], last = items[items.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault(); last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault(); first.focus();
+    }
+  });
+
+  // Rotating a phone to landscape can cross the lg breakpoint with the drawer
+  // still open; reset to the layout's own state rather than a stale one.
+  desktop.addEventListener('change', function () {
+    if (desktop.matches && isOpen) close(false);
+    else sync();
+  });
+
+  sync();
+})();
+</script>
+
+
+
+<script>
+(function () {
+  const audio = document.getElementById('call-audio');
+  const timeline = document.getElementById('rp-timeline');
+  const track = document.getElementById('rp-track');
+  const playhead = document.getElementById('rp-playhead');
+  const playBtn = document.getElementById('rp-play');
+  const iconPlay = document.getElementById('rp-icon-play');
+  const iconPause = document.getElementById('rp-icon-pause');
+  const current = document.getElementById('rp-current');
+  const follow = document.getElementById('rp-follow');
+  const transcript = document.getElementById('rp-transcript');
+  const DURATION = 379;
+
+  function fmt(s) {
+    s = Math.max(0, Math.floor(s));
+    return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+  }
+
+  function parseTs(ts) {
+    if (!ts) return null;
+    const p = ts.trim().split(':').map(Number);
+    if (p.some(isNaN)) return null;
+    if (p.length === 2) return p[0] * 60 + p[1];
+    if (p.length === 3) return p[0] * 3600 + p[1] * 60 + p[2];
+    return null;
+  }
+
+  if (audio && playBtn) {
+    playBtn.addEventListener('click', function () {
+      if (audio.paused) audio.play(); else audio.pause();
+    });
+    audio.addEventListener('play', function () {
+      iconPlay.style.display = 'none'; iconPause.style.display = '';
+      playBtn.setAttribute('aria-label', 'Pause call');
+    });
+    audio.addEventListener('pause', function () {
+      iconPlay.style.display = ''; iconPause.style.display = 'none';
+      playBtn.setAttribute('aria-label', 'Play call');
+    });
+  }
+
+  let activeLine = null;
+  function highlight(line) {
+    if (line === activeLine) return;
+    if (activeLine) activeLine.classList.remove('is-playing');
+    activeLine = line;
+    if (!line) return;
+    line.classList.add('is-playing');
+    if (follow && follow.checked && transcript) {
+      const t = transcript.getBoundingClientRect();
+      const l = line.getBoundingClientRect();
+      if (l.top < t.top || l.bottom > t.bottom) {
+        transcript.scrollTop += (l.top - t.top) - t.height / 2 + l.height / 2;
+      }
+    }
+  }
+
+  function lineAt(ms) {
+    if (!transcript) return null;
+    const lines = transcript.querySelectorAll('.rp-line');
+    let best = null, bestDiff = Infinity;
+    for (const el of lines) {
+      const a = +el.dataset.start, b = +el.dataset.end;
+      if (ms >= a && ms <= b) return el;
+      const d = Math.abs(a - ms);
+      if (d < bestDiff) { bestDiff = d; best = el; }
+    }
+    return best;
+  }
+
+  if (audio) {
+    audio.addEventListener('timeupdate', function () {
+      const t = audio.currentTime;
+      if (current) current.textContent = fmt(t);
+      if (playhead && DURATION) playhead.style.left = Math.min(100, t / DURATION * 100) + '%';
+      if (track && DURATION) {
+        track.setAttribute('aria-valuenow', Math.floor(t));
+        track.setAttribute('aria-valuetext', fmt(t));
+      }
+      highlight(lineAt(t * 1000));
+    });
+  }
+
+  function seek(seconds, play) {
+    if (!audio || seconds === null) return;
+    audio.currentTime = seconds;
+    if (play !== false) audio.play().catch(function () {});
+    highlight(lineAt(seconds * 1000));
+  }
+
+  // Scrubbing: click, drag, and keyboard.
+  if (timeline && DURATION && audio) {
+    const posToSeconds = function (clientX) {
+      const rect = timeline.getBoundingClientRect();
+      return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width)) * DURATION;
+    };
+    let scrubbing = false;
+    timeline.addEventListener('pointerdown', function (e) {
+      if (e.target.closest('.rp-marker')) return;   // markers handle themselves
+      scrubbing = true;
+      timeline.setPointerCapture(e.pointerId);
+      seek(posToSeconds(e.clientX), false);
+    });
+    timeline.addEventListener('pointermove', function (e) {
+      if (scrubbing) seek(posToSeconds(e.clientX), false);
+    });
+    timeline.addEventListener('pointerup', function (e) {
+      if (!scrubbing) return;
+      scrubbing = false;
+      timeline.releasePointerCapture(e.pointerId);
+    });
+    (track || timeline).addEventListener('keydown', function (e) {
+      const step = e.shiftKey ? 30 : 5;
+      if (e.key === 'ArrowRight') { e.preventDefault(); seek(Math.min(DURATION, audio.currentTime + step), false); }
+      else if (e.key === 'ArrowLeft') { e.preventDefault(); seek(Math.max(0, audio.currentTime - step), false); }
+      else if (e.key === 'Home') { e.preventDefault(); seek(0, false); }
+      else if (e.key === 'End') { e.preventDefault(); seek(DURATION, false); }
+      else if (e.key === ' ' || e.key === 'Enter') {
+        e.preventDefault();
+        if (audio.paused) audio.play(); else audio.pause();
+      }
+    });
+  }
+
+  // Markers are interactive only where they can meet the target-size minimum.
+  // Below the split breakpoint they are presentational; the items table carries
+  // the same jump on a properly sized control.
+  const wide = window.matchMedia('(min-width: 1180px)');
+  function syncMarkers() {
+    const on = wide.matches;
+    document.querySelectorAll('.rp-marker').forEach(function (m) {
+      m.tabIndex = on ? 0 : -1;
+      if (on) m.removeAttribute('aria-hidden');
+      else m.setAttribute('aria-hidden', 'true');
+    });
+  }
+  syncMarkers();
+  wide.addEventListener('change', syncMarkers);
+
+  // Every timestamp in the page aims the same transport.
+  document.addEventListener('click', function (e) {
+    const hit = e.target.closest('[data-ts]');
+    if (!hit) return;
+    e.preventDefault();
+    seek(parseTs(hit.dataset.ts), true);
+  });
+})();
+
+// Overrides update the row in place: a reload would stop playback and lose the
+// reviewer's place halfway down a long report.
+function applyOverride(cell, status) {
+  const td = cell.parentElement;
+  cell.dataset.busy = '';
+  let pill = td.querySelector('.ov-pill');
+  if (!pill) {
+    pill = document.createElement('span');
+    pill.className = 'ov-pill';
+    td.insertBefore(pill, cell);
+  }
+  if (status === 'approved') {
+    pill.className = 'ov-pill inline-block text-xs font-semibold px-2 py-0.5 rounded bg-green-50 text-green-700 mb-1';
+    pill.textContent = '✓ Approved';
+  } else if (status === 'failed') {
+    pill.className = 'ov-pill inline-block text-xs font-semibold px-2 py-0.5 rounded bg-red-50 text-red-700 mb-1';
+    pill.textContent = '✗ Flagged';
+  } else {
+    pill.remove();
+  }
+  cell.querySelectorAll('.ov-btn').forEach(function (b) {
+    b.disabled = false;
+    if (b.dataset.idle) b.textContent = b.dataset.idle;
+    const target = b.classList.contains('ov-approve') ? 'approved'
+                 : b.classList.contains('ov-flag') ? 'failed' : null;
+    if (target) b.classList.toggle('ov-active', status === target);
+  });
+  let clear = cell.querySelector('.ov-clear');
+  if (status && !clear) {
+    clear = document.createElement('button');
+    clear.type = 'button';
+    clear.className = 'ov-btn ov-clear';
+    clear.textContent = 'Clear';
+    clear.addEventListener('click', function () { setOverride(clear, ''); });
+    cell.appendChild(clear);
+  } else if (!status && clear) {
+    clear.remove();
+  }
+  const live = document.getElementById('override-status');
+  if (live) {
+    live.textContent = 'Override ' + (status === 'approved' ? 'approved'
+                     : status === 'failed' ? 'flagged' : 'cleared') + '.';
+  }
+}
+
+function setOverride(btn, status) {
+  const cell = btn.closest('.override-btns');
+  if (!cell || cell.dataset.busy === '1') return;
+  const buttons = cell.querySelectorAll('.ov-btn');
+  const previousLabel = btn.textContent;
+
+  function fail(message) {
+    cell.dataset.busy = '';
+    buttons.forEach(function (b) { b.disabled = false; });
+    btn.textContent = previousLabel;
+    let note = cell.parentElement.querySelector('.ov-error');
+    if (!note) {
+      note = document.createElement('p');
+      note.className = 'ov-error qb-field-error';
+      note.setAttribute('role', 'alert');
+      cell.parentElement.appendChild(note);
+    }
+    note.textContent = message;
+  }
+
+  cell.dataset.busy = '1';
+  buttons.forEach(function (b) { b.disabled = true; });
+  btn.textContent = 'Saving…';
+  const existing = cell.parentElement.querySelector('.ov-error');
+  if (existing) existing.remove();
+
+  fetch('/calls/c1/override', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      section_key: cell.dataset.sectionKey,
+      item_name: cell.dataset.itemName,
+      status: status
+    }),
+  })
+  .then(function (res) {
+    if (res.status === 401 || res.status === 403) { fail('Your session expired. Reload the page and sign in again.'); return null; }
+    if (!res.ok) { fail('Could not save that override (error ' + res.status + '). Try again.'); return null; }
+    return res.json();
+  })
+  .then(function (data) { if (data) applyOverride(cell, status); })
+  .catch(function () { fail('Could not reach the server. Check your connection and try again.'); });
+}
+</script>
+
+</body>
+</html>

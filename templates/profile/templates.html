@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Checklist templates — Qaboom{% endblock %}
+
+{% block content %}
+{% set is_admin = g.user.role == 'admin' %}
+<div class="max-w-5xl">
+  <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+    <div class="min-w-0">
+      <h1 class="qb-page-title">Checklist templates</h1>
+      <p class="text-xs text-muted mt-1.5">
+        A starting point for your industry. Everything is editable afterwards.
+      </p>
+    </div>
+    <a href="{{ url_for('profile.view') }}" class="rp-btn">← Current checklist</a>
+  </div>
+
+  {% if profile %}
+    <div class="rp-panel p-3.5 mb-4">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="min-w-0">
+          <div class="rp-metric-label mb-0.5">Currently active</div>
+          <p class="text-sm font-semibold text-ink qb-break">{{ profile.name }}</p>
+          <p class="text-xs text-muted rp-num">
+            {{ current_stats.item_count }} item{{ 's' if current_stats.item_count != 1 }} across
+            {{ current_stats.sections }} section{{ 's' if current_stats.sections != 1 }},
+            {{ current_stats.phrases }} auto-fail phrase{{ 's' if current_stats.phrases != 1 }}
+          </p>
+        </div>
+        <a href="{{ url_for('profile.view') }}" class="rp-link text-xs">Edit it →</a>
+      </div>
+    </div>
+  {% endif %}
+
+  {% if not is_admin %}
+    <div class="rp-flash rp-flash--ok mb-4" role="status" style="background:var(--c-panel-2);border-color:var(--c-line);color:var(--muted)">
+      Only admins can switch the checklist. You can read any template below.
+    </div>
+  {% endif %}
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+    {% for t in library %}
+      <div class="rp-panel flex flex-col{% if t.key == 'blank' %} md:col-span-2{% endif %}">
+        <div class="rp-panel-head">
+          <h2 class="rp-panel-title">{{ t.name }}</h2>
+          <span class="text-xs text-faint">{{ t.industry }}</span>
+        </div>
+
+        <div class="p-4 flex-1">
+          <p class="text-sm text-muted mb-3">{{ t.summary }}</p>
+
+          {% if t.stats.item_count %}
+            <div class="flex flex-wrap gap-x-4 gap-y-1 mb-3">
+              <span class="text-xs text-muted rp-num"><b class="text-ink">{{ t.stats.item_count }}</b> requirements</span>
+              <span class="text-xs text-muted rp-num"><b class="text-ink">{{ t.stats.sections }}</b> sections</span>
+              <span class="text-xs text-muted rp-num"><b class="text-ink">{{ t.stats.phrases }}</b> auto-fail phrases</span>
+            </div>
+
+            <div class="rp-metric-label mb-1.5">Includes</div>
+            <ul class="space-y-1 mb-1">
+              {% for name in t.preview %}
+                <li class="flex items-start gap-1.5 text-xs text-muted">
+                  <svg class="w-3 h-3 mt-0.5 flex-shrink-0 text-faint" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 13 4 4L19 7"/></svg>
+                  <span class="qb-break">{{ name }}</span>
+                </li>
+              {% endfor %}
+              {% if t.stats.item_count > t.preview | length %}
+                <li class="text-xs text-faint pl-4.5 rp-num">and {{ t.stats.item_count - t.preview | length }} more</li>
+              {% endif %}
+            </ul>
+          {% endif %}
+        </div>
+
+        {% if is_admin %}
+          <div class="px-4 pb-4">
+            <form method="post" action="{{ url_for('profile.apply_template', key=t.key) }}"
+                  data-busy-label="Applying…"
+                  data-confirm="{% if t.key == 'blank' %}Start a blank checklist? Your current checklist ({{ profile.name if profile else 'none' }}) is deactivated but kept, and existing reports are unaffected.{% else %}Switch to the {{ t.name }} template? Your current checklist ({{ profile.name if profile else 'none' }}) is deactivated but kept, and existing reports are unaffected.{% endif %}">
+              <button type="submit" class="{{ 'rp-btn w-full justify-center' if t.key == 'blank' else 'qb-btn-primary w-full justify-center' }}">
+                {% if t.key == 'blank' %}Start from scratch{% else %}Use this template{% endif %}
+              </button>
+            </form>
+          </div>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="rp-panel p-4 mt-4">
+    <h2 class="qb-section-title mb-1">These are starting points, not legal advice</h2>
+    <p class="text-sm text-muted max-w-2xl">
+      Each template is built from widely-published obligations — the FTC
+      Telemarketing Sales Rule, the Credit Repair Organizations Act, CMS
+      marketing rules, state rights of rescission. Your own obligations differ,
+      and they change. Review any template with whoever owns compliance at your
+      organization, then edit it until it matches what your agents are actually
+      required to say.
+    </p>
+    <p class="text-sm text-muted mt-2">
+      Switching templates never deletes anything: the previous checklist is
+      deactivated and kept, and every report stays attached to the checklist
+      that graded it.
+    </p>
+  </div>
+</div>
+{% endblock %}

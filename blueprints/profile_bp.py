@@ -43,6 +43,82 @@ def view():
     return render_template("profile/edit.html", profile=profile)
 
 
+# ── Templates ─────────────────────────────────────────────────────────────────
+
+@profile_bp.get("/templates")
+@org_required
+def templates():
+    """The starter library. Readable by anyone in the org; only an admin can apply."""
+    import copy
+    from templates_seed import TEMPLATE_LIBRARY, template_stats
+
+    profile = _get_active_profile(g.db, g.org.id)
+    current = (profile.script_sections_json or {}) if profile else {}
+    library = [
+        {**t, "stats": template_stats(t["checklist"]),
+         "preview": _preview_items(t["checklist"])}
+        for t in TEMPLATE_LIBRARY
+    ]
+    return render_template(
+        "profile/templates.html",
+        library=library,
+        profile=profile,
+        current_stats=template_stats(current) if profile else None,
+    )
+
+
+def _preview_items(checklist: dict, limit: int = 4) -> list[str]:
+    """A few real requirement names, so a card shows the template rather than
+    describing it."""
+    out = []
+    for section in checklist.get("sections", []) or []:
+        for item in section.get("items", []) or []:
+            out.append(item.get("name", ""))
+            if len(out) >= limit:
+                return out
+    return out
+
+
+@profile_bp.post("/templates/<key>/apply")
+@admin_required
+def apply_template(key: str):
+    """Switch the org onto a starter template.
+
+    Applying creates a NEW active profile and deactivates the previous one
+    rather than overwriting it. Two reasons: the old checklist stays recoverable
+    after a misclick, and every existing Report keeps pointing at the profile
+    that actually graded it — a report must always be explainable against the
+    checklist in force at the time.
+    """
+    import copy
+    from templates_seed import get_template
+
+    template = get_template(key)
+    if template is None:
+        abort(404)
+
+    db = g.db
+    previous = _get_active_profile(db, g.org.id)
+    if previous is not None:
+        previous.is_active = False
+
+    profile = ComplianceProfile(
+        org_id=g.org.id,
+        name=template["name"] if key != "blank" else "Custom checklist",
+        script_sections_json=copy.deepcopy(template["checklist"]),
+        is_active=True,
+    )
+    db.add(profile)
+    db.commit()
+
+    if key == "blank":
+        flash("Started a blank checklist. Add your first section below.", "success")
+    else:
+        flash(f"Switched to the {template['name']} template. Edit it to match "
+              f"your own requirements.", "success")
+    return redirect(url_for("profile.view"))
+
+
 # ── Sections ──────────────────────────────────────────────────────────────────
 
 @profile_bp.post("/sections/add")

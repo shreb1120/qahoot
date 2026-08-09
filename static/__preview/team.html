@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Team — Qaboom</title>
+
+  
+  <link rel="preload" href="/static/fonts/inter-latin.woff2?v=260c81a475" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/static/fonts.css?v=73982dcda6">
+  <link rel="stylesheet" href="/static/tailwind.css?v=a06013f0b2">
+  <link rel="stylesheet" href="/static/overrides.css?v=6b29a3e33a">
+
+  <style>
+    /* Scoped to body so <code> and .font-mono keep their own family — the old
+       universal selector forced Inter onto <code> too, which mattered most on
+       the auto-fail phrases where exact wording is the point. Form controls do
+       not inherit font by default, so they opt in explicitly. */
+    body { font-family: 'Inter', system-ui, sans-serif; margin: 0; background: var(--c-bg); }
+    button, input, select, textarea { font-family: inherit; font-size: 100%; }
+  </style>
+
+  
+</head>
+<body>
+<!--
+QABOOM — DIRECTION CONTRACT (canon: call-intelligence category, full fidelity)
+THESIS: The graded call is the artifact. This surface owns the loop "read the
+  finding, hear the moment, judge it" — and refuses the vertical stack of
+  rounded cards with the transcript dumped at the bottom and a naked browser
+  audio control, which is what made it read as unfinished.
+OWN-WORLD: Category canon, per the owner's chosen bar (Gong / Chorus /
+  Observe.ai). Near-neutral ground, white panels, 1px hairlines, 6px radius,
+  no decorative shadow. Dense small type, tabular figures everywhere numeric.
+  Two speaker colours as data, not decoration. Semantic colour reserved for
+  verdicts so nothing competes with pass/fail.
+STORY: A reviewer opens a graded call, sees the verdict and where the call went
+  wrong on a timeline, plays straight to that moment, reads the evidence
+  beside it, and approves or flags the item without losing their place.
+FIRST VIEWPORT: verdict + call identity header; full-width sticky transport
+  with a real speaker timeline and evidence markers on it; then scorecard and
+  items as the working column with the synced transcript as its right rail.
+FORM: category canon, taken via the standing exit (no direction roll — the
+  owner asked for the familiar path in plain words). Bar: Gong/Chorus/Observe.ai.
+FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
+-->
+
+
+
+<a href="#main-content" class="qb-skip-link">Skip to main content</a>
+
+
+  
+  <div class="lg:hidden fixed top-0 inset-x-0 z-40 h-14 bg-[#0f172a] flex items-center px-4 border-b border-white/10 shadow-lg">
+    <button id="sidebar-open" type="button" class="qb-icon-btn text-white" aria-label="Open menu"
+            aria-controls="sidebar" aria-expanded="false">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/></svg>
+    </button>
+    <a href="/" class="ml-3 text-white font-bold text-lg tracking-tight no-underline flex items-center gap-2">
+      <span class="w-2 h-2 rounded-sm bg-indigo-500"></span>Qaboom
+    </a>
+  </div>
+
+  
+  <div id="sidebar-backdrop" class="fixed inset-0 bg-black/50 z-40 hidden lg:hidden"></div>
+
+  
+  <aside id="sidebar" class="fixed top-0 left-0 z-50 h-full w-64 flex flex-col transform -translate-x-full lg:translate-x-0 transition-transform duration-200 ease-in-out shadow-xl"
+         style="background:linear-gradient(180deg,#0f172a 0%,var(--nav-mid) 55%,#312e81 100%)">
+    
+    <div class="flex items-center justify-between px-5 h-14 lg:h-16">
+      <a href="/" class="text-white font-bold text-lg tracking-tight no-underline flex items-center gap-2.5">
+        <span class="w-2.5 h-2.5 rounded-sm bg-indigo-400 ring-2 ring-indigo-400/30" aria-hidden="true"></span>Qaboom
+      </a>
+      <button id="sidebar-close" type="button" class="qb-icon-btn lg:hidden text-decor hover:text-white" aria-label="Close menu">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    
+    <nav class="flex-1 px-3 py-2 space-y-0.5 overflow-y-auto" aria-label="Main">
+      <a href="/" class="sidebar-link ">
+        <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955a1.126 1.126 0 0 1 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/></svg>
+        Dashboard
+      </a>
+      <a href="/calls/upload" class="sidebar-link ">
+        <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/></svg>
+        Upload
+      </a>
+      <a href="/calls/" class="sidebar-link ">
+        <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+        History
+      </a>
+      <a href="/profile/" class="sidebar-link ">
+        <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15a2.25 2.25 0 0 1 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25Z"/></svg>
+        Checklist
+      </a>
+      <a href="/agents/" class="sidebar-link ">
+        <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z"/></svg>
+        Agents
+      </a>
+      
+      <a href="/org/settings" class="sidebar-link ">
+        <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
+        Team
+      </a>
+      
+    </nav>
+
+    
+    <div class="px-3 pt-2 pb-3 space-y-2">
+      <div class="border-t border-white/10 pt-2">
+        <a href="/auth/logout" class="sidebar-link">
+          <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9"/></svg>
+          Sign out
+        </a>
+      </div>
+      <div class="mx-2 px-3 py-1.5 rounded-md bg-white/5 border border-white/10 text-xs text-indigo-200 truncate">Acme Debt Solutions</div>
+    </div>
+  </aside>
+
+
+
+<main id="main-content" tabindex="-1" class="lg:pl-64 pt-14 lg:pt-0 min-h-screen flex flex-col">
+  
+  
+  <div class="qb-main-content w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8 flex-1 flex flex-col">
+    
+      
+    
+
+    <div class="flex-1">
+      
+<div class="max-w-4xl">
+  <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+    <div class="min-w-0">
+      <h1 class="qb-page-title qb-break">Team</h1>
+      <p class="text-xs text-muted mt-1.5 rp-num">
+        Acme Debt Solutions · 2 members
+         · 1 pending invite
+      </p>
+    </div>
+    <a href="/agents/" class="rp-btn">Manage agents</a>
+  </div>
+
+  
+  <div class="rp-panel overflow-hidden mb-4">
+    <div class="rp-panel-head">
+      <h2 class="rp-panel-title">Members</h2>
+      <span class="text-xs text-muted">Admins can edit the checklist and invite teammates</span>
+    </div>
+    <div class="qb-scroll-x">
+      <table class="rp-table">
+        <thead>
+          <tr>
+            <th>Email</th>
+            <th style="width:7rem">Role</th>
+            <th style="width:8rem">Joined</th>
+          </tr>
+        </thead>
+        <tbody>
+          
+            <tr>
+              <td class="qb-break font-medium text-ink-2">
+                qa@acmedebt.com
+                <span class="text-xs text-faint font-normal">(you)</span>
+              </td>
+              <td>
+                
+                <span class="rp-tag rp-tag--req">admin</span>
+              </td>
+              <td class="rp-num text-muted">Aug 08, 2026</td>
+            </tr>
+          
+            <tr>
+              <td class="qb-break font-medium text-ink-2">
+                reviewer@acmedebt.com
+                
+              </td>
+              <td>
+                
+                <span class="rp-tag rp-tag--opt">member</span>
+              </td>
+              <td class="rp-num text-muted">Aug 08, 2026</td>
+            </tr>
+          
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  
+  <div class="rp-panel mb-4">
+    <div class="rp-panel-head"><h2 class="rp-panel-title">Invite a teammate</h2></div>
+    <div class="p-4">
+      <p class="text-sm text-muted mb-3 max-w-xl">
+        Generate a link and share it however you like — no email is sent automatically.
+        Links last 7 days and can each be used once.
+      </p>
+
+      <div class="flex flex-wrap items-end gap-2">
+        <div class="rp-field flex-1 min-w-[240px]">
+          <label class="rp-field-label" for="invite-email">Teammate's email <span class="font-normal">(optional, for your reference)</span></label>
+          <input class="rp-input" type="email" id="invite-email" placeholder="teammate@example.com"
+                 maxlength="255" aria-describedby="invite-error">
+        </div>
+        <button id="invite-btn" type="button" class="qb-btn-primary whitespace-nowrap">Generate invite link</button>
+      </div>
+      <p class="qb-field-error" id="invite-error" role="alert"></p>
+
+      <div id="invite-result" class="mt-3 p-3"
+           style="display:none;background:var(--c-panel-2);border:1px solid var(--c-line);border-radius:var(--c-radius)">
+        <label for="invite-link" class="rp-field-label block mb-1">Copy this link and share it</label>
+        <div class="flex flex-wrap gap-2">
+          <input class="rp-input flex-1 min-w-[220px] font-mono" type="text" id="invite-link" readonly>
+          <button id="copy-btn" type="button" class="rp-btn">Copy</button>
+        </div>
+        <p class="qb-sr-only" id="copy-status" role="status" aria-live="polite"></p>
+      </div>
+    </div>
+  </div>
+
+  
+  
+    <div class="rp-panel overflow-hidden">
+      <div class="rp-panel-head">
+        <h2 class="rp-panel-title">Pending invites</h2>
+        <span class="text-xs text-muted rp-num">1 outstanding</span>
+      </div>
+      <div class="qb-scroll-x">
+        <table class="rp-table">
+          <thead>
+            <tr><th>Email (your reference)</th><th style="width:9rem">Expires</th></tr>
+          </thead>
+          <tbody>
+            
+              <tr>
+                <td class="qb-break text-ink-2">new.hire@acmedebt.com</td>
+                <td class="rp-num text-muted">Aug 08, 2026</td>
+              </tr>
+            
+          </tbody>
+        </table>
+      </div>
+    </div>
+  
+</div>
+
+    </div>
+
+    
+    
+      <div class="qb-watermark">Qaboom</div>
+    
+  </div>
+  
+</main>
+
+
+<script async
+  src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@5/dist/clerk.browser.js"
+  data-clerk-publishable-key="pk_test_c21pbGluZy1nbmF0LTcxLmNsZXJrLmFjY291bnRzLmRldiQ"
+  crossorigin="anonymous">
+</script>
+
+
+<script>
+(function () {
+  document.addEventListener('submit', function (e) {
+    const form = e.target;
+    if (!(form instanceof HTMLFormElement)) return;
+
+    const confirmMsg = form.dataset.confirm;
+    if (confirmMsg && !window.confirm(confirmMsg)) {
+      e.preventDefault();
+      return;
+    }
+
+    if (form.dataset.busyLabel === undefined) return;
+
+    if (form.dataset.submitted === '1') { e.preventDefault(); return; }
+    // Native validation runs before this fires only for valid forms; guard anyway
+    // so a rejected submit does not leave the button stuck in its busy state.
+    if (typeof form.checkValidity === 'function' && !form.checkValidity()) return;
+
+    form.dataset.submitted = '1';
+    const btn = form.querySelector('button[type="submit"], input[type="submit"]');
+    if (!btn) return;
+    btn.dataset.idleLabel = btn.textContent;
+    if (form.dataset.busyLabel) btn.textContent = form.dataset.busyLabel;
+    btn.setAttribute('aria-busy', 'true');
+    // Deferred: disabling a submit button synchronously drops it from the payload.
+    setTimeout(function () { btn.disabled = true; }, 0);
+  });
+
+  // Restore after a back-navigation, which serves the page from bfcache with
+  // the button still disabled from the previous submit.
+  window.addEventListener('pageshow', function (e) {
+    if (!e.persisted) return;
+    document.querySelectorAll('form[data-busy-label]').forEach(function (form) {
+      form.dataset.submitted = '';
+      const btn = form.querySelector('button[type="submit"], input[type="submit"]');
+      if (!btn) return;
+      btn.disabled = false;
+      btn.removeAttribute('aria-busy');
+      if (btn.dataset.idleLabel) btn.textContent = btn.dataset.idleLabel;
+    });
+  });
+})();
+</script>
+
+
+<script>
+(function() {
+  const sidebar  = document.getElementById('sidebar');
+  const backdrop = document.getElementById('sidebar-backdrop');
+  const openBtn  = document.getElementById('sidebar-open');
+  const closeBtn = document.getElementById('sidebar-close');
+  if (!sidebar) return;
+
+  const desktop = window.matchMedia('(min-width: 1024px)');
+  const supportsInert = 'inert' in HTMLElement.prototype;
+  let isOpen = false;
+
+  function focusables() {
+    return Array.prototype.slice.call(
+      sidebar.querySelectorAll('a[href], button:not([disabled])')
+    ).filter(function (el) { return el.offsetParent !== null || desktop.matches; });
+  }
+
+  // On desktop the sidebar is permanently visible and must never be hidden.
+  // Below lg, `visibility` (set in overrides.css via .is-open) is what removes
+  // the closed sidebar from the tab order and the accessibility tree.
+  function sync() {
+    if (supportsInert) sidebar.inert = !desktop.matches && !isOpen;
+    if (openBtn) openBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  }
+
+  function open() {
+    isOpen = true;
+    sidebar.classList.remove('-translate-x-full');
+    sidebar.classList.add('is-open');
+    backdrop.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    sync();
+    const first = focusables()[0];
+    if (first) first.focus();
+  }
+
+  function close(returnFocus) {
+    isOpen = false;
+    sidebar.classList.add('-translate-x-full');
+    sidebar.classList.remove('is-open');
+    backdrop.classList.add('hidden');
+    document.body.style.overflow = '';
+    sync();
+    if (returnFocus && openBtn) openBtn.focus();
+  }
+
+  if (openBtn)  openBtn.addEventListener('click', open);
+  if (closeBtn) closeBtn.addEventListener('click', function () { close(true); });
+  if (backdrop) backdrop.addEventListener('click', function () { close(true); });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape' || !isOpen || desktop.matches) return;
+    close(true);
+  });
+
+  // Keep focus inside the drawer while it covers the page.
+  sidebar.addEventListener('keydown', function (e) {
+    if (e.key !== 'Tab' || !isOpen || desktop.matches) return;
+    const items = focusables();
+    if (!items.length) return;
+    const first = items[0], last = items[items.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault(); last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault(); first.focus();
+    }
+  });
+
+  // Rotating a phone to landscape can cross the lg breakpoint with the drawer
+  // still open; reset to the layout's own state rather than a stale one.
+  desktop.addEventListener('change', function () {
+    if (desktop.matches && isOpen) close(false);
+    else sync();
+  });
+
+  sync();
+})();
+</script>
+
+
+
+<script src="/static/org_settings.js?v=ba04bdb285"></script>
+
+</body>
+</html>

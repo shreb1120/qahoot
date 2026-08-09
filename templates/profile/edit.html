@@ -30,9 +30,12 @@
           · {{ phrases | length }} auto-fail phrase{{ 's' if phrases | length != 1 }}
         </p>
       </div>
-      {% if not is_admin %}
-        <span class="rp-tag rp-tag--opt">Read only — admins can edit</span>
-      {% endif %}
+      <div class="flex items-center gap-2">
+        {% if not is_admin %}
+          <span class="rp-tag rp-tag--opt">Read only — admins can edit</span>
+        {% endif %}
+        <a href="{{ url_for('profile.templates') }}" class="rp-btn">Browse templates</a>
+      </div>
     </div>
 
     <p class="text-sm text-muted mb-4 max-w-2xl">
@@ -159,7 +162,8 @@
     {% if not sections %}
       <div class="rp-panel rp-empty mb-4">
         <h2 class="qb-section-title mb-1">No sections yet</h2>
-        <p class="text-sm text-muted max-w-md mx-auto">{{ 'Add a section below to start building your checklist.' if is_admin else 'Ask an admin to set up your compliance checklist.' }}</p>
+        <p class="text-sm text-muted max-w-md mx-auto mb-4">{{ 'Start from a template for your industry, or build your own section by section below.' if is_admin else 'Ask an admin to set up your compliance checklist.' }}</p>
+        {% if is_admin %}<a href="{{ url_for('profile.templates') }}" class="qb-btn-primary">Browse templates</a>{% endif %}
       </div>
     {% endif %}
 

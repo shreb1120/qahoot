@@ -25,7 +25,7 @@ from flask import (
 
 from auth import admin_required, login_required, org_required
 from models import ComplianceProfile, OrgInvite, Organization, User
-from templates_seed import BLANK_TEMPLATE, DEBT_SETTLEMENT_TEMPLATE
+from templates_seed import TEMPLATE_LIBRARY, get_template
 
 org_bp = Blueprint("org", __name__, url_prefix="/org")
 
@@ -37,7 +37,7 @@ _INVITE_TTL_DAYS = 7
 def setup():
     if g.org:
         return redirect(url_for("dashboard.index"))
-    return render_template("org/setup.html")
+    return render_template("org/setup.html", library=TEMPLATE_LIBRARY)
 
 
 @org_bp.post("/setup")
@@ -48,7 +48,8 @@ def setup_post():
 
     name = request.form.get("org_name", "").strip()
     if not name:
-        return render_template("org/setup.html", error="Organization name is required."), 400
+        return render_template("org/setup.html", library=TEMPLATE_LIBRARY,
+                               error="Organization name is required."), 400
 
     template_choice = request.form.get("template", "blank")
 
@@ -63,17 +64,12 @@ def setup_post():
         user.org_id = org.id
         user.role = "admin"
 
-        # Seed a compliance profile if requested.
-        seed_data = (
-            DEBT_SETTLEMENT_TEMPLATE
-            if template_choice == "debt_settlement"
-            else BLANK_TEMPLATE
-        )
-        profile_name = (
-            "Debt Settlement Starter Template"
-            if template_choice == "debt_settlement"
-            else "Default Profile"
-        )
+        # Seed from the shared library so signup and the in-app switcher
+        # cannot drift apart.
+        import copy
+        chosen = get_template(template_choice) or get_template("blank")
+        seed_data = copy.deepcopy(chosen["checklist"])
+        profile_name = chosen["name"] if chosen["key"] != "blank" else "Custom checklist"
         profile = ComplianceProfile(
             org_id=org.id,
             name=profile_name,
