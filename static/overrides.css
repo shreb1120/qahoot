@@ -918,9 +918,3 @@ label:has(> input[type="checkbox"]), label:has(> input[type="radio"]) {
 .rp-demo-track { position: relative; height: 1.25rem; border-radius: var(--c-radius-micro); background: var(--c-track); overflow: hidden; margin: .75rem; }
 .rp-demo-band { position: absolute; top: 0; height: 100%; }
 .rp-demo-row { display: flex; align-items: center; gap: .5rem; padding: .4375rem .75rem; border-top: 1px solid var(--c-line); font-size: var(--fs-meta); }
-.rp-demo-label {
-  position: absolute; top: .75rem; right: .75rem; z-index: 2;
-  font-size: var(--fs-meta); font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
-  color: rgba(255,255,255,.62); border: 1px solid rgba(255,255,255,.22);
-  border-radius: var(--c-radius-micro); padding: .125rem .375rem;
-}

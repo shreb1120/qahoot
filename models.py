@@ -199,6 +199,7 @@ class Call(Base):
         ),
         Index("ix_calls_org_id", "org_id"),
         Index("ix_calls_org_status", "org_id", "status"),
+        Index("ix_calls_org_agent", "org_id", "agent_id"),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
@@ -226,7 +227,7 @@ class Call(Base):
     upload_date: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_now
     )
-    alv_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    internal_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
     call_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     client_phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
     audio_file_url: Mapped[str | None] = mapped_column(Text, nullable=True)

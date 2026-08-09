@@ -174,11 +174,11 @@ def _mk_agent(s, org, name):
     return a
 
 
-def _mk_call(s, org, profile, user, agent, *, status="complete", verdict="FAIL", alv="1001"):
+def _mk_call(s, org, profile, user, agent, *, status="complete", verdict="FAIL", internal_id="1001"):
     from models import Call, Report, Transcript
     c = Call(
         id=str(uuid.uuid4()), org_id=org.id, compliance_profile_id=profile.id,
-        uploaded_by_user_id=user.id, agent_id=agent.id, alv_id=alv,
+        uploaded_by_user_id=user.id, agent_id=agent.id, internal_id=internal_id,
         call_date=date(2026, 8, 1), client_phone="8005551234",
         filename=f"{org.name.lower()}-call.mp3", status=status, duration=300,
         audio_file_url=os.path.join(TestConfig.UPLOAD_FOLDER, f"{org.name}.mp3"),

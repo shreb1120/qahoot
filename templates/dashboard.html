@@ -94,7 +94,7 @@
               {% endif %}
               <span class="rp-activity-main">
                 <span class="rp-activity-name block text-ink">{{ call.agent.name if call.agent else 'Unassigned' }}</span>
-                <span class="rp-activity-meta">{% if call.alv_id %}ALV-{{ call.alv_id }} · {% endif %}{{ call.upload_date.strftime('%b %d, %H:%M') }}</span>
+                <span class="rp-activity-meta">{% if call.internal_id %}{{ call.internal_id }} · {% endif %}{{ call.upload_date.strftime('%b %d, %H:%M') }}</span>
               </span>
               <span class="rp-link text-xs flex-shrink-0">Review →</span>
             </a>

@@ -123,7 +123,7 @@ def test_agent_performance_does_not_count_another_orgs_call(tenants, db):
         org_id=tenants.b["org"],          # belongs to Borden
         agent_id=tenants.a["agent"],      # but points at Acme's agent
         compliance_profile_id=None, uploaded_by_user_id=tenants.b["admin"],
-        alv_id="XORG-1", call_date=date(2026, 8, 1),
+        internal_id="XORG-1", call_date=date(2026, 8, 1),
         filename="contaminated.mp3", status="complete", duration=120,
     )
     db.add(contaminated)

@@ -66,16 +66,17 @@
       <div class="lg:col-span-2 rp-panel">
         <div class="rp-panel-head"><h2 class="rp-panel-title">Call details</h2></div>
         <div class="p-4 space-y-3">
+          <p class="text-xs text-muted">All optional — you can fill these in later.</p>
           <div class="rp-field">
-            <label class="rp-field-label" for="agent_id">Agent <span class="text-red-600" aria-hidden="true">*</span></label>
+            <label class="rp-field-label" for="agent_id">Agent</label>
             {% if agents %}
-              <select class="rp-select w-full" id="agent_id" name="agent_id" required aria-describedby="agent-error">
+              <select class="rp-select w-full" id="agent_id" name="agent_id" aria-describedby="agent-hint">
                 <option value="">Select agent…</option>
                 {% for agent in agents %}
                   <option value="{{ agent.id }}" {% if form.get('agent_id') == agent.id %}selected{% endif %}>{{ agent.name }}</option>
                 {% endfor %}
               </select>
-              <p class="qb-field-error" id="agent-error" role="alert"></p>
+              <p class="text-xs text-faint" id="agent-hint">You can assign an agent from the report later.</p>
             {% else %}
               <p class="text-xs text-ink-2 p-2 rounded" style="background:#fffbeb;border:1px solid #fcd34d">
                 No agents yet.
@@ -86,21 +87,20 @@
           </div>
 
           <div class="rp-field">
-            <label class="rp-field-label" for="alv_id">ALV / internal ID <span class="text-red-600" aria-hidden="true">*</span></label>
-            <input class="rp-input w-full" type="text" id="alv_id" name="alv_id" placeholder="e.g. 88214"
-                   maxlength="50" required value="{{ form.get('alv_id', '') }}" aria-describedby="alv-error">
-            <p class="qb-field-error" id="alv-error" role="alert"></p>
+            <label class="rp-field-label" for="internal_id">Internal ID</label>
+            <input class="rp-input w-full" type="text" id="internal_id" name="internal_id" placeholder="e.g. 88214"
+                   maxlength="50" value="{{ form.get('internal_id', '') }}">
           </div>
 
           <div class="rp-field">
-            <label class="rp-field-label" for="call_date">Call date <span class="text-red-600" aria-hidden="true">*</span></label>
-            <input class="rp-input w-full" type="date" id="call_date" name="call_date" required
+            <label class="rp-field-label" for="call_date">Call date</label>
+            <input class="rp-input w-full" type="date" id="call_date" name="call_date"
                    value="{{ form.get('call_date', '') }}" max="{{ today }}" aria-describedby="date-error">
             <p class="qb-field-error" id="date-error" role="alert"></p>
           </div>
 
           <div class="rp-field">
-            <label class="rp-field-label" for="client_phone">Client phone <span class="font-normal">(optional)</span></label>
+            <label class="rp-field-label" for="client_phone">Client phone</label>
             <input class="rp-input w-full" type="text" id="client_phone" name="client_phone"
                    placeholder="8005551234" maxlength="30" inputmode="numeric" value="{{ form.get('client_phone', '') }}">
           </div>
@@ -212,10 +212,10 @@
     fileInput.dispatchEvent(new Event('change'));
   });
 
+  // No field is required. The only metadata that can block a submit is a date
+  // that was supplied and is impossible.
   const FIELDS = [
-    { id: 'agent_id',  error: 'agent-error', message: 'Select which agent took this call.' },
-    { id: 'alv_id',    error: 'alv-error',   message: 'Enter the ALV or internal ID for this call.' },
-    { id: 'call_date', error: 'date-error',  message: 'Enter the date the call took place.',
+    { id: 'call_date', error: 'date-error',
       check: function (v) { return v > TODAY ? 'A call cannot have happened in the future.' : ''; } }
   ];
 
@@ -231,7 +231,7 @@
       const errEl = document.getElementById(field.error);
       if (!el) return;
       const value = el.value.trim();
-      const problem = !value ? field.message : (field.check ? field.check(value) : '');
+      const problem = value && field.check ? field.check(value) : '';
       setError(errEl, problem);
       el.setAttribute('aria-invalid', problem ? 'true' : 'false');
       if (problem && !firstInvalid) firstInvalid = el;

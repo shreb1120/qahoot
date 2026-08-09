@@ -22,11 +22,33 @@
   <div class="flex flex-wrap items-start justify-between gap-4 mb-4">
     <div class="min-w-0">
       <div class="flex items-center gap-2 flex-wrap">
-        <h1 class="qb-section-title">{{ call.agent.name if call.agent else 'Unassigned agent' }}</h1>
-        {% if call.alv_id %}
-          <span class="rp-num text-xs font-semibold text-muted bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5">ALV-{{ call.alv_id }}</span>
+        {% if call.agent %}
+          <h1 class="qb-section-title">{{ call.agent.name }}</h1>
+        {% else %}
+          <h1 class="qb-section-title text-warn">Unassigned</h1>
+        {% endif %}
+        {% if call.internal_id %}
+          <span class="rp-num text-xs font-semibold text-muted bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5" title="Internal ID">{{ call.internal_id }}</span>
         {% endif %}
       </div>
+
+      {# Metadata is optional at upload, so attribution happens here. #}
+      <details class="mt-1"{% if not call.agent %} open{% endif %}>
+        <summary class="rp-disclosure">{{ 'Change agent' if call.agent else 'Assign an agent' }}</summary>
+        <form method="post" action="{{ url_for('calls.assign_agent', call_id=call.id) }}"
+              class="rp-inline" data-busy-label="Saving…">
+          <div class="rp-field flex-1 min-w-[180px]">
+            <label class="rp-field-label" for="assign-agent">Agent</label>
+            <select class="rp-select" id="assign-agent" name="agent_id">
+              <option value="">— Unassigned —</option>
+              {% for a in agents %}
+                <option value="{{ a.id }}" {% if call.agent and call.agent.id == a.id %}selected{% endif %}>{{ a.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <button type="submit" class="rp-btn">Save</button>
+        </form>
+      </details>
       <p class="text-xs text-faint mt-1 rp-num qb-break">
         {% if call.call_date %}{{ call.call_date.strftime('%b %d, %Y') }} &middot; {% endif %}
         {% if vm.duration %}{{ vm.duration_label }} &middot; {% endif %}

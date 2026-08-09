@@ -41,7 +41,7 @@
   <h1>Call Report</h1>
   <p class="meta">
     {% if call.agent %}<strong>{{ call.agent.name }}</strong> &bull; {% endif %}
-    {% if call.alv_id %}ALV-{{ call.alv_id }} &bull; {% endif %}
+    {% if call.internal_id %}{{ call.internal_id }} &bull; {% endif %}
     {{ call.filename }}
     {% if call.call_date %} &bull; {{ call.call_date.strftime('%b %d, %Y') }}{% endif %}
     {% if call.duration %} &bull; {{ call.duration // 60 }}m {{ call.duration % 60 }}s{% endif %}

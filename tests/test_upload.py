@@ -9,7 +9,7 @@ def _file(name="call.mp3", data=b"ID3" + b"\x00" * 128):
 
 
 def _form(tenants, **over):
-    d = {"agent_id": tenants.a["agent"], "alv_id": "12345", "call_date": "2026-08-01",
+    d = {"agent_id": tenants.a["agent"], "internal_id": "12345", "call_date": "2026-08-01",
          "client_phone": "8005551234", "file": _file()}
     d.update(over)
     return d
@@ -24,13 +24,12 @@ def test_valid_upload_is_accepted(tenants, monkeypatch):
 
 
 @pytest.mark.parametrize("field,value,message", [
-    ("agent_id", "", "Select which agent"),
-    ("alv_id", "", "ALV or internal ID"),
-    ("call_date", "", "date the call took place"),
     ("call_date", "2099-01-01", "cannot have happened in the future"),
     ("call_date", "not-a-date", "not a valid date"),
+    ("internal_id", "x" * 51, "too long"),
+    ("client_phone", "9" * 31, "too long"),
 ])
-def test_missing_or_bad_fields_are_rejected_with_a_message(tenants, field, value, message):
+def test_bad_field_values_are_rejected_with_a_message(tenants, field, value, message):
     r = tenants.a_admin.post("/calls/upload", data=_form(tenants, **{field: value}),
                              content_type="multipart/form-data")
     assert r.status_code == 400
@@ -39,10 +38,10 @@ def test_missing_or_bad_fields_are_rejected_with_a_message(tenants, field, value
 
 def test_rejection_preserves_what_the_user_typed(tenants):
     r = tenants.a_admin.post("/calls/upload",
-                             data=_form(tenants, alv_id="SPECIAL-9", agent_id=""),
+                             data=_form(tenants, internal_id="SPECIAL-9", call_date="not-a-date"),
                              content_type="multipart/form-data")
     body = r.get_data(as_text=True)
-    assert "SPECIAL-9" in body, "the user's typed ALV was discarded on error"
+    assert "SPECIAL-9" in body, "the user's typed internal ID was discarded on error"
     assert "Acme Agent" in body, "the agent dropdown was emptied on error"
 
 
@@ -101,8 +100,48 @@ def test_a_failed_pipeline_marks_the_call_errored(tenants, monkeypatch, db):
         raise RuntimeError("no api key")
     monkeypatch.setattr(pipeline, "spawn", boom)
 
-    r = tenants.a_admin.post("/calls/upload", data=_form(tenants, alv_id="ERR-1"),
+    r = tenants.a_admin.post("/calls/upload", data=_form(tenants, internal_id="ERR-1"),
                              content_type="multipart/form-data")
     assert r.status_code == 302
-    call = db.query(Call).filter_by(alv_id="ERR-1").first()
+    call = db.query(Call).filter_by(internal_id="ERR-1").first()
     assert call.status == "error" and call.error_message
+
+
+def test_a_file_with_no_metadata_at_all_is_accepted(tenants, monkeypatch, db):
+    """Every metadata field is optional — upload now, attribute later."""
+    import pipeline
+    from models import Call
+    monkeypatch.setattr(pipeline, "spawn", lambda **kw: None)
+    r = tenants.a_admin.post("/calls/upload", data={"file": _file("bare.mp3")},
+                             content_type="multipart/form-data")
+    assert r.status_code == 302
+    call = db.query(Call).filter_by(org_id=tenants.a["org"]).order_by(
+        Call.upload_date.desc()).first()
+    assert call.agent_id is None
+    assert call.internal_id is None
+    assert call.call_date is None
+    assert call.client_phone is None
+
+
+def test_an_over_long_internal_id_gets_a_message_not_a_database_error(tenants):
+    r = tenants.a_admin.post("/calls/upload", data=_form(tenants, internal_id="x" * 51),
+                             content_type="multipart/form-data")
+    assert r.status_code == 400
+    assert "too long" in r.get_data(as_text=True)
+
+
+def test_an_internal_id_that_looks_like_an_old_alv_tag_renders_once(tenants, monkeypatch, db):
+    """Regression: the display prefix was hardcoded in four templates while only
+    the DOCX stripped a typed one, so "ALV-88214" rendered as "ALV-ALV-88214"."""
+    import pipeline
+    from models import Call
+    monkeypatch.setattr(pipeline, "spawn", lambda **kw: None)
+    tenants.a_admin.post("/calls/upload", data=_form(tenants, internal_id="ALV-88214"),
+                         content_type="multipart/form-data")
+    db.expire_all()
+    call = db.query(Call).filter_by(internal_id="ALV-88214").first()
+    assert call is not None
+
+    for path in ["/calls/", "/"]:
+        body = tenants.a_admin.get(path).get_data(as_text=True)
+        assert "ALV-ALV" not in body, f"{path} double-prefixed the internal ID"

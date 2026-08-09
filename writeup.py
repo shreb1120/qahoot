@@ -200,7 +200,7 @@ def _add_main_bullet(doc, heading, body_text):
     return p
 
 
-def build_writeup_docx(agent_name, alv_number, call_date,
+def build_writeup_docx(agent_name, internal_id, call_date,
                        misguidance_body, risk_disclosure_body, mode='written'):
     doc = Document()
 
@@ -228,16 +228,21 @@ def build_writeup_docx(agent_name, alv_number, call_date,
 
     intro = doc.add_paragraph()
     intro.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-    _add_runs(intro, [
-        ('Following a review of a client call, file # ', False),
-        (f'ALV-{alv_number}', False),
-        (', dated ', False),
-        (call_date, False),
+
+    # Both the internal ID and the call date are optional on upload, so each
+    # clause is omitted rather than printing "file # , dated ,".
+    opening = [('Following a review of a client call', False)]
+    if internal_id:
+        opening += [(', file # ', False), (str(internal_id), False)]
+    if call_date:
+        opening += [(', dated ', False), (call_date, False)]
+    opening += [
         (', Agent failed to properly disclose missed payments to the client which is in '
          'direct violation of company compliance policies and procedures and regulatory standards. '
          'Failure to properly complete this critical step invalidates the informed consent and '
          'exposes the company to significant regulatory and legal risks.', False),
-    ])
+    ]
+    _add_runs(intro, opening)
     _set_paragraph_spacing(intro, space_after_pt=8)
 
     p = doc.add_paragraph()
@@ -336,43 +341,3 @@ def build_writeup_docx(agent_name, alv_number, call_date,
 # Top-level entry point used by the Flask route
 # ---------------------------------------------------------------------------
 
-def render_writeup_for_analysis(db_path, claude_client, analysis_id,
-                                agent_name_override=None,
-                                apply_overrides_fn=None,
-                                mode='written'):
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    row = conn.execute(
-        "SELECT alv_tag, call_date, agent_name, transcript, results_json, overrides_json "
-        "FROM analyses WHERE id = ?",
-        (analysis_id,),
-    ).fetchone()
-    conn.close()
-    if not row:
-        raise LookupError(f"Analysis {analysis_id} not found")
-
-    agent_name = (agent_name_override or row['agent_name'] or '').strip()
-    if not agent_name:
-        raise ValueError("Agent name is required to generate a write-up.")
-
-    alv_tag = row['alv_tag'] or ''
-    alv_number = alv_tag[4:] if alv_tag.upper().startswith('ALV-') else alv_tag
-    call_date = row['call_date'] or ''
-    transcript = row['transcript'] or ''
-    base_results = json.loads(row['results_json']) if row['results_json'] else {}
-    overrides = json.loads(row['overrides_json']) if row['overrides_json'] else None
-    results = apply_overrides_fn(base_results, overrides) if apply_overrides_fn else base_results
-
-    misguidance, risk_disclosure = generate_finding_bodies(
-        claude_client, agent_name, transcript, results,
-    )
-
-    buf = build_writeup_docx(
-        agent_name, alv_number, call_date,
-        misguidance, risk_disclosure, mode=mode,
-    )
-
-    safe_agent = re.sub(r'[^A-Za-z0-9_-]+', '_', agent_name).strip('_') or 'agent'
-    doc_label = 'VerbalWarning' if mode == 'verbal' else 'WrittenWarning'
-    filename = f"{doc_label}_{safe_agent}_ALV-{alv_number or analysis_id}.docx"
-    return buf, filename

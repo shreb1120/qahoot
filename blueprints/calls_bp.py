@@ -36,6 +36,7 @@ from flask import (
     Response,
     abort,
     current_app,
+    flash,
     g,
     jsonify,
     redirect,
@@ -46,6 +47,8 @@ from flask import (
     url_for,
 )
 from werkzeug.utils import secure_filename
+
+from sqlalchemy import Date, cast, func
 
 import pipeline as pipeline_module
 from auth import login_required, org_required
@@ -248,7 +251,7 @@ def _upload_context(**overrides):
 def _submitted_upload_form():
     return {
         "agent_id": request.form.get("agent_id", "").strip(),
-        "alv_id": request.form.get("alv_id", "").strip(),
+        "internal_id": request.form.get("internal_id", "").strip(),
         "call_date": request.form.get("call_date", "").strip(),
         "client_phone": request.form.get("client_phone", "").strip(),
     }
@@ -297,30 +300,33 @@ def upload():
 
     # Read metadata from form
     agent_id = request.form.get("agent_id", "").strip() or None
-    alv_id = request.form.get("alv_id", "").strip() or None
+    internal_id = request.form.get("internal_id", "").strip() or None
     call_date_str = request.form.get("call_date", "").strip()
     client_phone = request.form.get("client_phone", "").strip() or None
 
-    # These three are required in the form; enforce that here too rather than
-    # silently storing a call with no agent or no date attached to it.
-    if not agent_id:
-        return _upload_error("Select which agent took this call.")
-    if not alv_id:
-        return _upload_error("Enter the ALV or internal ID for this call.")
-    if not call_date_str:
-        return _upload_error("Enter the date the call took place.")
+    # Every metadata field is optional — a reviewer can upload now and attribute
+    # later from the report page. Only length and validity are enforced, because
+    # those produce a raw DataError rather than a message the user can act on.
+    if internal_id and len(internal_id) > 50:
+        return _upload_error("That internal ID is too long (50 characters maximum).")
+    if client_phone and len(client_phone) > 30:
+        return _upload_error("That phone number is too long (30 characters maximum).")
 
-    try:
-        call_date = date.fromisoformat(call_date_str)
-    except ValueError:
-        return _upload_error("That call date is not a valid date.")
-    if call_date > date.today():
-        return _upload_error("A call cannot have happened in the future.")
+    call_date = None
+    if call_date_str:
+        try:
+            call_date = date.fromisoformat(call_date_str)
+        except ValueError:
+            return _upload_error("That call date is not a valid date.")
+        if call_date > date.today():
+            return _upload_error("A call cannot have happened in the future.")
 
-    # Validate agent belongs to this org
-    valid_agent = g.db.query(Agent).filter_by(id=agent_id, org_id=g.org.id).first()
-    if not valid_agent:
-        return _upload_error("That agent is no longer available. Pick another.")
+    # Only when an agent was actually submitted. This is a tenant-isolation
+    # control, not a required-field check.
+    if agent_id:
+        valid_agent = g.db.query(Agent).filter_by(id=agent_id, org_id=g.org.id).first()
+        if not valid_agent:
+            return _upload_error("That agent is no longer available. Pick another.")
 
     # Save file to disk. secure_filename() strips non-ASCII, so a recording named
     # entirely in a non-Latin script can come back empty — fall back to the
@@ -340,7 +346,7 @@ def upload():
         compliance_profile_id=profile.id,
         uploaded_by_user_id=g.user.id,
         agent_id=agent_id,
-        alv_id=alv_id,
+        internal_id=internal_id,
         call_date=call_date,
         client_phone=client_phone,
         filename=safe_name,
@@ -448,8 +454,12 @@ def report(call_id: str):
     call = _org_call_or_404(call_id)
     if call.status != "complete" or not call.report:
         return redirect(url_for("calls.status", call_id=call_id))
+    agents = (
+        g.db.query(Agent).filter_by(org_id=g.org.id).order_by(Agent.name).all()
+    )
     return render_template(
-        "calls/report.html", call=call, report=call.report, vm=_report_view_model(call)
+        "calls/report.html", call=call, report=call.report,
+        vm=_report_view_model(call), agents=agents,
     )
 
 
@@ -486,6 +496,33 @@ def override(call_id: str):
     return jsonify({"ok": True})
 
 
+@calls_bp.post("/<call_id>/agent")
+@org_required
+def assign_agent(call_id: str):
+    """Attribute a call after the fact.
+
+    Metadata is optional at upload, so a call can arrive unattributed and be
+    assigned once someone knows whose it was. Same permission tier as an
+    override — reviewers already do that work.
+    """
+    call = _org_call_or_404(call_id)          # 404s cross-org before reading the body
+    agent_id = request.form.get("agent_id", "").strip()
+
+    if agent_id:
+        agent = g.db.query(Agent).filter_by(id=agent_id, org_id=g.org.id).first()
+        if not agent:
+            flash("That agent is no longer available.", "error")
+            return redirect(url_for("calls.report", call_id=call_id))
+        call.agent_id = agent.id
+        flash(f"Call assigned to {agent.name}.", "success")
+    else:
+        call.agent_id = None
+        flash("Call is now unassigned.", "success")
+
+    g.db.commit()
+    return redirect(url_for("calls.report", call_id=call_id))
+
+
 # ── Write-up ──────────────────────────────────────────────────────────────────
 
 @calls_bp.post("/<call_id>/writeup")
@@ -501,9 +538,7 @@ def writeup(call_id: str):
     client = anthropic_lib.Anthropic(api_key=current_app.config["ANTHROPIC_API_KEY"])
 
     agent_name = (call.agent.name if call.agent else "") or "Agent"
-    alv_number = (call.alv_id or "").strip()
-    if alv_number.upper().startswith("ALV-"):
-        alv_number = alv_number[4:]
+    internal_id = (call.internal_id or "").strip()
 
     call_date_str = ""
     if call.call_date:
@@ -531,12 +566,15 @@ def writeup(call_id: str):
     )
 
     buf = writeup_module.build_writeup_docx(
-        agent_name, alv_number, call_date_str,
+        agent_name, internal_id, call_date_str,
         misguidance, risk_disclosure,
     )
 
+    # Both parts sanitised: this string goes straight into a Content-Disposition
+    # header, and internal_id is user-typed.
     safe_agent = re.sub(r"[^A-Za-z0-9_-]+", "_", agent_name).strip("_") or "agent"
-    filename = f"WrittenWarning_{safe_agent}_ALV-{alv_number or call_id}.docx"
+    safe_id = re.sub(r"[^A-Za-z0-9_-]+", "_", internal_id).strip("_") or call_id
+    filename = f"WrittenWarning_{safe_agent}_{safe_id}.docx"
 
     return Response(
         buf.read(),
@@ -609,18 +647,25 @@ def history():
     date_to = request.args.get("date_to", "").strip()
     phone_filter = request.args.get("phone", "").strip()
 
-    if agent_id:
+    if agent_id == "unassigned":
+        q = q.filter(Call.agent_id.is_(None))
+    elif agent_id:
         q = q.filter(Call.agent_id == agent_id)
     if status_filter:
         q = q.filter(Call.status == status_filter)
+    # History displays upload_date when call_date is missing, so the filter has to
+    # agree. A bare `Call.call_date >= x` drops every NULL row under SQL
+    # three-valued logic, which silently hid undated calls once dates became
+    # optional. COALESCE keeps filter and display consistent.
+    effective_date = func.coalesce(Call.call_date, cast(Call.upload_date, Date))
     if date_from:
         try:
-            q = q.filter(Call.call_date >= date.fromisoformat(date_from))
+            q = q.filter(effective_date >= date.fromisoformat(date_from))
         except ValueError:
             pass
     if date_to:
         try:
-            q = q.filter(Call.call_date <= date.fromisoformat(date_to))
+            q = q.filter(effective_date <= date.fromisoformat(date_to))
         except ValueError:
             pass
     if phone_filter:
