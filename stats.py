@@ -21,13 +21,25 @@ from sqlalchemy import case, func
 
 from models import Agent, Call, Report
 
-# One definition, shared. `pass_fail_status` holds strings the normalizer emits:
-# "PASS", "CRITICAL FAIL", "FAIL — <section>", "FAIL — Multiple sections".
+# One definition, shared.
+#
+# `verdict` is the indexed column the normalizer now writes. The ILIKE branch
+# is the fallback for rows written before it existed — the migration backfills
+# them, so in practice it never fires, but a report saved by an older process
+# mid-deploy would otherwise be miscounted as a pass. Free-text matching is
+# what we are moving away from; keeping it as a guarded fallback rather than
+# deleting it means no call is ever silently scored wrong.
 IS_PASS = case(
-    (Report.pass_fail_status.ilike("%PASS%") & ~Report.pass_fail_status.ilike("%FAIL%"), 1),
+    (Report.verdict.is_not(None), case((Report.verdict == "pass", 1), else_=0)),
+    (Report.pass_fail_status.ilike("%PASS%")
+     & ~Report.pass_fail_status.ilike("%FAIL%"), 1),
     else_=0,
 )
-IS_CRITICAL = case((Report.pass_fail_status.ilike("%CRITICAL%"), 1), else_=0)
+IS_CRITICAL = case(
+    (Report.verdict.is_not(None), case((Report.verdict == "critical", 1), else_=0)),
+    (Report.pass_fail_status.ilike("%CRITICAL%"), 1),
+    else_=0,
+)
 
 # How many of an agent's calls the miss analysis reads. Headline counters come
 # from SQL and stay exact; only this breakdown is capped.

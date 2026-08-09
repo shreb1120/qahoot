@@ -20,6 +20,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -157,6 +158,13 @@ class ComplianceProfile(Base):
     __tablename__ = "compliance_profiles"
     __table_args__ = (
         Index("ix_compliance_profiles_org_id", "org_id"),
+        # An org has exactly one checklist in force. profile_bp maintains this
+        # by deactivating the previous profile before inserting the new one;
+        # the partial index is what makes two concurrent switches impossible
+        # rather than merely unlikely. Declared here as well as in the
+        # migration so create_all builds it and the tests exercise it.
+        Index("ix_profiles_one_active", "org_id",
+              unique=True, postgresql_where=text("is_active")),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
@@ -284,6 +292,9 @@ class Transcript(Base):
 
 class Report(Base):
     __tablename__ = "reports"
+    __table_args__ = (
+        Index("ix_reports_verdict", "verdict"),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     call_id: Mapped[str] = mapped_column(
@@ -293,7 +304,13 @@ class Report(Base):
         unique=True,
     )
     report_json: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    # Human-readable determination, e.g. "FAIL — Approval Script". Display only.
     pass_fail_status: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    # The same verdict, machine-readable: "pass" | "fail" | "critical".
+    # Every pass-rate query used to scan pass_fail_status with ILIKE '%…%',
+    # which can never use an index, and free text drifts — production still
+    # holds a pre-normalizer "FAIL — Both" that no current code path emits.
+    verdict: Mapped[str | None] = mapped_column(String(16), nullable=True)
     overrides_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_now

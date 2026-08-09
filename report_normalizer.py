@@ -34,6 +34,12 @@ COVERED = "covered"
 NOT_COVERED = "not_covered"
 NOT_ASSESSED = "not_assessed"
 
+# Machine-readable verdicts, stored on Report.verdict. The prose determination
+# is for people; these are for queries.
+PASS = "pass"
+FAIL = "fail"
+CRITICAL = "critical"
+
 
 def _norm(text: str) -> str:
     """Loose key for matching a returned name back to a checklist name."""
@@ -170,17 +176,19 @@ def normalize_report(raw: dict | None, checklist: dict | None) -> dict:
         })
 
     # Determination is derived, never trusted, so a verdict can never disagree
-    # with the rows underneath it.
+    # with the rows underneath it. `verdict` is the same decision in a form a
+    # query can index; the prose is for the reader.
     if kept:
-        determination = "CRITICAL FAIL"
+        determination, verdict = "CRITICAL FAIL", CRITICAL
     elif not sections_out:
         determination = raw.get("final_determination") or "FAIL — no checklist sections"
+        verdict = FAIL
     elif not failed_sections:
-        determination = "PASS"
+        determination, verdict = "PASS", PASS
     elif len(failed_sections) == 1:
-        determination = f"FAIL — {failed_sections[0]}"
+        determination, verdict = f"FAIL — {failed_sections[0]}", FAIL
     else:
-        determination = "FAIL — Multiple sections"
+        determination, verdict = "FAIL — Multiple sections", FAIL
 
     unassessed = sum(1 for s in sections_out for i in s["items"] if i["status"] == NOT_ASSESSED)
     if missing_from_response or discarded:
@@ -192,6 +200,7 @@ def normalize_report(raw: dict | None, checklist: dict | None) -> dict:
 
     return {
         "final_determination": determination,
+        "verdict": verdict,
         "summary": str(raw.get("summary") or ""),
         "sections": sections_out,
         "auto_fail_phrases": {"detected": bool(kept), "phrases": kept},

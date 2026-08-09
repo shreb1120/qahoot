@@ -193,9 +193,15 @@ def _mk_call(s, org, profile, user, agent, *, status="complete", verdict="FAIL",
             ],
             "text": f"{org.name} secret content",
         }))
+        # Mirror what report_normalizer writes: the prose determination plus
+        # its machine-readable form.
+        code = ("critical" if "CRITICAL" in verdict
+                else "fail" if "FAIL" in verdict else "pass")
         s.add(Report(id=str(uuid.uuid4()), call_id=c.id, pass_fail_status=verdict,
+                     verdict=code,
                      overrides_json=None, report_json={
             "final_determination": verdict,
+            "verdict": code,
             "summary": f"{org.name} confidential summary",
             "sections": [{
                 "name": "Approval Script", "key": "approval_script",
