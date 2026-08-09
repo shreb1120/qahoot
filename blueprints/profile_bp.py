@@ -209,6 +209,13 @@ def add_item(section_idx: int):
     if section_idx < 0 or section_idx >= len(sections):
         abort(400)
 
+    # Two items with the same name in one section would share the manager
+    # override key (section_key::item_name), so approving one would approve both.
+    if any((i.get("name") or "").strip().lower() == name.lower()
+           for i in sections[section_idx].get("items", [])):
+        flash(f'"{name}" is already a requirement in this section.', "error")
+        return redirect(url_for("profile.view"))
+
     sections[section_idx]["items"].append({
         "name": name,
         "required": required,

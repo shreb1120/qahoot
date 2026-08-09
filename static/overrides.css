@@ -526,6 +526,12 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 .rp-status { display: inline-flex; align-items: center; gap: .375rem; font-size: var(--fs-meta); font-weight: 600; white-space: nowrap; }
 .rp-status--ok   { color: #047857; }
 .rp-status--miss { color: #b91c1c; }
+/* Third state: the grader did not return a verdict for this requirement. Not the
+   same as "the agent did not say it", and a compliance reviewer must be able to
+   tell those apart at a glance. */
+.rp-status--unknown { color: var(--warn); }
+.rp-row--unknown { background: #fffdf7; }
+.rp-row--unknown td:first-child { box-shadow: inset 2px 0 0 var(--warn); }
 .rp-status svg { width: .875rem; height: .875rem; }
 
 .rp-ts {

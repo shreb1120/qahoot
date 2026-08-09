@@ -30,11 +30,34 @@ Override the default with `QABOOM_TEST_DATABASE_URL` if you use a different name
 | `test_prompt_builder.py` | A custom checklist survives into the Claude prompt intact |
 | `test_claude_contract.py` | A real API call against a hand-built checklist (opt-in) |
 
-## Testing that a custom checklist works with the Claude API
+## A custom checklist grades correctly by construction
 
-This is the one part of the product where "it renders" is not the question. A
-customer edits their checklist, and that JSON becomes the system prompt. Three
-layers, in increasing cost:
+The customer must never have to wonder whether the checklist they wrote will
+work. That is not achieved by giving them a way to check it; it is achieved by
+making a broken grading run impossible.
+
+**The checklist is the source of truth; the model response is evidence.**
+`report_normalizer.py` reconciles every response against the checklist that was
+in force before anything is stored:
+
+- every section and every requirement appears, in checklist order, whether or
+  not the model returned it
+- a requirement the model omitted becomes `not_assessed` — visibly distinct from
+  "the agent did not say it", counted as not covered, and surfaced in a banner
+  so a reviewer is told rather than left to notice
+- counts are recomputed, never taken from the response
+- the determination is derived from the reconciled rows, so a verdict can never
+  disagree with the table beneath it
+- sections the model invented are dropped; auto-fail phrases are filtered to the
+  ones the org configured, so a hallucinated violation cannot fail a call
+
+Two structural collisions are also prevented at the point of edit: section keys
+are unique (they are half of the manager-override key), and a requirement name
+cannot repeat inside one section.
+
+`test_report_normalizer.py` pins all of this, including garbage input.
+
+### And the prompt itself
 
 **1. The prompt contract — `test_prompt_builder.py`, no API, runs always.**
 Every requirement, note and auto-fail phrase must survive into the prompt

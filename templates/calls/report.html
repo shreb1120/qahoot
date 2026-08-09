@@ -105,6 +105,18 @@
   </div>
   {% endif %}
 
+  {% set recon = r.get('_reconciliation', {}) %}
+  {% if recon.get('items_not_assessed') %}
+    <div class="rp-panel mt-4 p-3.5" style="background:#fffbeb;border-color:#fcd34d">
+      <p class="text-sm text-ink-2">
+        <strong>{{ recon.items_not_assessed }} requirement{{ 's' if recon.items_not_assessed != 1 }}</strong>
+        came back without a verdict from the grader and {{ 'are' if recon.items_not_assessed != 1 else 'is' }}
+        counted as not covered. They are marked <em>Not assessed</em> below —
+        re-run the call if you need a determination on {{ 'them' if recon.items_not_assessed != 1 else 'it' }}.
+      </p>
+    </div>
+  {% endif %}
+
   {% if af.get('detected') %}
     <div class="rp-panel mt-4" style="border-color:#fecaca">
       <div class="rp-panel-head" style="background:#fef2f2;border-color:#fecaca">
@@ -203,7 +215,7 @@
               <tbody>
                 {% for item in section.get('items', []) %}
                   {% set ov = overrides.get(sk ~ '::' ~ item.name, '') %}
-                  <tr class="{{ 'rp-row--miss' if item.status != 'covered' }}">
+                  <tr class="{% if item.status == 'not_assessed' %}rp-row--unknown{% elif item.status != 'covered' %}rp-row--miss{% endif %}">
                     <td class="qb-break">
                       <div class="rp-req">{{ item.name }}</div>
                       {% if item.evidence %}<div class="rp-evidence">{{ item.evidence }}</div>{% endif %}
@@ -211,6 +223,8 @@
                     <td>
                       {% if item.status == 'covered' %}
                         <span class="rp-status rp-status--ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 13 4 4L19 7"/></svg>Covered</span>
+                      {% elif item.status == 'not_assessed' %}
+                        <span class="rp-status rp-status--unknown" title="The grader did not return a verdict for this requirement. Treated as not covered."><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"/></svg>Not assessed</span>
                       {% else %}
                         <span class="rp-status rp-status--miss"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>Missing</span>
                       {% endif %}

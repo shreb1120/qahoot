@@ -15,6 +15,7 @@ import assemblyai as aai
 
 from db import get_db
 from prompt_builder import build_system_prompt, build_user_message
+from report_normalizer import normalize_report
 
 logger = logging.getLogger(__name__)
 
@@ -132,7 +133,14 @@ def run_pipeline(call_id: str, file_path: str,
         end_idx = raw.rfind("}") + 1
         if start_idx == -1 or end_idx <= start_idx:
             raise ValueError(f"No JSON found in Claude response: {raw[:300]!r}")
-        report_data = json.loads(raw[start_idx:end_idx])
+        model_output = json.loads(raw[start_idx:end_idx])
+
+        # Reconcile against the checklist that was actually in force. The model
+        # is evidence; the checklist is truth. A requirement it failed to return
+        # becomes not_assessed rather than silently disappearing, counts are
+        # recomputed, and the determination is derived — so the report describes
+        # the customer's checklist no matter what came back.
+        report_data = normalize_report(model_output, profile_data)
 
         # ── Step 3: Save report ────────────────────────────────────────────
         pass_fail = report_data.get("final_determination", "")
