@@ -9,6 +9,29 @@
     <p class="text-xs text-muted mt-1.5">Audio or video, up to {{ max_upload_mb }} MB. Transcription and grading run automatically.</p>
   </div>
 
+  {# Usage warning. The sidebar meter is always visible, so this only appears
+     once it's actionable — a banner that shows on every visit stops being read
+     by the time it matters. #}
+  {% if usage_summary and usage_summary.percent >= 80 %}
+    <div class="rp-flash {{ 'rp-flash--err' if usage_summary.over else 'rp-flash--ok' }} mb-4" role="status"
+         {% if not usage_summary.over %}style="background:#fffbeb;border-color:#fcd34d;color:#92400e"{% endif %}>
+      {% if usage_summary.is_trial and usage_summary.over %}
+        Your free trial is used up.
+        <a href="{{ url_for('billing.plan') }}" class="underline font-semibold">Choose a plan</a>
+        to keep uploading — everything you've graded stays put.
+      {% elif usage_summary.over %}
+        You're {{ '{:,}'.format(usage_summary.overage_minutes) }} minutes past your
+        allowance. Uploads keep working; the extra bills at
+        ${{ '%.2f' | format(usage_summary.plan.overage_dollars_per_minute) }} a minute.
+        <a href="{{ url_for('billing.plan') }}" class="underline">See usage</a>
+      {% else %}
+        {{ '{:,}'.format(usage_summary.remaining_minutes) }} minutes left
+        {%- if usage_summary.is_trial %} in your trial{% endif %}.
+        <a href="{{ url_for('billing.plan') }}" class="underline">See usage</a>
+      {% endif %}
+    </div>
+  {% endif %}
+
   {% if not has_profile %}
     <div class="rp-panel p-4" style="background:#fffbeb;border-color:#fcd34d">
       <h2 class="qb-section-title mb-1">No compliance checklist yet</h2>

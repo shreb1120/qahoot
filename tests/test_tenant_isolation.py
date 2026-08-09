@@ -97,7 +97,7 @@ def test_override_cannot_be_written_to_another_orgs_report(tenants, db):
 def test_dashboard_counts_only_your_own_org(tenants):
     """The dashboard aggregates were added late and are the easiest place to
     accidentally count across tenants."""
-    body = tenants.a_admin.get("/").get_data(as_text=True)
+    body = tenants.a_admin.get("/dashboard").get_data(as_text=True)
     assert "Acme" in body and "Borden Agent" not in body
 
 
@@ -132,7 +132,7 @@ def test_agent_performance_does_not_count_another_orgs_call(tenants, db):
                   pass_fail_status="PASS", report_json={"final_determination": "PASS"}))
     db.commit()
 
-    table = _agent_performance_table(tenants.a_admin.get("/").get_data(as_text=True))
+    table = _agent_performance_table(tenants.a_admin.get("/dashboard").get_data(as_text=True))
     assert "Acme Agent" in table, "agent performance row not rendered"
     assert "Borden" not in table, "another org's agent appeared in this org's table"
 

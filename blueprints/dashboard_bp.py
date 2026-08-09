@@ -17,7 +17,10 @@ from models import Agent, Call, Report
 dashboard_bp = Blueprint("dashboard", __name__)
 
 
-@dashboard_bp.get("/")
+# `/` now belongs to the marketing page, which has to be reachable by someone
+# who has never signed in. Every reference to this view goes through
+# url_for("dashboard.index"), so moving the path is transparent.
+@dashboard_bp.get("/dashboard")
 @org_required
 def index():
     db = g.db

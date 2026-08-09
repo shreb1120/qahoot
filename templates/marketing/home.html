@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+{% block title %}Qaboom — compliance QA for every call, not a sample{% endblock %}
+
+{# Escapes the app's centred content box — the same override the auth pages
+   use. Section bands here are meant to run the full width of the viewport,
+   and inside .qb-main-content they stop short and read as a boxed-in page. #}
+{% block main %}
+{#  The landing page.
+
+    Every claim here is something the product actually does today. No invented
+    logos, testimonials, customer counts, or certifications — a compliance
+    product that oversells itself on its own marketing page has a credibility
+    problem before the first demo. #}
+
+{% include "marketing/_nav.html" %}
+
+{# ── Hero ── #}
+<section class="mk-hero">
+  <div class="mk-wrap">
+    <p class="mk-eyebrow">Call compliance QA</p>
+    <h1 class="mk-h1">
+      Your compliance checklist, checked against every call.
+    </h1>
+    <p class="mk-lede">
+      Most QA teams listen to a handful of calls a week and hope the rest look
+      like them. Qaboom transcribes every call you upload and grades it against
+      the checklist <em>you</em> wrote — with a timestamp and a quote for every
+      requirement, so a manager can verify the verdict instead of trusting it.
+    </p>
+    <div class="mk-cta-row">
+      <a href="{{ url_for('auth.signup') }}" class="qb-btn-primary mk-cta">
+        Grade {{ trial.included_minutes }} minutes free
+      </a>
+      <a href="{{ url_for('marketing.pricing') }}" class="rp-btn mk-cta">See pricing</a>
+    </div>
+    <p class="mk-fineprint">No card required. Your own checklist, your own calls.</p>
+  </div>
+</section>
+
+{# ── The problem ── #}
+<section class="mk-section">
+  <div class="mk-wrap mk-narrow">
+    <h2 class="mk-h2">Sampling finds the calls you happened to pick</h2>
+    <p class="mk-body">
+      If an agent skips a required disclosure on Tuesday and you review Friday's
+      calls, you find nothing — and the recording that proves it sits in a folder
+      nobody opens until a regulator asks. The problem was never that QA teams
+      don't care. It's that listening to a 30-minute call to check six
+      requirements doesn't scale past a few calls a day.
+    </p>
+    <p class="mk-body">
+      Qaboom does the listening. You do the judging.
+    </p>
+  </div>
+</section>
+
+{# ── How it works. A real sequence, so the numbering carries information. ── #}
+<section class="mk-section mk-section--alt">
+  <div class="mk-wrap">
+    <h2 class="mk-h2 mk-center">How it works</h2>
+    <ol class="mk-steps">
+      <li class="mk-step">
+        <span class="mk-step-n">1</span>
+        <h3 class="mk-step-h">Write your checklist</h3>
+        <p class="mk-step-p">
+          Start from a template for debt settlement, tax relief, solar or
+          insurance — or from nothing. Every requirement is yours to edit, mark
+          optional, or delete. Add the phrases that fail a call outright.
+        </p>
+      </li>
+      <li class="mk-step">
+        <span class="mk-step-n">2</span>
+        <h3 class="mk-step-h">Upload calls</h3>
+        <p class="mk-step-p">
+          One at a time or a batch. Qaboom transcribes with speaker labels, then
+          grades the transcript against your checklist — every requirement
+          answered, with the timestamp and the words that satisfied it.
+        </p>
+      </li>
+      <li class="mk-step">
+        <span class="mk-step-n">3</span>
+        <h3 class="mk-step-h">Review and coach</h3>
+        <p class="mk-step-p">
+          Approve or flag any item the grader got wrong; your decision is what
+          counts. Each agent gets a scorecard showing which requirements they
+          actually miss, so the coaching conversation starts with evidence.
+        </p>
+      </li>
+    </ol>
+  </div>
+</section>
+
+{# ── What's different ── #}
+<section class="mk-section">
+  <div class="mk-wrap">
+    <h2 class="mk-h2 mk-center">Built for people who get audited</h2>
+    <div class="mk-grid">
+      <div class="mk-card">
+        <h3 class="mk-card-h">Your checklist, not our rubric</h3>
+        <p class="mk-card-p">
+          Compliance obligations differ by state, by product, by creditor, and
+          they change. Qaboom grades against the checklist you maintain — edit it
+          today and tomorrow's calls are graded the new way.
+        </p>
+      </div>
+      <div class="mk-card">
+        <h3 class="mk-card-h">Every requirement gets an answer</h3>
+        <p class="mk-card-p">
+          A requirement the grader couldn't assess is reported as
+          <em>not assessed</em> — never quietly dropped. A report always
+          describes your whole checklist, so a clean call and an incomplete
+          analysis can't look the same.
+        </p>
+      </div>
+      <div class="mk-card">
+        <h3 class="mk-card-h">Evidence you can check</h3>
+        <p class="mk-card-p">
+          Every covered item carries a timestamp and the quote that satisfied it,
+          next to the audio. You're never asked to take a verdict on trust.
+        </p>
+      </div>
+      <div class="mk-card">
+        <h3 class="mk-card-h">The manager has the last word</h3>
+        <p class="mk-card-p">
+          Approve or flag any item and the score updates. Coaching scorecards
+          count your decision, not the model's — an item you cleared never counts
+          against an agent.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+{# ── Pricing, from plans.py — the same module Checkout reads. ── #}
+<section class="mk-section mk-section--alt" id="pricing">
+  <div class="mk-wrap">
+    <h2 class="mk-h2 mk-center">Pricing</h2>
+    <p class="mk-body mk-center mk-narrow">
+      Priced by minutes of audio, because that's what the work actually is. A
+      30-minute call costs three times a 10-minute one, and your bill says so.
+    </p>
+    {% include "marketing/_plans.html" %}
+  </div>
+</section>
+
+{# ── FAQ. The questions a compliance buyer actually asks. ── #}
+<section class="mk-section">
+  <div class="mk-wrap mk-narrow">
+    <h2 class="mk-h2">Questions</h2>
+
+    <details class="mk-faq">
+      <summary>How accurate is the grading?</summary>
+      <p>
+        Accurate enough to review, not to rubber-stamp — which is why every
+        verdict shows its evidence and every item can be overridden. Qaboom is
+        built so a manager reviews faster, not so nobody reviews. Grade your own
+        calls during the trial and judge for yourself; that's what the free
+        minutes are for.
+      </p>
+    </details>
+
+    <details class="mk-faq">
+      <summary>What happens to our recordings?</summary>
+      <p>
+        Audio is stored so reports can cite it, and kept until you tell us
+        otherwise — we don't delete evidence a compliance report depends on
+        without being asked. Transcription runs through AssemblyAI and grading
+        through Anthropic's API.
+      </p>
+    </details>
+
+    <details class="mk-faq">
+      <summary>Is this legal advice?</summary>
+      <p>
+        No. The checklist templates are built from widely published obligations —
+        the FTC Telemarketing Sales Rule, the Credit Repair Organizations Act,
+        state rights of rescission — as a starting point. Your obligations
+        differ and they change. Review any template with whoever owns compliance
+        at your organization, then edit it until it matches what your agents are
+        actually required to say.
+      </p>
+    </details>
+
+    <details class="mk-faq">
+      <summary>What counts as a minute?</summary>
+      <p>
+        The length of the audio you upload, not how long processing takes. Your
+        month's total is rounded up once, not per call. A call that fails to
+        analyse still counts its transcription minutes, because that step ran —
+        re-analysing it doesn't count again.
+      </p>
+    </details>
+
+    <details class="mk-faq">
+      <summary>Can we try it on our own calls?</summary>
+      <p>
+        That's the point of the trial: {{ trial.included_minutes }} minutes, no
+        card. Upload real calls, write your real checklist, and see whether the
+        reports would survive your own review.
+      </p>
+    </details>
+  </div>
+</section>
+
+{# ── Close ── #}
+<section class="mk-close">
+  <div class="mk-wrap mk-center">
+    <h2 class="mk-h2">Grade a real call in the next ten minutes</h2>
+    <p class="mk-body mk-narrow" style="margin-inline:auto">
+      Sign up, paste in your checklist, upload one call. If the report isn't
+      something you'd hand to a manager, you've lost ten minutes.
+    </p>
+    <a href="{{ url_for('auth.signup') }}" class="qb-btn-primary mk-cta">
+      Start free
+    </a>
+  </div>
+</section>
+
+<footer class="mk-footer">
+  <div class="mk-wrap mk-footer-inner">
+    <span class="mk-brand mk-brand--sm">
+      <span class="mk-brand-mark" aria-hidden="true"></span> Qaboom
+    </span>
+    <nav class="mk-footer-links" aria-label="Footer">
+      <a href="{{ url_for('marketing.pricing') }}">Pricing</a>
+      <a href="{{ url_for('auth.login') }}">Sign in</a>
+    </nav>
+  </div>
+</footer>
+{% endblock %}

@@ -115,6 +115,21 @@ def create_app(config_class: type = Config) -> Flask:
     def inject_clerk_key():
         return {"clerk_key": app.config.get("CLERK_PUBLISHABLE_KEY", "")}
 
+    # The sidebar meter renders on every authenticated page, so the summary is
+    # injected once here rather than threaded through a dozen view functions.
+    # One primary-key read; failures are swallowed because a usage widget must
+    # never be able to take down the page it decorates.
+    @app.context_processor
+    def inject_usage():
+        if not (getattr(g, "user", None) and getattr(g, "org", None)):
+            return {"usage_summary": None}
+        try:
+            import usage
+            return {"usage_summary": usage.summary_for(g.db, g.org)}
+        except Exception:
+            logger.exception("Could not build usage summary for the sidebar")
+            return {"usage_summary": None}
+
     # ── Cache-busted static URLs ──────────────────────────────────────────
     # The built CSS and the font files never change without their content
     # changing, so they can be cached hard — provided the URL moves when the
@@ -180,6 +195,7 @@ def create_app(config_class: type = Config) -> Flask:
     from blueprints.profile_bp import profile_bp
     from blueprints.agents_bp import agents_bp
     from blueprints.billing_bp import billing_bp
+    from blueprints.marketing_bp import marketing_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(org_bp)
@@ -188,6 +204,7 @@ def create_app(config_class: type = Config) -> Flask:
     app.register_blueprint(profile_bp)
     app.register_blueprint(agents_bp)
     app.register_blueprint(billing_bp)
+    app.register_blueprint(marketing_bp)
 
     # Convenience redirect: /login → /auth/login
     @app.get("/login")

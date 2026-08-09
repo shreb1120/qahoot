@@ -1,0 +1,53 @@
+{#  Pricing table. Rendered from plans.py — the same module Stripe Checkout
+    reads, so the page and the charge cannot drift apart. #}
+<div class="mk-plans">
+  {# Trial first: it is the actual next step for everyone reading this. #}
+  <div class="mk-plan">
+    <h3 class="mk-plan-name">{{ trial.name }}</h3>
+    <p class="mk-plan-price">
+      $0<span class="mk-plan-per">to start</span>
+    </p>
+    <p class="mk-plan-blurb">{{ trial.blurb }}</p>
+    <ul class="mk-plan-features">
+      {% for feature in trial.features %}
+        <li>
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="m5 13 4 4L19 7"/></svg>
+          <span>{{ feature }}</span>
+        </li>
+      {% endfor %}
+    </ul>
+    <a href="{{ url_for('auth.signup') }}" class="rp-btn mk-plan-cta">Start free</a>
+  </div>
+
+  {% for plan in plans %}
+    {% set featured = loop.last %}
+    <div class="mk-plan{% if featured %} mk-plan--featured{% endif %}">
+      {% if featured %}<span class="mk-plan-tag">Most teams</span>{% endif %}
+      <h3 class="mk-plan-name">{{ plan.name }}</h3>
+      <p class="mk-plan-price">
+        ${{ '{:,.0f}'.format(plan.price_dollars) }}<span class="mk-plan-per">/month</span>
+      </p>
+      <p class="mk-plan-blurb">{{ plan.blurb }}</p>
+      <ul class="mk-plan-features">
+        {% for feature in plan.features %}
+          <li>
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="m5 13 4 4L19 7"/></svg>
+            <span>{{ feature }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+      <a href="{{ url_for('auth.signup', plan=plan.code) }}"
+         class="{{ 'qb-btn-primary' if featured else 'rp-btn' }} mk-plan-cta">
+        Start with {{ plan.name }}
+      </a>
+    </div>
+  {% endfor %}
+</div>
+
+<p class="mk-plans-note">
+  Every plan includes unlimited seats and agents. Additional minutes bill at the
+  plan's rate — uploads never stop working because you hit an allowance. Reviewing
+  more than {{ '{:,}'.format(plans[-1].included_minutes) }} minutes a month?
+  <a href="{{ url_for('auth.signup') }}">Start free</a> and we'll sort out a plan
+  that fits.
+</p>

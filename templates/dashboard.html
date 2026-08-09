@@ -221,13 +221,17 @@
         {% for call in recent_calls %}
           {% set det = (call.report.pass_fail_status if call.report else '') or '' %}
           <div class="rp-activity">
+            {# Lead with who the call belongs to, not the filename. Nobody
+               scans a QA feed by "20260808-143052_8005551234.mp3"; they scan
+               it by agent and verdict, so those take the strong positions and
+               the filename drops to the metadata line. #}
             <div class="rp-activity-main">
               {% if call.status == 'complete' %}
-                <a href="{{ url_for('calls.report', call_id=call.id) }}" class="rp-activity-name rp-link block" title="{{ call.filename }}">{{ call.filename }}</a>
+                <a href="{{ url_for('calls.report', call_id=call.id) }}" class="rp-activity-name rp-link block">{{ call.agent.name if call.agent else 'Unassigned' }}</a>
               {% else %}
-                <div class="rp-activity-name" title="{{ call.filename }}">{{ call.filename }}</div>
+                <div class="rp-activity-name">{{ call.agent.name if call.agent else 'Unassigned' }}</div>
               {% endif %}
-              <div class="rp-activity-meta">{{ call.agent.name if call.agent else 'Unassigned' }} · {{ call.upload_date.strftime('%b %d, %H:%M') }}</div>
+              <div class="rp-activity-meta" title="{{ call.filename }}">{{ call.upload_date.strftime('%b %d, %H:%M') }} · <span class="rp-file" style="display:inline-block;max-width:14rem;vertical-align:bottom">{{ call.filename }}</span></div>
             </div>
             {% if call.status in ('pending','transcribing','analyzing') %}
               <span class="status-badge status-{{ call.status }}">{{ call.status | capitalize }}</span>

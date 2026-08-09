@@ -7,11 +7,53 @@ ADMIN_ONLY_POSTS = [
 ]
 
 
+# Reachable without signing in. Short and explicit: adding a route here is a
+# decision to expose it to the whole internet, so it should be a deliberate
+# edit rather than something that happens by forgetting a decorator.
+PUBLIC_PATHS = [
+    "/", "/pricing",
+    "/auth/login", "/auth/signup",
+    # Signing out has to work for someone whose session already expired —
+    # gating it would strand them on a page they cannot leave.
+    "/auth/logout",
+]
+
+APP_PATHS = ["/dashboard", "/calls/", "/calls/upload", "/profile/", "/agents/",
+             "/org/settings", "/billing/"]
+
+
 def test_anonymous_is_redirected_from_every_app_page(anon):
-    for path in ["/", "/calls/", "/calls/upload", "/profile/", "/agents/", "/org/settings"]:
+    for path in APP_PATHS:
         r = anon.get(path)
         assert r.status_code in (301, 302), f"{path} served content to an anonymous visitor"
         assert "/auth/login" in r.headers.get("Location", ""), path
+
+
+def test_public_pages_are_reachable_without_an_account(anon):
+    """The landing page has to work for someone who has never seen the product.
+    Redirecting it to login would make the marketing site unreachable."""
+    for path in PUBLIC_PATHS:
+        assert anon.get(path).status_code == 200, f"{path} was not public"
+
+
+def test_every_route_is_either_public_or_gated(app, anon):
+    """Catches a new GET route that forgets its decorator — the failure mode
+    where a page ships readable by anyone and nobody notices."""
+    leaked = []
+    for rule in app.url_map.iter_rules():
+        if "GET" not in rule.methods or rule.rule.startswith("/static"):
+            continue
+        if "<" in rule.rule:                      # needs an id; covered elsewhere
+            continue
+        if rule.rule in PUBLIC_PATHS:
+            continue
+        r = anon.get(rule.rule)
+        if r.status_code == 200:
+            leaked.append(rule.rule)
+    assert not leaked, (
+        "these GET routes served an anonymous visitor and are not in "
+        f"PUBLIC_PATHS: {leaked}"
+    )
 
 
 def test_anonymous_api_calls_get_401_not_a_redirect(anon):

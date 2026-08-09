@@ -111,6 +111,30 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
       {% endif %}
     </nav>
 
+    {# ── Plan & usage ──
+       Sits in the band the nav used to leave empty. A customer on a metered
+       plan needs a running count long before the invoice arrives; surprise
+       overage is the fastest way to lose a B2B account. #}
+    {% if usage_summary %}
+      <a href="{{ url_for('billing.plan') }}" class="qb-meter">
+        <div class="qb-meter-head">
+          <span class="qb-meter-plan">{{ usage_summary.plan.name }}</span>
+          <span class="qb-meter-pct {% if usage_summary.percent >= 100 %}is-over{% elif usage_summary.percent >= 80 %}is-warn{% endif %}">{{ usage_summary.percent }}%</span>
+        </div>
+        <span class="qb-meter-track">
+          <span class="qb-meter-fill {% if usage_summary.percent >= 100 %}is-over{% elif usage_summary.percent >= 80 %}is-warn{% endif %}"
+                style="--v:{{ [usage_summary.percent / 100, 1] | min }}"></span>
+        </span>
+        <span class="qb-meter-note">
+          {%- if usage_summary.over -%}
+            {{ '{:,}'.format(usage_summary.overage_minutes) }} min over
+          {%- else -%}
+            {{ '{:,}'.format(usage_summary.remaining_minutes) }} min left
+          {%- endif -%}
+        </span>
+      </a>
+    {% endif %}
+
     {# Bottom section: sign out + org pill #}
     <div class="px-3 pt-2 pb-3 space-y-2">
       <div class="border-t border-white/10 pt-2">

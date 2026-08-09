@@ -266,10 +266,22 @@ personality of this product is in its density and precision, not its lettering.
 
 ### Named Rules
 
-**The Five Steps Rule.** 28 / 24 / 18 / 14 / 12px, and no others. 24px exists
-solely for metric readouts, which need to outweigh a panel title without
-competing with the page title. A value that feels like it needs 16px, 20px or
-13px is a weight or colour problem, not a missing size.
+**The Five Steps Rule.** 28 / 24 / 18 / 14 / 12px, and no others *inside the
+app*. 24px exists solely for metric readouts, which need to outweigh a panel
+title without competing with the page title. A value that feels like it needs
+16px, 20px or 13px is a weight or colour problem, not a missing size.
+
+**The Two Registers Rule.** The public marketing pages run a second, larger
+ramp — 48 / 30 / 18 / 16px, declared as `--mk-fs-*` — and that is deliberate,
+not drift. The app scale tops out at 28px because it is read at desk distance,
+a hundred rows at a time; a landing page is read once, at arm's length, by
+someone deciding whether to care. The two registers share everything else:
+family, palette, radii, the hairline-not-shadow rule. A visitor who signs up
+has to recognise the product they were shown, and that recognition is worth
+more than a louder page.
+
+The boundary is the `.mk-*` prefix. An app surface reaching for `--mk-fs-h1` is
+a mistake; so is a marketing page reaching for `--fs-display`.
 
 **The Tight Floor Rule.** The 14→12px step is 1.17× on purpose. 12px is the
 floor for readable secondary text in a dense table, and below body the

@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}Pricing — Qaboom{% endblock %}
+
+{# Escapes the app's centred content box — the same override the auth pages
+   use. Section bands here are meant to run the full width of the viewport,
+   and inside .qb-main-content they stop short and read as a boxed-in page. #}
+{% block main %}
+{% include "marketing/_nav.html" %}
+
+<section class="mk-hero mk-hero--short">
+  <div class="mk-wrap">
+    <p class="mk-eyebrow">Pricing</p>
+    <h1 class="mk-h1 mk-h1--sm">Priced by minutes of audio</h1>
+    <p class="mk-lede">
+      Not per seat, because the work is the listening — a 30-minute call takes
+      three times the work of a 10-minute one, and your bill should say so.
+      Everyone on your team can use it.
+    </p>
+  </div>
+</section>
+
+<section class="mk-section">
+  <div class="mk-wrap">
+    {% include "marketing/_plans.html" %}
+  </div>
+</section>
+
+<section class="mk-section mk-section--alt">
+  <div class="mk-wrap mk-narrow">
+    <h2 class="mk-h2">How minutes are counted</h2>
+
+    <details class="mk-faq" open>
+      <summary>What exactly is a minute?</summary>
+      <p>
+        The length of the audio you upload, not how long processing takes. Your
+        month's total is rounded up to the nearest minute <em>once</em> — not per
+        call, which would round a thousand short calls into a thousand extra
+        minutes.
+      </p>
+    </details>
+
+    <details class="mk-faq">
+      <summary>What if a call fails to process?</summary>
+      <p>
+        If transcription succeeded and grading failed, the transcription minutes
+        still count — that step ran and was paid for. Re-analysing the same call
+        doesn't count again. If the upload never made it, nothing counts.
+      </p>
+    </details>
+
+    <details class="mk-faq">
+      <summary>What happens when we go over?</summary>
+      <p>
+        Nothing stops. Additional minutes bill at your plan's rate on your next
+        invoice, and the app shows a running count all month so it isn't a
+        surprise. We'd rather you finish the audit than hit a wall in the middle
+        of one.
+      </p>
+    </details>
+
+    <details class="mk-faq">
+      <summary>Can we cancel?</summary>
+      <p>
+        Any time, from your billing page — it opens Stripe's own portal, so you
+        change or cancel without emailing anyone. You keep access to the end of
+        the period you've paid for, and your reports stay afterwards.
+      </p>
+    </details>
+
+    <details class="mk-faq">
+      <summary>Do you charge for the free trial?</summary>
+      <p>
+        No, and there's no card to enter. When the {{ trial.included_minutes }}
+        minutes run out, uploads pause until you choose a plan. Everything you
+        graded during the trial stays exactly where it is.
+      </p>
+    </details>
+  </div>
+</section>
+
+<section class="mk-close">
+  <div class="mk-wrap mk-center">
+    <h2 class="mk-h2">Try it on your own calls first</h2>
+    <a href="{{ url_for('billing.plan') if signed_in else url_for('auth.signup') }}"
+       class="qb-btn-primary mk-cta">
+      {{ 'Go to your plan' if signed_in else 'Start free' }}
+    </a>
+  </div>
+</section>
+
+<footer class="mk-footer">
+  <div class="mk-wrap mk-footer-inner">
+    <span class="mk-brand mk-brand--sm">
+      <span class="mk-brand-mark" aria-hidden="true"></span> Qaboom
+    </span>
+    <nav class="mk-footer-links" aria-label="Footer">
+      <a href="{{ url_for('marketing.home') }}">Home</a>
+      <a href="{{ url_for('auth.login') }}">Sign in</a>
+    </nav>
+  </div>
+</footer>
+{% endblock %}

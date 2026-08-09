@@ -187,7 +187,7 @@ def test_the_profile_the_dashboard_and_the_list_report_the_same_pass_rate(tenant
     _mk_call(db, org, profile, admin, other, verdict="PASS", internal_id="2003")
     db.commit()   # agent: 1 PASS of 3 graded → 33%;  org: 2 of 4 → 50%
 
-    dash = tenants.a_admin.get("/").get_data(as_text=True)
+    dash = tenants.a_admin.get("/dashboard").get_data(as_text=True)
     prof = tenants.a_admin.get(f"/agents/{agent.id}").get_data(as_text=True)
     lst = tenants.a_admin.get("/agents/").get_data(as_text=True)
 
