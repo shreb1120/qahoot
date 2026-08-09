@@ -4,6 +4,7 @@
 {# Escapes the app's centred content box — the same override the auth pages
    use. Section bands here are meant to run the full width of the viewport,
    and inside .qb-main-content they stop short and read as a boxed-in page. #}
+{% set hide_auth_js = true %}
 {% block main %}
 {#  The landing page.
 
@@ -19,21 +20,20 @@
   <div class="mk-wrap">
     <p class="mk-eyebrow">Call compliance QA</p>
     <h1 class="mk-h1">
-      Your compliance checklist, checked against every call.
+      Review every call, not the four you had time for.
     </h1>
     <p class="mk-lede">
-      Most QA teams listen to a handful of calls a week and hope the rest look
-      like them. Qaboom transcribes every call you upload and grades it against
-      the checklist <em>you</em> wrote — with a timestamp and a quote for every
-      requirement, so a manager can verify the verdict instead of trusting it.
+      Qaboom scores each call against the checklist <em>you</em> wrote, and shows
+      the timestamp and the exact words behind every answer. Your reviewers stop
+      hunting for the moment and start deciding what to do about it.
     </p>
     <div class="mk-cta-row">
       <a href="{{ url_for('auth.signup') }}" class="qb-btn-primary mk-cta">
-        Grade {{ trial.included_minutes }} minutes free
+        Score {{ trial.included_minutes }} minutes free
       </a>
       <a href="{{ url_for('marketing.pricing') }}" class="rp-btn mk-cta">See pricing</a>
     </div>
-    <p class="mk-fineprint">No card required. Your own checklist, your own calls.</p>
+    <p class="mk-fineprint">No card required. Your checklist, your calls, your call on every verdict.</p>
   </div>
 </section>
 
@@ -42,14 +42,14 @@
   <div class="mk-wrap mk-narrow">
     <h2 class="mk-h2">Sampling finds the calls you happened to pick</h2>
     <p class="mk-body">
-      If an agent skips a required disclosure on Tuesday and you review Friday's
-      calls, you find nothing — and the recording that proves it sits in a folder
-      nobody opens until a regulator asks. The problem was never that QA teams
-      don't care. It's that listening to a 30-minute call to check six
-      requirements doesn't scale past a few calls a day.
+      An agent skips a required disclosure on Tuesday. You review Friday's calls
+      and find nothing. The recording that proves it sits in a folder nobody opens
+      until someone asks for it under oath.
     </p>
     <p class="mk-body">
-      Qaboom does the listening. You do the judging.
+      This was never about effort. Sitting through half an hour of audio to check
+      six requirements doesn't scale past a few calls a day, so coverage stays at
+      a rounding error and everyone knows it.
     </p>
   </div>
 </section>
@@ -64,26 +64,26 @@
         <h3 class="mk-step-h">Write your checklist</h3>
         <p class="mk-step-p">
           Start from a template for debt settlement, tax relief, solar or
-          insurance — or from nothing. Every requirement is yours to edit, mark
-          optional, or delete. Add the phrases that fail a call outright.
+          insurance, or from a blank page. Every line is yours to reword, mark
+          optional or remove. Add the phrases that fail a call on the spot.
         </p>
       </li>
       <li class="mk-step">
         <span class="mk-step-n">2</span>
-        <h3 class="mk-step-h">Upload calls</h3>
+        <h3 class="mk-step-h">Send us the recordings</h3>
         <p class="mk-step-p">
-          One at a time or a batch. Qaboom transcribes with speaker labels, then
-          grades the transcript against your checklist — every requirement
-          answered, with the timestamp and the words that satisfied it.
+          One call or a whole week of them. Each one comes back scored against
+          your checklist, with every requirement answered and the moment it was
+          met marked on the recording.
         </p>
       </li>
       <li class="mk-step">
         <span class="mk-step-n">3</span>
         <h3 class="mk-step-h">Review and coach</h3>
         <p class="mk-step-p">
-          Approve or flag any item the grader got wrong; your decision is what
-          counts. Each agent gets a scorecard showing which requirements they
-          actually miss, so the coaching conversation starts with evidence.
+          Disagree with an answer and change it — yours is the one that counts.
+          Each agent builds a scorecard of the requirements they actually miss,
+          so a coaching conversation starts from evidence instead of impressions.
         </p>
       </li>
     </ol>
@@ -93,38 +93,38 @@
 {# ── What's different ── #}
 <section class="mk-section">
   <div class="mk-wrap">
-    <h2 class="mk-h2 mk-center">Built for people who get audited</h2>
+    <h2 class="mk-h2 mk-center">Built for the people who get audited</h2>
     <div class="mk-grid">
       <div class="mk-card">
         <h3 class="mk-card-h">Your checklist, not our rubric</h3>
         <p class="mk-card-p">
-          Compliance obligations differ by state, by product, by creditor, and
-          they change. Qaboom grades against the checklist you maintain — edit it
-          today and tomorrow's calls are graded the new way.
+          Obligations differ by state, by product, by creditor, and they change.
+          Qaboom scores against the checklist you maintain, so a change you make
+          this morning applies to this afternoon's calls.
         </p>
       </div>
       <div class="mk-card">
         <h3 class="mk-card-h">Every requirement gets an answer</h3>
         <p class="mk-card-p">
-          A requirement the grader couldn't assess is reported as
-          <em>not assessed</em> — never quietly dropped. A report always
-          describes your whole checklist, so a clean call and an incomplete
-          analysis can't look the same.
+          Anything that couldn't be answered is marked <em>not assessed</em>,
+          never quietly dropped. A report always covers your whole checklist, so
+          a clean call and an unfinished review can never look the same.
         </p>
       </div>
       <div class="mk-card">
         <h3 class="mk-card-h">Evidence you can check</h3>
         <p class="mk-card-p">
-          Every covered item carries a timestamp and the quote that satisfied it,
-          next to the audio. You're never asked to take a verdict on trust.
+          Every answer carries a timestamp and the words it came from, next to
+          the recording. Nobody is asked to take a verdict on trust — not your
+          reviewers, and not an auditor.
         </p>
       </div>
       <div class="mk-card">
         <h3 class="mk-card-h">The manager has the last word</h3>
         <p class="mk-card-p">
-          Approve or flag any item and the score updates. Coaching scorecards
-          count your decision, not the model's — an item you cleared never counts
-          against an agent.
+          Change any answer and the score follows. Scorecards count what your
+          reviewers decided, so an item a manager cleared never counts against
+          the agent again.
         </p>
       </div>
     </div>
@@ -136,8 +136,8 @@
   <div class="mk-wrap">
     <h2 class="mk-h2 mk-center">Pricing</h2>
     <p class="mk-body mk-center mk-narrow">
-      Priced by minutes of audio, because that's what the work actually is. A
-      30-minute call costs three times a 10-minute one, and your bill says so.
+      Priced by minutes of recording, because that is what the work actually is.
+      A half-hour call costs three times a ten-minute one, and your bill says so.
     </p>
     {% include "marketing/_plans.html" %}
   </div>
@@ -149,12 +149,12 @@
     <h2 class="mk-h2">Questions</h2>
 
     <details class="mk-faq">
-      <summary>How accurate is the grading?</summary>
+      <summary>How accurate is it?</summary>
       <p>
-        Accurate enough to review, not to rubber-stamp — which is why every
-        verdict shows its evidence and every item can be overridden. Qaboom is
-        built so a manager reviews faster, not so nobody reviews. Grade your own
-        calls during the trial and judge for yourself; that's what the free
+        Accurate enough to review, not to rubber-stamp — which is exactly why
+        every answer shows its evidence and every one can be changed. Qaboom is
+        built to make a reviewer faster, not to replace them. Run your own calls
+        through it during the trial and judge for yourself; that is what the free
         minutes are for.
       </p>
     </details>
@@ -162,10 +162,11 @@
     <details class="mk-faq">
       <summary>What happens to our recordings?</summary>
       <p>
-        Audio is stored so reports can cite it, and kept until you tell us
-        otherwise — we don't delete evidence a compliance report depends on
-        without being asked. Transcription runs through AssemblyAI and grading
-        through Anthropic's API.
+        They stay available so every report can point back at them, and we keep
+        them until you tell us otherwise — we won't delete evidence a compliance
+        record depends on without being asked. Each organization's calls are
+        walled off from every other; nobody outside your team can reach them. Set
+        a retention window whenever you want one and we'll hold to it.
       </p>
     </details>
 
@@ -184,19 +185,21 @@
     <details class="mk-faq">
       <summary>What counts as a minute?</summary>
       <p>
-        The length of the audio you upload, not how long processing takes. Your
-        month's total is rounded up once, not per call. A call that fails to
-        analyse still counts its transcription minutes, because that step ran —
-        re-analysing it doesn't count again.
+        The length of the recording, not how long we take to work through it.
+        Your month is rounded up once at the end, never call by call — a hundred
+        two-minute calls cost you two hundred minutes, not a hundred rounded-up
+        ones. If a call only gets partway through, you're charged once and
+        re-running it is free.
       </p>
     </details>
 
     <details class="mk-faq">
       <summary>Can we try it on our own calls?</summary>
       <p>
-        That's the point of the trial: {{ trial.included_minutes }} minutes, no
-        card. Upload real calls, write your real checklist, and see whether the
-        reports would survive your own review.
+        That is the whole point of the trial: {{ trial.included_minutes }} minutes,
+        no card. Use real recordings and your real checklist, then ask whether the
+        reports would survive your own review. Anything you run during the trial
+        stays in your account afterwards.
       </p>
     </details>
   </div>
@@ -205,10 +208,10 @@
 {# ── Close ── #}
 <section class="mk-close">
   <div class="mk-wrap mk-center">
-    <h2 class="mk-h2">Grade a real call in the next ten minutes</h2>
+    <h2 class="mk-h2">Score a real call in the next ten minutes</h2>
     <p class="mk-body mk-narrow" style="margin-inline:auto">
-      Sign up, paste in your checklist, upload one call. If the report isn't
-      something you'd hand to a manager, you've lost ten minutes.
+      Sign up, put in your checklist, send one recording. If what comes back
+      isn't something you'd hand to a manager, you've lost ten minutes.
     </p>
     <a href="{{ url_for('auth.signup') }}" class="qb-btn-primary mk-cta">
       Start free

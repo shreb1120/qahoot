@@ -67,12 +67,12 @@ PLANS: tuple[Plan, ...] = (
         included_minutes=TRIAL_MINUTES,
         overage_micros_per_minute=0,
         hard_stop=True,
-        blurb="Grade your own calls before you decide anything.",
+        blurb="See it work on your own recordings before you decide anything.",
         features=(
             f"{TRIAL_MINUTES} minutes of audio",
-            "Your own checklist, fully editable",
+            "Your checklist, yours to edit",
             "Full reports with timestamped evidence",
-            "No card required",
+            "No card, nothing to cancel",
         ),
     ),
     Plan(
@@ -82,12 +82,12 @@ PLANS: tuple[Plan, ...] = (
         included_minutes=2_000,
         overage_micros_per_minute=180_000,          # $0.18/min
         stripe_price_env="STRIPE_PRICE_STARTER",
-        blurb="For a single QA reviewer covering one team.",
+        blurb="One reviewer keeping up with one team.",
         features=(
             "2,000 minutes a month included",
-            "$0.18 per additional minute",
-            "Unlimited seats and agents",
-            "Written warning documents",
+            "$0.18 a minute after that",
+            "Everyone on your team, no seat count",
+            "Written warnings, ready to send",
         ),
     ),
     Plan(
@@ -97,11 +97,11 @@ PLANS: tuple[Plan, ...] = (
         included_minutes=8_000,
         overage_micros_per_minute=120_000,          # $0.12/min
         stripe_price_env="STRIPE_PRICE_GROWTH",
-        blurb="For a QA function reviewing every agent, every week.",
+        blurb="A QA function covering every agent, every week.",
         features=(
             "8,000 minutes a month included",
-            "$0.12 per additional minute",
-            "Unlimited seats and agents",
+            "$0.12 a minute after that",
+            "Everyone on your team, no seat count",
             "Per-agent coaching scorecards",
         ),
     ),

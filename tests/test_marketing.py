@@ -16,11 +16,14 @@ from plans import PLANS_BY_CODE, TRIAL
 # ───────────────────────────── public access ─────────────────────────────
 
 def test_the_landing_page_renders_for_a_stranger(anon):
+    """Asserts the page's furniture, not its prose. Copy gets rewritten; a test
+    that pins a sentence just breaks every time someone improves one."""
     r = anon.get("/")
     assert r.status_code == 200
     body = r.get_data(as_text=True)
-    assert "compliance checklist" in body.lower()
-    assert "Start free" in body
+    assert "Start free" in body                  # the primary CTA
+    assert "/auth/signup" in body                # that actually goes somewhere
+    assert "Pricing" in body
 
 
 def test_the_landing_page_does_not_render_the_app_shell(anon):
@@ -84,6 +87,26 @@ def test_the_page_makes_no_fabricated_social_proof(anon):
                   "soc 2", "hipaa compliant", "iso 27001",
                   "as featured in", "5-star"):
         assert claim not in body, f"unsupported claim on the landing page: {claim!r}"
+
+
+@pytest.mark.parametrize("page", ["/", "/pricing"])
+def test_public_pages_never_name_our_vendors_or_stack(anon, page):
+    """A prospect should read what the product does, not what it's built on.
+    Naming the transcription and scoring vendors tells a competitor how to
+    rebuild it and tells a customer nothing they can use."""
+    body = anon.get(page).get_data(as_text=True).lower()
+    for term in ("assemblyai", "anthropic", "claude", "openai", "gpt",
+                 "stripe", "clerk", "postgres", "flask", "whisper"):
+        assert term not in body, f"{page} names our stack: {term!r}"
+
+
+def test_public_pages_avoid_machine_facing_language(anon):
+    """"The grader", "the model", "the AI" describe our implementation, not the
+    customer's job. They also invite the wrong question — whether to trust a
+    machine — instead of the right one, which is whether the evidence holds."""
+    body = anon.get("/").get_data(as_text=True).lower()
+    for term in ("the grader", "the model", "our ai", "llm", "machine learning"):
+        assert term not in body, f"machine-facing language on the landing page: {term!r}"
 
 
 def test_the_page_says_it_is_not_legal_advice(anon):

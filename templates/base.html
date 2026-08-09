@@ -188,12 +188,20 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   {% endblock %}
 </main>
 
-{# Clerk JS #}
+{# ── Auth JS ──
+   Loaded only where a session is actually needed: signed-in pages, and the
+   sign-in/sign-up pages that mount the widget. The public marketing pages
+   don't — a visitor reading the landing page gains nothing from it, and
+   skipping it drops a third-party request from the page most likely to be
+   someone's first impression. It also keeps our vendor out of view-source
+   on the one page a competitor is certain to read. #}
+{% if not hide_auth_js %}
 <script async
   src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@5/dist/clerk.browser.js"
   data-clerk-publishable-key="{{ clerk_key | default('') }}"
   crossorigin="anonymous">
 </script>
+{% endif %}
 
 {# ── Shared form guards ──
    data-confirm="…"   → confirmation prompt that is safe with any characters
