@@ -51,6 +51,8 @@ from werkzeug.utils import secure_filename
 from sqlalchemy import Date, cast, func
 
 import pipeline as pipeline_module
+import ratelimit
+import usage
 from auth import login_required, org_required
 from models import Agent, Call, Report
 
@@ -297,6 +299,31 @@ def upload():
             error="Set up your compliance profile before uploading.",
             form=_submitted_upload_form(),
         )), 400
+
+    # ── Two gates, doing different jobs ──────────────────────────────────
+    # Entitlement is a question about payment state: a trial that has run out
+    # or a subscription Stripe says is dead. A paid plan over its allowance is
+    # deliberately *not* blocked — that is what soft overage means.
+    try:
+        usage.check_can_upload(g.db, g.org)
+    except usage.Blocked as blocked:
+        return render_template("calls/upload.html", **_upload_context(
+            error=blocked.message,
+            form=_submitted_upload_form(),
+        )), 402 if blocked.reason == "trial_exhausted" else 403
+
+    # Abuse is a different question, and soft overage gives no protection
+    # against it. Checked before any row is written or file saved, so being
+    # refused costs nothing.
+    try:
+        ratelimit.check_upload(g.db, g.org, g.user)
+        g.db.commit()
+    except ratelimit.RateLimited as limited:
+        g.db.commit()          # keep the counter increment that tripped it
+        return render_template("calls/upload.html", **_upload_context(
+            error=limited.message,
+            form=_submitted_upload_form(),
+        )), 429
 
     # Read metadata from form
     agent_id = request.form.get("agent_id", "").strip() or None

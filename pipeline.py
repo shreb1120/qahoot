@@ -17,6 +17,7 @@ Two properties this module has to hold, because both cost real money:
 
 import json
 import logging
+import os
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
@@ -24,6 +25,7 @@ from datetime import datetime, timedelta, timezone
 import anthropic
 import assemblyai as aai
 
+import usage
 from db import get_db
 from prompt_builder import build_system_prompt, build_user_message
 from report_normalizer import normalize_report
@@ -53,6 +55,63 @@ MODEL = "claude-opus-5"
 # Generous because max_tokens bounds the whole response. Reports run ~1,650
 # tokens; the headroom is what stops a long checklist truncating one.
 MAX_TOKENS = 16000
+
+# Anthropic list prices for MODEL, in micros ($1 = 1_000_000) per token.
+# Cache reads cost a tenth of full price, which is the entire point of marking
+# the checklist prefix cacheable.
+_IN_MICROS_PER_TOKEN = 5.0
+_OUT_MICROS_PER_TOKEN = 25.0
+_CACHE_READ_MULTIPLIER = 0.1
+_CACHE_WRITE_MULTIPLIER = 1.25
+
+
+def _transcription_cost_micros(seconds: int) -> int:
+    """What AssemblyAI charged, from a configured hourly rate.
+
+    Defaults to 0 rather than a guess: an unset rate should make margin
+    reporting obviously empty, not quietly wrong.
+    """
+    rate = float(os.environ.get("ASSEMBLYAI_COST_PER_HOUR", "0") or 0)
+    return int(round(seconds / 3600 * rate * 1_000_000))
+
+
+def _analysis_cost_micros(response) -> int:
+    u = getattr(response, "usage", None)
+    if u is None:
+        return 0
+    g = lambda n: int(getattr(u, n, 0) or 0)
+    return int(round(
+        g("input_tokens") * _IN_MICROS_PER_TOKEN
+        + g("output_tokens") * _OUT_MICROS_PER_TOKEN
+        + g("cache_read_input_tokens") * _IN_MICROS_PER_TOKEN * _CACHE_READ_MULTIPLIER
+        + g("cache_creation_input_tokens") * _IN_MICROS_PER_TOKEN * _CACHE_WRITE_MULTIPLIER
+    ))
+
+
+def _usage_meta(response) -> dict:
+    u = getattr(response, "usage", None)
+    g = lambda n: int(getattr(u, n, 0) or 0) if u is not None else 0
+    return {
+        "model": MODEL,
+        "input_tokens": g("input_tokens"),
+        "output_tokens": g("output_tokens"),
+        "cache_read_input_tokens": g("cache_read_input_tokens"),
+        "cache_creation_input_tokens": g("cache_creation_input_tokens"),
+    }
+
+
+def _attempt(db, call_id: str) -> int:
+    """Which grading attempt this is, so a re-grade records its real cost.
+
+    Transcription is pinned at attempt 1 — minutes are billed once. Grading is
+    not: a re-run spends tokens again, and the ledger should say so.
+    """
+    from models import UsageEvent
+    prior = db.query(UsageEvent).filter(
+        UsageEvent.call_id == call_id,
+        UsageEvent.resource_type == "analysis",
+    ).count()
+    return prior + 1
 
 
 def _log_usage(call_id: str, response) -> None:
@@ -177,6 +236,31 @@ def run_pipeline(call_id: str, file_path: str,
 
         if result.audio_duration:
             call.duration = int(result.audio_duration)
+        else:
+            # Do not invent a number here. Estimating from file size would mean
+            # guessing a bitrate that varies ~10x across the allowed formats,
+            # and this figure goes on an invoice. Meter zero and flag it.
+            logger.warning(
+                "Pipeline [%s]: AssemblyAI returned no duration — metering 0 "
+                "minutes, needs manual review", call_id,
+            )
+
+        # Meter the transcription inside this transaction. AssemblyAI has
+        # already been paid by the time we get here, so the minutes are owed
+        # whether or not grading later succeeds — and the commit below is what
+        # puts them beyond reach of the rollback in the error handler.
+        usage.record(
+            db,
+            org_id=call.org_id,
+            call_id=call_id,
+            resource_type=usage.TRANSCRIPTION,
+            # Pinned at attempt 1: a re-queued or re-graded call must never
+            # re-bill minutes the customer already paid for.
+            idempotency_key=f"{call_id}:transcription:1",
+            billable_seconds=int(call.duration or 0),
+            vendor_cost_micros=_transcription_cost_micros(call.duration or 0),
+            meta={"source": "assemblyai", "duration_reported": bool(result.audio_duration)},
+        )
         db.commit()
 
         logger.info("Pipeline [%s]: transcription done (%d chars)",
@@ -214,6 +298,23 @@ def run_pipeline(call_id: str, file_path: str,
         )
         _log_usage(call_id, response)
 
+        # Meter the grading call *here*, and commit immediately — before the
+        # JSON extraction below, which can raise, and before normalize_report,
+        # which can too. Both of those failures happen after Anthropic has
+        # already charged us; anything still uncommitted when the error handler
+        # rolls back is simply lost.
+        usage.record(
+            db,
+            org_id=call.org_id,
+            call_id=call_id,
+            resource_type=usage.ANALYSIS,
+            idempotency_key=f"{call_id}:analysis:{_attempt(db, call_id)}",
+            billable_seconds=0,          # minutes are billed once, at transcription
+            vendor_cost_micros=_analysis_cost_micros(response),
+            meta=_usage_meta(response),
+        )
+        db.commit()
+
         raw = response.content[0].text
         start_idx = raw.find("{")
         end_idx = raw.rfind("}") + 1
@@ -250,6 +351,7 @@ def run_pipeline(call_id: str, file_path: str,
                 created_at=datetime.now(timezone.utc),
             ))
         _set_status(db, call, "complete")
+        _after_usage(db, call)
 
         logger.info("Pipeline [%s]: complete — %s", call_id, pass_fail)
 
@@ -259,12 +361,35 @@ def run_pipeline(call_id: str, file_path: str,
             try:
                 db.rollback()
                 _set_status(db, call, "error", str(exc))
+                # A failed grade still consumed transcription minutes, and that
+                # row survived the rollback. Evaluate the warning thresholds
+                # here too, or a customer can cross their allowance entirely on
+                # calls that errored and never be told.
+                _after_usage(db, call)
             except Exception:
                 logger.exception("Pipeline [%s]: could not write error status", call_id)
     finally:
         db.close()
         with _lock:
             _running.discard(call_id)
+
+
+def _after_usage(db, call) -> None:
+    """Evaluate usage warning thresholds once usage has been committed."""
+    try:
+        org = call.org
+        if org is None:
+            return
+        fired = usage.thresholds_crossed(db, org)
+        if fired:
+            db.commit()
+            logger.warning("Org %s crossed the %s%% usage threshold",
+                           org.id, fired[0])
+    except Exception:
+        # Never let a notification concern fail a pipeline run that otherwise
+        # succeeded — the report is the product, this is a courtesy.
+        logger.exception("Could not evaluate usage thresholds for call %s", call.id)
+        db.rollback()
 
 
 def spawn(call_id: str, file_path: str,
