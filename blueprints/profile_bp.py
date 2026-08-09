@@ -54,9 +54,14 @@ def templates():
 
     profile = _get_active_profile(g.db, g.org.id)
     current = (profile.script_sections_json or {}) if profile else {}
+    # A profile applied from the library carries that template's name, so the
+    # card in use can be marked. A hand-built or heavily edited checklist
+    # matches nothing, which is the honest answer.
+    active_name = profile.name if profile else None
     library = [
         {**t, "stats": template_stats(t["checklist"]),
-         "preview": _preview_items(t["checklist"])}
+         "preview": _preview_items(t["checklist"]),
+         "in_use": bool(active_name) and t["name"] == active_name}
         for t in TEMPLATE_LIBRARY
     ]
     return render_template(
@@ -64,6 +69,7 @@ def templates():
         library=library,
         profile=profile,
         current_stats=template_stats(current) if profile else None,
+        matched=any(t["in_use"] for t in library),
     )
 
 

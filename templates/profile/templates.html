@@ -15,18 +15,22 @@
   </div>
 
   {% if profile %}
-    <div class="rp-panel p-3.5 mb-4">
-      <div class="flex flex-wrap items-center justify-between gap-3">
+    <div class="rp-panel mb-4" style="border-color:var(--spk-a)">
+      <div class="rp-panel-head" style="background:var(--spk-a-soft);border-color:var(--spk-a)">
+        <h2 class="rp-panel-title" style="color:var(--spk-a)">Active checklist</h2>
+        <span class="rp-tag rp-tag--req">In use</span>
+      </div>
+      <div class="p-4 flex flex-wrap items-end justify-between gap-3">
         <div class="min-w-0">
-          <div class="rp-metric-label mb-0.5">Currently active</div>
-          <p class="text-sm font-semibold text-ink qb-break">{{ profile.name }}</p>
-          <p class="text-xs text-muted rp-num">
-            {{ current_stats.item_count }} item{{ 's' if current_stats.item_count != 1 }} across
+          <p class="qb-page-title qb-break">{{ profile.name }}</p>
+          <p class="text-sm text-muted rp-num mt-1">
+            {{ current_stats.item_count }} requirement{{ 's' if current_stats.item_count != 1 }} across
             {{ current_stats.sections }} section{{ 's' if current_stats.sections != 1 }},
             {{ current_stats.phrases }} auto-fail phrase{{ 's' if current_stats.phrases != 1 }}
+            {%- if not matched %} · edited or built by hand{% endif %}
           </p>
         </div>
-        <a href="{{ url_for('profile.view') }}" class="rp-link text-xs">Edit it →</a>
+        <a href="{{ url_for('profile.view') }}" class="qb-btn-primary">Edit this checklist</a>
       </div>
     </div>
   {% endif %}
@@ -39,10 +43,15 @@
 
   <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
     {% for t in library %}
-      <div class="rp-panel flex flex-col{% if t.key == 'blank' %} md:col-span-2{% endif %}">
-        <div class="rp-panel-head">
-          <h2 class="rp-panel-title">{{ t.name }}</h2>
-          <span class="text-xs text-faint">{{ t.industry }}</span>
+      <div class="rp-panel flex flex-col{% if t.key == 'blank' %} md:col-span-2{% endif %}"
+           {% if t.in_use %}style="border-color:var(--spk-a);box-shadow:0 0 0 1px var(--spk-a)"{% endif %}>
+        <div class="rp-panel-head"{% if t.in_use %} style="background:var(--spk-a-soft);border-color:var(--spk-a)"{% endif %}>
+          <h2 class="rp-panel-title"{% if t.in_use %} style="color:var(--spk-a)"{% endif %}>{{ t.name }}</h2>
+          {% if t.in_use %}
+            <span class="rp-tag rp-tag--req">In use</span>
+          {% else %}
+            <span class="text-xs text-faint">{{ t.industry }}</span>
+          {% endif %}
         </div>
 
         <div class="p-4 flex-1">
@@ -74,9 +83,9 @@
           <div class="px-4 pb-4">
             <form method="post" action="{{ url_for('profile.apply_template', key=t.key) }}"
                   data-busy-label="Applying…"
-                  data-confirm="{% if t.key == 'blank' %}Start a blank checklist? Your current checklist ({{ profile.name if profile else 'none' }}) is deactivated but kept, and existing reports are unaffected.{% else %}Switch to the {{ t.name }} template? Your current checklist ({{ profile.name if profile else 'none' }}) is deactivated but kept, and existing reports are unaffected.{% endif %}">
-              <button type="submit" class="{{ 'rp-btn w-full justify-center' if t.key == 'blank' else 'qb-btn-primary w-full justify-center' }}">
-                {% if t.key == 'blank' %}Start from scratch{% else %}Use this template{% endif %}
+                  data-confirm="{% if t.in_use %}Reset to the original {{ t.name }} template? Any edits you have made are kept on the current checklist, which is deactivated but not deleted.{% elif t.key == 'blank' %}Start a blank checklist? Your current checklist ({{ profile.name if profile else 'none' }}) is deactivated but kept, and existing reports are unaffected.{% else %}Switch to the {{ t.name }} template? Your current checklist ({{ profile.name if profile else 'none' }}) is deactivated but kept, and existing reports are unaffected.{% endif %}">
+              <button type="submit" class="{{ 'rp-btn w-full justify-center' if t.key == 'blank' or t.in_use else 'qb-btn-primary w-full justify-center' }}">
+                {% if t.in_use %}Reset to the original{% elif t.key == 'blank' %}Start from scratch{% else %}Use this template{% endif %}
               </button>
             </form>
           </div>

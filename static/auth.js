@@ -11,8 +11,12 @@ window.addEventListener("load", async function () {
   const container = document.getElementById("clerk-component");
   if (!container || !window.Clerk) return;
 
+  // Where the visitor was actually heading, validated server-side by
+  // safe_next() before it ever reached this attribute. Without it, a token that
+  // was not ready turns every deep link into a trip to the dashboard.
+  const next = container.dataset.next || "";
   await window.Clerk.load({
-    afterSignInUrl: "/",
+    afterSignInUrl: next || "/",
     afterSignUpUrl: "/org/setup",
     afterSignOutUrl: "/auth/login",
   });

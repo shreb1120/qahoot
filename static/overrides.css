@@ -177,7 +177,12 @@
 /* Tailwind preflight is disabled, so padding adds to min-height. Without this,
    min-h-screen plus the mobile top bar's pt-14 makes every short page scroll by
    exactly the height of that bar. */
-main#main-content, .qb-main-content { box-sizing: border-box; }
+/* Tailwind preflight is disabled to keep browser defaults for headings, lists
+   and form controls — but preflight is also where border-box comes from, and
+   every Tailwind utility assumes it. Without it, `w-full` plus a component's own
+   padding overflows its container: the dashboard's "View call history" button
+   spilled 10px past its panel. Restore just this one piece of the reset. */
+*, *::before, *::after { box-sizing: border-box; }
 
 /* ── Wordmark ──
    Bottom of the shell on every page, never mid-viewport on a short one. */
@@ -739,7 +744,9 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
    bottom edge instead of floating wherever the content happened to end — which
    is what left the "View call history" button visibly out of line with its
    taller neighbour. */
-.rp-col { display: flex; flex-direction: column; height: 100%; }
+/* No height:100% — that made every panel in a row match the tallest and
+   left dead space under short content. Panels size to what they hold. */
+.rp-col { display: flex; flex-direction: column; }
 .rp-col-body { flex: 1; }
 .rp-col-foot { margin-top: auto; padding-top: .75rem; border-top: 1px solid var(--c-line); }
 

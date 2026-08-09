@@ -122,6 +122,40 @@ def _is_api_request() -> bool:
     )
 
 
+def safe_next(value: str | None) -> str | None:
+    """Return `value` only if it is a same-site path we may redirect to.
+
+    Anything that could leave the site is dropped. An attacker-supplied
+    ?next= is a classic open-redirect and this is the only place it is trusted.
+    """
+    if not value or not value.startswith("/"):
+        return None
+    # "//evil.com" and "/\evil.com" are protocol-relative or browser-normalised
+    # escapes out of the site.
+    if value.startswith(("//", "/\\")):
+        return None
+    if "://" in value or "\n" in value or "\r" in value:
+        return None
+    return value
+
+
+def _login_redirect():
+    """Send the visitor to sign-in, remembering where they were going.
+
+    Without this, an expired or not-yet-ready Clerk token turns any deep link
+    into a trip to the dashboard: the guard bounces to /auth/login, Clerk's JS
+    finds a valid session and follows afterSignInUrl, and the original
+    destination is gone.
+    """
+    from urllib.parse import urlencode
+    target = url_for("auth.login")
+    if request.method == "GET":
+        here = request.full_path[:-1] if request.full_path.endswith("?") else request.full_path
+        if safe_next(here) and not here.startswith(target):
+            return redirect(f"{target}?{urlencode({'next': here})}")
+    return redirect(target)
+
+
 def login_required(f):
     """Require a valid Clerk session. Redirects to /auth/login otherwise."""
     @wraps(f)
@@ -129,7 +163,7 @@ def login_required(f):
         if g.user is None:
             if _is_api_request():
                 abort(401)
-            return redirect(url_for("auth.login"))
+            return _login_redirect()
         return f(*args, **kwargs)
     return decorated
 
@@ -141,7 +175,7 @@ def org_required(f):
         if g.user is None:
             if _is_api_request():
                 abort(401)
-            return redirect(url_for("auth.login"))
+            return _login_redirect()
         if g.org is None:
             if _is_api_request():
                 abort(403)
@@ -157,7 +191,7 @@ def admin_required(f):
         if g.user is None:
             if _is_api_request():
                 abort(401)
-            return redirect(url_for("auth.login"))
+            return _login_redirect()
         if g.org is None:
             return redirect(url_for("org.setup"))
         if g.user.role != "admin":
