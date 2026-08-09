@@ -39,6 +39,7 @@
         <summary class="rp-disclosure">{{ 'Change agent' if call.agent else 'Assign an agent' }}</summary>
         <form method="post" action="{{ url_for('calls.assign_agent', call_id=call.id) }}"
               class="rp-inline" data-busy-label="Saving…">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <div class="rp-field flex-1 min-w-[180px]">
             <label class="rp-field-label" for="assign-agent">Agent</label>
             <select class="rp-select" id="assign-agent" name="agent_id">
@@ -178,6 +179,7 @@
           <h2 class="rp-panel-title">Compliance score</h2>
           <div class="rp-actions">
             <form method="post" action="{{ url_for('calls.writeup', call_id=call.id) }}" data-busy-label="Generating…">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <button type="submit" class="rp-btn">Write-up (.docx)</button>
             </form>
             <a href="{{ url_for('calls.report_pdf', call_id=call.id) }}" class="rp-btn">PDF</a>
@@ -538,7 +540,10 @@ function setOverride(btn, status) {
 
   fetch('{{ url_for("calls.override", call_id=call.id) }}', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+    },
     body: JSON.stringify({
       section_key: cell.dataset.sectionKey,
       item_name: cell.dataset.itemName,

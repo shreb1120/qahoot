@@ -13,6 +13,7 @@ import os
 from dotenv import load_dotenv
 from flask import Flask, g, redirect, request, url_for
 
+import csrf
 from config import Config
 from db import get_db, init_db
 from auth import load_user
@@ -65,6 +66,9 @@ def create_app(config_class: type = Config) -> Flask:
 
     # ── Auth (runs after open_db so g.db is available) ────────────────────
     app.before_request(load_user)
+
+    # ── CSRF (runs after load_user, so a rejection is attributable) ───────
+    csrf.init_app(app)
 
     # ── Request logging ───────────────────────────────────────────────────
     @app.after_request
@@ -175,6 +179,7 @@ def create_app(config_class: type = Config) -> Flask:
     from blueprints.calls_bp import calls_bp
     from blueprints.profile_bp import profile_bp
     from blueprints.agents_bp import agents_bp
+    from blueprints.billing_bp import billing_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(org_bp)
@@ -182,6 +187,7 @@ def create_app(config_class: type = Config) -> Flask:
     app.register_blueprint(calls_bp)
     app.register_blueprint(profile_bp)
     app.register_blueprint(agents_bp)
+    app.register_blueprint(billing_bp)
 
     # Convenience redirect: /login → /auth/login
     @app.get("/login")

@@ -75,6 +75,7 @@
                   <td>
                     <form method="post" action="{{ url_for('agents.delete_agent', agent_id=agent.id) }}"
                           data-confirm="Delete {{ agent.name }}? Calls already attributed to them stay in history, but will no longer show an agent.">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                       <button type="submit" class="rp-danger">Delete</button>
                     </form>
                   </td>
@@ -106,6 +107,7 @@
       <h2 class="qb-section-title mb-1">Add an agent</h2>
       <p class="text-xs text-muted mb-3">Enter the full name as it should appear on reports and write-ups.</p>
       <form method="post" action="{{ url_for('agents.add_agent') }}" class="flex flex-wrap items-end gap-2" data-busy-label="Adding…">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="rp-field flex-1 min-w-[220px]">
           <label class="rp-field-label" for="agent-name">Agent full name</label>
           <input class="rp-input" type="text" id="agent-name" name="name" required maxlength="120" placeholder="e.g. Jose Alvarez">
@@ -120,6 +122,7 @@
       <form method="post" action="{{ url_for('agents.import_agents') }}"
             enctype="multipart/form-data" class="flex flex-wrap items-end gap-2"
             data-busy-label="Importing…">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="rp-field flex-1 min-w-[220px]">
           <label class="rp-field-label" for="agent-csv">CSV file</label>
           <input class="rp-input w-full" type="file" id="agent-csv" name="file" accept=".csv,text/csv">

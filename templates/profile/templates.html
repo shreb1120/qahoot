@@ -84,6 +84,7 @@
             <form method="post" action="{{ url_for('profile.apply_template', key=t.key) }}"
                   data-busy-label="Applying…"
                   data-confirm="{% if t.in_use %}Reset to the original {{ t.name }} template? Any edits you have made are kept on the current checklist, which is deactivated but not deleted.{% elif t.key == 'blank' %}Start a blank checklist? Your current checklist ({{ profile.name if profile else 'none' }}) is deactivated but kept, and existing reports are unaffected.{% else %}Switch to the {{ t.name }} template? Your current checklist ({{ profile.name if profile else 'none' }}) is deactivated but kept, and existing reports are unaffected.{% endif %}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <button type="submit" class="{{ 'rp-btn w-full justify-center' if t.key == 'blank' or t.in_use else 'qb-btn-primary w-full justify-center' }}">
                 {% if t.in_use %}Reset to the original{% elif t.key == 'blank' %}Start from scratch{% else %}Use this template{% endif %}
               </button>

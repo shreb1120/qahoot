@@ -29,6 +29,7 @@
     <form method="post" action="{{ url_for('calls.upload') }}" enctype="multipart/form-data"
           id="upload-form" novalidate data-busy-label="Uploading…"
           class="grid grid-cols-1 lg:grid-cols-5 gap-4 items-start">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
       {# ── Recording ── #}
       <div class="lg:col-span-3 rp-panel">

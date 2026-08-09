@@ -73,6 +73,7 @@
             {% if is_admin %}
               <form method="post" action="{{ url_for('profile.delete_section', section_idx=si) }}"
                     data-confirm="Delete the section &quot;{{ section.name }}&quot; and all {{ items | length }} of its items? Existing reports keep their results; future calls will no longer be graded on them.">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="rp-danger">Delete section</button>
               </form>
             {% endif %}
@@ -101,6 +102,7 @@
                           <summary class="rp-disclosure">Edit</summary>
                           <form method="post" action="{{ url_for('profile.edit_item', section_idx=si, item_idx=ii) }}"
                                 class="rp-inline" data-busy-label="Saving…">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <div class="rp-field flex-1 min-w-[180px]">
                               <label class="rp-field-label" for="e-name-{{ si }}-{{ ii }}">Requirement</label>
                               <input class="rp-input" type="text" id="e-name-{{ si }}-{{ ii }}" name="name"
@@ -131,6 +133,7 @@
                       <td>
                         <form method="post" action="{{ url_for('profile.delete_item', section_idx=si, item_idx=ii) }}"
                               data-confirm="Remove the checklist item &quot;{{ item.name }}&quot;? Future calls will no longer be graded on it.">
+                          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                           <button type="submit" class="rp-danger">Remove</button>
                         </form>
                       </td>
@@ -150,6 +153,7 @@
               <summary class="rp-disclosure">Add item</summary>
               <form method="post" action="{{ url_for('profile.add_item', section_idx=si) }}"
                     class="rp-inline" data-busy-label="Adding…">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="rp-field flex-1 min-w-[180px]">
                   <label class="rp-field-label" for="a-name-{{ si }}">Requirement</label>
                   <input class="rp-input" type="text" id="a-name-{{ si }}" name="name" required maxlength="300"
@@ -184,6 +188,7 @@
         <details>
           <summary class="rp-disclosure">Add section</summary>
           <form method="post" action="{{ url_for('profile.add_section') }}" class="rp-inline" data-busy-label="Adding…">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="rp-field flex-1 min-w-[220px]">
               <label class="rp-field-label" for="a-section">Section name</label>
               <input class="rp-input" type="text" id="a-section" name="name" required maxlength="200"
@@ -222,6 +227,7 @@
                     <td>
                       <form method="post" action="{{ url_for('profile.delete_phrase', phrase_idx=loop.index0) }}"
                             data-confirm="Remove the auto-fail phrase &quot;{{ p.phrase }}&quot;? Calls will no longer fail automatically when it is said.">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="rp-danger">Remove</button>
                       </form>
                     </td>
@@ -240,6 +246,7 @@
           <details>
             <summary class="rp-disclosure">Add phrase</summary>
             <form method="post" action="{{ url_for('profile.add_phrase') }}" class="rp-inline" data-busy-label="Adding…">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <div class="rp-field flex-1 min-w-[180px]">
                 <label class="rp-field-label" for="a-phrase">Phrase</label>
                 <input class="rp-input" type="text" id="a-phrase" name="phrase" required maxlength="300"

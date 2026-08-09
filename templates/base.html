@@ -3,6 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  {# Read by the two fetch() call sites; forms carry a hidden field instead. #}
+  {% if g.user is defined and g.user %}<meta name="csrf-token" content="{{ csrf_token() }}">{% endif %}
   <title>{% block title %}Qaboom{% endblock %}</title>
 
   {# Fonts and CSS are all same-origin: no third-party request blocks the

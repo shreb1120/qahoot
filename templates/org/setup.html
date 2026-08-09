@@ -15,6 +15,7 @@
     {% endif %}
 
     <form method="POST" action="{{ url_for('org.setup_post') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="mb-5">
         <label for="org_name" class="block text-sm font-semibold text-ink-2 mb-1">Organization name</label>
         <input type="text" id="org_name" name="org_name"

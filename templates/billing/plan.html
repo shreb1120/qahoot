@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}Plan &amp; usage — Qaboom{% endblock %}
+
+{% block content %}
+{#  The page a paying admin opens to answer three questions: what am I on,
+    how much have I used, and how do I change it. Usage comes first — it is
+    the one that changes between visits. #}
+<div class="max-w-3xl">
+  <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+    <div class="min-w-0">
+      <h1 class="qb-page-title">Plan &amp; usage</h1>
+      <p class="text-xs text-muted mt-1.5">
+        {{ g.org.name }}{% if summary.period_end %} · resets {{ summary.period_end.strftime('%b %d, %Y') }}{% endif %}
+      </p>
+    </div>
+    {% if subscription and subscription.stripe_customer_id and is_admin %}
+      <form method="post" action="{{ url_for('billing.portal') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="rp-btn">Invoices &amp; payment method</button>
+      </form>
+    {% endif %}
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in messages %}
+      <div class="rp-flash {{ 'rp-flash--err' if cat == 'error' else 'rp-flash--ok' }} mb-3" role="status">{{ msg }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  {% if request.args.get('welcome') %}
+    <div class="rp-flash rp-flash--ok mb-4" role="status">
+      You're all set. Your plan is active and your minutes have reset.
+    </div>
+  {% endif %}
+
+  {# ── Usage ── #}
+  <div class="rp-panel mb-4">
+    <div class="rp-panel-head">
+      <h2 class="rp-panel-title">This period</h2>
+      <span class="text-xs text-muted rp-num">{{ summary.plan.name }}</span>
+    </div>
+    <div class="p-4">
+      <div class="flex flex-wrap items-end justify-between gap-3 mb-2">
+        <div>
+          <span class="rp-num" style="font-size:var(--fs-metric);font-weight:700;letter-spacing:-.02em;color:var(--ink)">
+            {{ '{:,}'.format(summary.used_minutes) }}
+          </span>
+          <span class="text-sm text-muted rp-num">
+            of {{ '{:,}'.format(summary.included_minutes) }} minutes
+          </span>
+        </div>
+        <span class="rp-num text-sm font-semibold
+          {% if summary.percent >= 100 %}text-red-700{% elif summary.percent >= 80 %}text-amber-700{% else %}text-muted{% endif %}">
+          {{ summary.percent }}%
+        </span>
+      </div>
+
+      <div class="rp-bar-track">
+        <div class="rp-bar-fill" style="--v:{{ [summary.percent / 100, 1] | min }};background:{{ '#b91c1c' if summary.percent >= 100 else '#b45309' if summary.percent >= 80 else 'var(--spk-a)' }}"></div>
+      </div>
+
+      <p class="text-sm text-muted mt-3">
+        {% if summary.is_trial and summary.over %}
+          Your trial is used up. Choose a plan below to keep uploading — everything
+          you've already graded stays exactly where it is.
+        {% elif summary.is_trial %}
+          {{ '{:,}'.format(summary.remaining_minutes) }} trial minutes left.
+          No card needed until you're ready.
+        {% elif summary.over %}
+          You're {{ '{:,}'.format(summary.overage_minutes) }} minutes over your
+          allowance. Those bill at ${{ '%.2f' | format(summary.plan.overage_dollars_per_minute) }}
+          a minute on your next invoice — uploads keep working.
+        {% else %}
+          {{ '{:,}'.format(summary.remaining_minutes) }} minutes left this period.
+        {% endif %}
+      </p>
+
+      {% if summary.in_flight %}
+        <p class="text-xs text-faint mt-2 rp-num">
+          {{ summary.in_flight }} call{{ 's' if summary.in_flight != 1 }} still
+          processing — those minutes are counted once transcription finishes.
+        </p>
+      {% endif %}
+    </div>
+  </div>
+
+  {# ── Plans ── #}
+  {% if not billing_configured %}
+    <div class="rp-panel p-4 mb-4">
+      <h2 class="qb-section-title mb-1">Billing isn't switched on yet</h2>
+      <p class="text-sm text-muted">
+        You're on the trial and nothing will be charged. Get in touch when you're
+        ready for a plan and we'll set it up.
+      </p>
+    </div>
+  {% else %}
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+      {% for plan in plans %}
+        {% set current = subscription and subscription.plan_code == plan.code
+                         and subscription.status in ('active', 'trialing') %}
+        <div class="rp-panel flex flex-col"
+             {% if current %}style="border-color:var(--spk-a);box-shadow:0 0 0 1px var(--spk-a)"{% endif %}>
+          <div class="rp-panel-head"{% if current %} style="background:var(--spk-a-soft);border-color:var(--spk-a)"{% endif %}>
+            <h2 class="rp-panel-title"{% if current %} style="color:var(--spk-a)"{% endif %}>{{ plan.name }}</h2>
+            {% if current %}<span class="rp-tag rp-tag--req">Current</span>{% endif %}
+          </div>
+          <div class="p-4 flex-1">
+            <p class="rp-num" style="font-size:var(--fs-metric);font-weight:700;color:var(--ink);line-height:1.1">
+              ${{ '{:,.0f}'.format(plan.price_dollars) }}<span class="text-sm text-muted font-normal">/month</span>
+            </p>
+            <p class="text-sm text-muted mt-1 mb-3">{{ plan.blurb }}</p>
+            <ul class="space-y-1.5">
+              {% for feature in plan.features %}
+                <li class="flex items-start gap-1.5 text-sm text-muted">
+                  <svg class="w-3.5 h-3.5 mt-1 flex-shrink-0 text-faint" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 13 4 4L19 7"/></svg>
+                  <span>{{ feature }}</span>
+                </li>
+              {% endfor %}
+            </ul>
+          </div>
+          {% if is_admin and not current %}
+            <div class="px-4 pb-4">
+              <form method="post" action="{{ url_for('billing.checkout') }}" data-busy-label="Opening Stripe…">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="plan" value="{{ plan.code }}">
+                <button type="submit" class="qb-btn-primary w-full justify-center"
+                        {% if not plan.is_purchasable %}disabled{% endif %}>
+                  {% if subscription and subscription.stripe_subscription_id %}Switch to {{ plan.name }}{% else %}Choose {{ plan.name }}{% endif %}
+                </button>
+              </form>
+            </div>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+
+    {% if not is_admin %}
+      <div class="rp-flash rp-flash--ok mb-4" role="status"
+           style="background:var(--c-panel-2);border-color:var(--c-line);color:var(--muted)">
+        Only admins can change the plan.
+      </div>
+    {% endif %}
+  {% endif %}
+
+  {# ── How minutes are counted. Fine print, but the kind a customer is
+       entitled to check rather than take on trust. ── #}
+  <div class="rp-panel p-4">
+    <h2 class="qb-section-title mb-1">How minutes are counted</h2>
+    <ul class="space-y-1.5 text-sm text-muted max-w-2xl">
+      <li>We count the length of the audio you upload, not the time it takes to process.</li>
+      <li>Your month's total is rounded up to the nearest minute once — not per call.</li>
+      <li>A call that fails to analyse still counts its transcription minutes, because that step already ran. Re-analysing it doesn't count again.</li>
+      {% if subscription and subscription.cancel_at_period_end %}
+        <li class="text-ink-2"><b>Your plan is set to cancel at the end of this period.</b> You keep full access until then, and all reports stay afterwards.</li>
+      {% endif %}
+    </ul>
+  </div>
+</div>
+{% endblock %}

@@ -53,7 +53,10 @@ document.addEventListener("DOMContentLoaded", function () {
       const resp = await fetch("/org/invite", {
         method: "POST",
         body: body,
-        headers: { "X-Requested-With": "XMLHttpRequest" },
+        headers: {
+          "X-Requested-With": "XMLHttpRequest",
+          "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]').content,
+        },
       });
 
       if (resp.status === 401 || resp.status === 403) {
