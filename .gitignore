@@ -54,3 +54,6 @@ node_modules/
 
 # Test artifacts
 .pytest_cache/
+
+# Preview scaffolding written by the screenshot harness — never source
+static/__preview/
