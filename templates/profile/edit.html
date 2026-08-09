@@ -21,20 +21,32 @@
       {% endfor %}
     {% endfor %}
 
-    <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
-      <div class="min-w-0">
-        <h1 class="qb-page-title">Compliance checklist</h1>
-        <p class="text-xs text-muted mt-1.5 rp-num">
-          {{ profile.name }} · {{ sections | length }} section{{ 's' if sections | length != 1 }}
-          · {{ ns.items }} item{{ 's' if ns.items != 1 }} ({{ ns.required }} required)
-          · {{ phrases | length }} auto-fail phrase{{ 's' if phrases | length != 1 }}
-        </p>
-      </div>
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <h1 class="qb-section-title">Compliance checklist</h1>
       <div class="flex items-center gap-2">
         {% if not is_admin %}
           <span class="rp-tag rp-tag--opt">Read only — admins can edit</span>
         {% endif %}
         <a href="{{ url_for('profile.templates') }}" class="rp-btn">Browse templates</a>
+      </div>
+    </div>
+
+    {# The active checklist named at page-title size: this is the thing the
+       whole screen is about, and which one is in force decides how every call
+       gets graded. #}
+    <div class="rp-panel mb-4" style="border-color:var(--spk-a)">
+      <div class="rp-panel-head" style="background:var(--spk-a-soft);border-color:var(--spk-a)">
+        <h2 class="rp-panel-title" style="color:var(--spk-a)">Active checklist</h2>
+        <span class="rp-tag rp-tag--req">In use</span>
+      </div>
+      <div class="p-4">
+        <p class="qb-page-title qb-break">{{ profile.name }}</p>
+        <p class="text-sm text-muted rp-num mt-1">
+          {{ ns.items }} requirement{{ 's' if ns.items != 1 }} ({{ ns.required }} required) across
+          {{ sections | length }} section{{ 's' if sections | length != 1 }} ·
+          {{ phrases | length }} auto-fail phrase{{ 's' if phrases | length != 1 }}
+        </p>
+        <p class="text-xs text-muted mt-2">Every call uploaded from now on is graded against this.</p>
       </div>
     </div>
 

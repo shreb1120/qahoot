@@ -34,6 +34,27 @@ def _save_profile(db, profile: ComplianceProfile) -> None:
     db.commit()
 
 
+def _section_key(name: str, existing: list[dict]) -> str:
+    """A stable, unique key for a section.
+
+    The key is not cosmetic: it is half of the manager-override key
+    (``key::item_name``) and it is what the grading prompt tells Claude to
+    return. Two sections whose names differ only by case, spacing or
+    punctuation used to produce the same key, which meant an override applied
+    to one silently applied to the other and the prompt asked for two sections
+    with identical keys.
+    """
+    import re
+    base = re.sub(r"[^a-z0-9]+", "_", (name or "section").lower()).strip("_") or "section"
+    taken = {s.get("key") for s in existing}
+    if base not in taken:
+        return base
+    n = 2
+    while f"{base}_{n}" in taken:
+        n += 1
+    return f"{base}_{n}"
+
+
 # ── View ──────────────────────────────────────────────────────────────────────
 
 @profile_bp.get("/")
@@ -140,7 +161,7 @@ def add_section():
         abort(404)
 
     data = profile.script_sections_json
-    key = name.lower().replace(" ", "_").replace("-", "_")
+    key = _section_key(name, data.get("sections", []))
     data["sections"].append({"name": name, "key": key, "items": []})
     profile.script_sections_json = data
     _save_profile(g.db, profile)

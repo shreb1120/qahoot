@@ -267,3 +267,25 @@ def tenants(app, client):
     t.a = data["a"]
     t.b = data["b"]
     return t
+
+
+# ── Live API tests ────────────────────────────────────────────────────────────
+# Off by default: they cost money and need network. Run with:
+#     pytest --live -m live
+
+def pytest_addoption(parser):
+    parser.addoption("--live", action="store_true", default=False,
+                     help="run tests that make real Anthropic API calls")
+
+
+def pytest_configure(config):
+    config.addinivalue_line("markers", "live: makes a real Anthropic API call")
+
+
+def pytest_collection_modifyitems(config, items):
+    if config.getoption("--live"):
+        return
+    skip = pytest.mark.skip(reason="needs --live (makes a real Anthropic API call)")
+    for item in items:
+        if "live" in item.keywords:
+            item.add_marker(skip)
