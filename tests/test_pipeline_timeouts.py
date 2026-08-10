@@ -295,3 +295,38 @@ def test_a_finished_call_stops_being_queued(tenants, db, monkeypatch):
     pipeline.run_pipeline(call.id, "/nonexistent.mp3", "bad", "bad")
     assert call.id not in pipeline._queued
     assert call.id not in pipeline._running
+
+
+def test_a_failed_startup_sweep_does_not_prevent_the_sweeper_starting():
+    """serve.py had `recover_stranded()` and `start_recovery_sweeper()` in one
+    try block, so they shared a fate.
+
+    Postgres a few seconds late accepting connections after a reboot — the most
+    likely moment for this code to run — made the sweep raise, and the sweeper
+    then never started. Recovery was disabled for the whole life of the process,
+    announced by one line of stderr with no traceback.
+
+    Asserted on the source because this lives under `if __name__ == "__main__"`
+    and cannot be imported and executed here.
+    """
+    import ast
+    import inspect
+    import serve
+
+    tree = ast.parse(inspect.getsource(serve))
+    tries = [n for n in ast.walk(tree) if isinstance(n, ast.Try)]
+
+    def calls_in(node):
+        return {
+            n.func.attr for n in ast.walk(node)
+            if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+        }
+
+    shared = [t for t in tries
+              if {"recover_stranded", "start_recovery_sweeper"} <= calls_in(t)]
+    assert not shared, (
+        "the startup sweep and the sweeper share a try block — a failed sweep "
+        "silently disables recovery for the life of the process"
+    )
+    guarded = {c for t in tries for c in calls_in(t)}
+    assert "start_recovery_sweeper" in guarded, "the sweeper start is unguarded"

@@ -5,6 +5,7 @@ local/staging use. Phase 4 will add nginx + TLS for public exposure.
 """
 import os
 import sys
+import traceback
 
 from waitress import serve
 from app import create_app
@@ -28,22 +29,38 @@ if __name__ == "__main__":
     # stay free of side effects, or importing this package touches whatever
     # database the ambient config points at — which is exactly how the test
     # suite ended up connecting to production.
+    import pipeline
+    aai_key = application.config.get("ASSEMBLYAI_API_KEY", "")
+    anthropic_key = application.config.get("ANTHROPIC_API_KEY", "")
+
+    # Two separate try blocks, deliberately.
+    #
+    # These were one, and it meant the *sweep* and the *sweeper* shared a fate:
+    # Postgres a few seconds late accepting connections after a reboot — the
+    # single most likely moment for this to run — made the first call raise, and
+    # the second one never executed. Recovery was then disabled for the entire
+    # life of the process, with one line of stderr and no traceback to say so.
+    #
+    # The one-off sweep is the expendable half; the sweeper is what makes the
+    # failure self-correcting, since its next tick retries the work the startup
+    # sweep missed.
     try:
-        import pipeline
-        aai_key = application.config.get("ASSEMBLYAI_API_KEY", "")
-        anthropic_key = application.config.get("ANTHROPIC_API_KEY", "")
         pipeline.recover_stranded(
             assemblyai_key=aai_key, anthropic_key=anthropic_key,
         )
-        # Then keep sweeping. Startup-only recovery left a call abandoned by a
-        # crashed worker sitting in `transcribing` until the next deploy —
-        # already paid for at the vendor, and showing the customer a row that
-        # never finishes.
+    except Exception:
+        traceback.print_exc()
+        print("Startup recovery sweep failed; the periodic sweeper will retry",
+              file=sys.stderr)
+
+    try:
         pipeline.start_recovery_sweeper(
             assemblyai_key=aai_key, anthropic_key=anthropic_key,
         )
     except Exception:
-        print("Startup recovery failed; continuing", file=sys.stderr)
+        traceback.print_exc()
+        print("CRITICAL: recovery sweeper did not start — abandoned calls will "
+              "sit unfinished until the next deploy", file=sys.stderr)
 
     print(f"Qaboom listening on http://{host}:{port} (threads={threads})")
     print("Press Ctrl+C to stop.")

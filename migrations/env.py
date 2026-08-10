@@ -48,6 +48,18 @@ def run_migrations_online() -> None:
         poolclass=pool.NullPool,
     )
     with connectable.connect() as connection:
+        # Bound how long DDL will *wait for a lock*, but not how long it may
+        # run. A migration that takes two minutes to rewrite a table is fine; a
+        # migration that sits waiting for ACCESS EXCLUSIVE behind an open
+        # transaction is not, because every web request touching that table
+        # queues behind it and the site stops with nothing in the logs.
+        #
+        # Failing fast turns "the site is down and nobody knows why" into "the
+        # migration errored, run it again in a moment" — and the app's own
+        # idle_in_transaction_session_timeout means the blocker clears itself.
+        lock_timeout = os.environ.get("PG_MIGRATION_LOCK_TIMEOUT", "10s")
+        connection.exec_driver_sql(f"SET lock_timeout = '{lock_timeout}'")
+
         context.configure(connection=connection, target_metadata=target_metadata)
         with context.begin_transaction():
             context.run_migrations()
