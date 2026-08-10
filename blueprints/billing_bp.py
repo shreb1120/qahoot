@@ -33,7 +33,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 import usage
 from auth import admin_required, org_required
 from models import StripeEvent, Subscription, UsagePeriod
-from plans import PLANS_BY_CODE, get_plan, purchasable_plans
+from plans import PLANS_BY_CODE, get_plan, plan_for_price, purchasable_plans
 
 logger = logging.getLogger(__name__)
 
@@ -249,8 +249,25 @@ def _sync_subscription(obj) -> None:
         sub = Subscription(org_id=org_id)
         g.db.add(sub)
 
-    plan_code = (obj.get("metadata") or {}).get("plan_code") or sub.plan_code
-    plan_obj = get_plan(plan_code)
+    # Price first, metadata second. Stripe rewrites the subscription's price
+    # item when a customer changes plan in the billing portal; it does NOT
+    # rewrite the metadata we set at Checkout. Reading metadata alone billed an
+    # upgraded customer against their old plan — the wrong allowance and the
+    # wrong overage rate, in the customer's favour on a downgrade and very much
+    # not on an upgrade.
+    items = (obj.get("items") or {}).get("data") or []
+    price_id = (items[0].get("price") or {}).get("id") if items else None
+
+    plan_obj = plan_for_price(price_id)
+    if plan_obj is None:
+        plan_obj = get_plan((obj.get("metadata") or {}).get("plan_code")
+                            or sub.plan_code)
+        if price_id:
+            logger.warning(
+                "Stripe price %s matches no plan in plans.py; falling back to "
+                "metadata (%s). Check STRIPE_PRICE_* env vars.",
+                price_id, plan_obj.code,
+            )
 
     sub.stripe_subscription_id = obj.get("id")
     sub.stripe_customer_id = obj.get("customer") or sub.stripe_customer_id
@@ -263,9 +280,8 @@ def _sync_subscription(obj) -> None:
     sub.cancel_at_period_end = bool(obj.get("cancel_at_period_end"))
     sub.trial_ends_at = _ts(obj.get("trial_end"))
 
-    items = (obj.get("items") or {}).get("data") or []
-    if items:
-        sub.stripe_price_id = (items[0].get("price") or {}).get("id")
+    if price_id:
+        sub.stripe_price_id = price_id
 
     logger.info("Org %s subscription is now %s on %s", org_id, sub.status, sub.plan_code)
 

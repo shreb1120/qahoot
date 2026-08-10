@@ -367,6 +367,11 @@ def upload():
         current_app.config["UPLOAD_FOLDER"], g.org.id
     )
     os.makedirs(upload_dir, exist_ok=True)
+    # 0750, not whatever the umask happens to be. These are customers' raw call
+    # recordings — consumer PII and financial detail — and this host runs other
+    # services under other local accounts. World-readable was the inherited
+    # default; nobody chose it.
+    os.chmod(upload_dir, 0o750)
 
     # Create Call record first so we have the ID for the filename
     call = Call(
@@ -386,6 +391,7 @@ def upload():
     file_path = os.path.join(upload_dir, f"{call.id}_{safe_name}")
     try:
         f.save(file_path)
+        os.chmod(file_path, 0o640)
     except OSError:
         current_app.logger.exception("Upload failed to write %s", file_path)
         g.db.rollback()
@@ -661,6 +667,19 @@ def writeup(call_id: str):
     call = _org_call_or_404(call_id)
     if not call.report or not call.transcript:
         abort(404)
+
+    # This endpoint spends vendor money on every request — the entire
+    # transcript goes to the model — and used to sit behind nothing but a
+    # session. Capped, and the spend is recorded so it shows up as COGS
+    # instead of being invisible until the invoice arrives.
+    try:
+        ratelimit.check_spend(g.db, g.org, g.user, "writeup",
+                              per_hour=ratelimit.WRITEUPS_PER_HOUR_PER_ORG)
+        g.db.commit()
+    except ratelimit.RateLimited as limited:
+        g.db.commit()
+        flash(limited.message, "error")
+        return redirect(url_for("calls.report", call_id=call.id))
 
     import anthropic as anthropic_lib
     import writeup as writeup_module

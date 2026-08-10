@@ -71,6 +71,51 @@ def test_the_counter_always_equals_the_ledger(tenants, db):
     assert usage.current_period(db, org).billable_seconds == ledger
 
 
+def test_concurrent_workers_do_not_lose_minutes(tenants, db):
+    """The counter must be incremented in SQL, not read-modify-written.
+
+    The pipeline runs four workers, each with its own session. `current_period`
+    reads with a plain SELECT and ON CONFLICT DO NOTHING takes no lock, so a
+    Python `x = x + n` let every worker write back its own total — last writer
+    wins. Measured before the fix: eight concurrent workers metering 600s each
+    recorded all eight events in the ledger and 1,800s on the counter. The
+    invoice reads the counter, so 50 of 80 minutes were never billed.
+    """
+    import threading
+    from sqlalchemy import func
+    from db import get_db
+    from models import Organization
+
+    org_id = tenants.a["org"]
+    N = 6
+    gate = threading.Barrier(N, timeout=20)
+
+    def worker(i):
+        s = get_db()
+        try:
+            usage.current_period(s, s.get(Organization, org_id)); s.commit()
+            gate.wait()                       # everyone now holds a stale read
+            usage.record(s, org_id=org_id, call_id=None,
+                         resource_type=usage.TRANSCRIPTION,
+                         idempotency_key=f"race{i}:transcription:1",
+                         billable_seconds=600)
+            s.commit()
+        finally:
+            s.close()
+
+    threads = [threading.Thread(target=worker, args=(i,)) for i in range(N)]
+    [t.start() for t in threads]
+    [t.join(timeout=30) for t in threads]
+
+    db.expire_all()
+    ledger = db.query(func.sum(UsageEvent.billable_seconds)).filter_by(
+        org_id=org_id).scalar() or 0
+    counter = usage.current_period(db, db.get(Organization, org_id)).billable_seconds
+    assert counter == ledger == N * 600, (
+        f"counter {counter} != ledger {ledger}: minutes were lost to a race"
+    )
+
+
 # ────────────────────── money spent is still owed ──────────────────────
 
 def test_a_failed_grade_still_leaves_the_minutes_recorded(tenants, db, monkeypatch):

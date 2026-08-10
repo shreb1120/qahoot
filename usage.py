@@ -19,7 +19,7 @@ import logging
 import math
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from models import Subscription, UsageEvent, UsagePeriod
@@ -127,7 +127,24 @@ def record(db, *, org_id: str, call_id: str | None, resource_type: str,
         return False
 
     if billable_seconds:
-        period.billable_seconds = (period.billable_seconds or 0) + max(0, billable_seconds)
+        # Atomic increment in SQL, NOT a Python read-modify-write.
+        #
+        # `current_period` reads the row with a plain SELECT and
+        # ON CONFLICT DO NOTHING takes no lock on a conflicting row, so four
+        # pipeline workers metering the same period would each read the same
+        # value and write back their own total — the last writer wins and the
+        # rest of the minutes are never billed. The ledger kept every event;
+        # the counter, which is what the invoice reads, silently lost them.
+        db.execute(
+            update(UsagePeriod)
+            .where(UsagePeriod.org_id == org_id,
+                   UsagePeriod.period_start == period_start)
+            .values(billable_seconds=UsagePeriod.billable_seconds
+                                     + max(0, billable_seconds))
+        )
+        # The ORM object still holds the pre-increment value; drop it so any
+        # later read in this session sees what the database actually has.
+        db.expire(period, ["billable_seconds"])
     return True
 
 

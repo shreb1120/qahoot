@@ -34,23 +34,6 @@ def create_app(config_class: type = Config) -> Flask:
     # ── Database ──────────────────────────────────────────────────────────
     init_db(app.config["DATABASE_URL"])
 
-    # ── Recover work abandoned by the previous process ────────────────────
-    # Workers are daemon threads, so a deploy kills anything mid-flight. Those
-    # calls have already been paid for at AssemblyAI; without this they sit in
-    # `transcribing` forever. Skipped under TESTING because the test harness
-    # calls create_app() before the schema exists, and any failure here is
-    # logged rather than raised — a startup that can't recover is still a
-    # startup that should serve requests.
-    if not app.config.get("TESTING"):
-        try:
-            import pipeline
-            pipeline.recover_stranded(
-                assemblyai_key=app.config.get("ASSEMBLYAI_API_KEY", ""),
-                anthropic_key=app.config.get("ANTHROPIC_API_KEY", ""),
-            )
-        except Exception:
-            logger.exception("Startup recovery failed; continuing")
-
     # ── Per-request DB session ────────────────────────────────────────────
     @app.before_request
     def open_db():
@@ -291,7 +274,20 @@ def create_app(config_class: type = Config) -> Flask:
     return app
 
 
-app = create_app()
-
+# Deliberately NO module-level `app = create_app()`.
+#
+# `serve.py` does `from app import create_app`, which executes this module —
+# so a module-level call built a second, production-configured app on every
+# start: recover_stranded ran twice per deploy, and a second engine orphaned
+# the first pool's connections.
+#
+# Worse, tests/conftest.py imports this module too. That call used the real
+# Config, so **running pytest connected to the production database and ran
+# recover_stranded against it** — which can flip live rows to `error` and
+# re-submit real calls to the vendors. conftest's _guard_not_production()
+# checks the test URL and cannot see an import side-effect that already
+# happened.
+#
+# For `flask run`, point FLASK_APP at the factory: FLASK_APP="app:create_app".
 if __name__ == "__main__":
-    app.run(debug=False)
+    create_app().run(debug=False)

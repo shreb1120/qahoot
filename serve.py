@@ -23,6 +23,20 @@ if __name__ == "__main__":
             file=sys.stderr,
         )
 
+    # Re-queue work the previous process abandoned. Here rather than in
+    # create_app() because it is a *process* concern: building an app must
+    # stay free of side effects, or importing this package touches whatever
+    # database the ambient config points at — which is exactly how the test
+    # suite ended up connecting to production.
+    try:
+        import pipeline
+        pipeline.recover_stranded(
+            assemblyai_key=application.config.get("ASSEMBLYAI_API_KEY", ""),
+            anthropic_key=application.config.get("ANTHROPIC_API_KEY", ""),
+        )
+    except Exception:
+        print("Startup recovery failed; continuing", file=sys.stderr)
+
     print(f"Qaboom listening on http://{host}:{port} (threads={threads})")
     print("Press Ctrl+C to stop.")
     serve(application, host=host, port=port, threads=threads)

@@ -138,6 +138,23 @@ def get_plan(code: str | None) -> Plan:
     return PLANS_BY_CODE.get(code or "", TRIAL)
 
 
+def plan_for_price(price_id: str | None) -> Plan | None:
+    """Resolve a Stripe price id back to a plan.
+
+    This is the authoritative direction. A customer who changes plan in
+    Stripe's own billing portal gets a new *price* on their subscription, but
+    the `plan_code` we wrote into subscription metadata at Checkout is never
+    rewritten — so trusting metadata means billing an upgraded customer against
+    their old allowance and old overage rate.
+    """
+    if not price_id:
+        return None
+    for plan in PLANS:
+        if plan.stripe_price_id and plan.stripe_price_id == price_id:
+            return plan
+    return None
+
+
 def purchasable_plans() -> tuple[Plan, ...]:
     """Plans a visitor can actually check out with."""
     return tuple(p for p in PLANS if p.price_micros > 0)

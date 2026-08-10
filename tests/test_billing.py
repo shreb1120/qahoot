@@ -156,6 +156,44 @@ def test_a_valid_webhook_records_the_subscription(anon, db, tenants, stripe_conf
     assert sub.stripe_price_id == "price_growth"
 
 
+def test_a_portal_upgrade_is_read_from_the_price_not_stale_metadata(
+        anon, db, tenants, stripe_configured, monkeypatch):
+    """A customer who upgrades in Stripe's billing portal gets a new price on
+    their subscription, but the plan_code we wrote at Checkout is never
+    rewritten. Trusting metadata billed them against the old plan: on a Solo →
+    Growth upgrade they were charged $799 and metered against 600 minutes, then
+    invoiced overage on minutes their new plan already included.
+    """
+    monkeypatch.setenv("STRIPE_PRICE_GROWTH", "price_growth_live")
+
+    _post_event(anon, _event("customer.subscription.updated", {
+        "id": "sub_1", "status": "active", "customer": "cus_1",
+        # The price says Growth; the metadata still says Solo.
+        "items": {"data": [{"price": {"id": "price_growth_live"}}]},
+        "metadata": {"org_id": tenants.a["org"], "plan_code": "solo"},
+    }))
+
+    db.expire_all()
+    sub = db.get(Subscription, tenants.a["org"])
+    assert sub.plan_code == "growth", "plan must come from the price"
+    assert sub.included_minutes == 8000
+    assert sub.overage_micros_per_minute == 120_000
+
+
+def test_an_unrecognised_price_falls_back_rather_than_failing(
+        anon, db, tenants, stripe_configured):
+    """A price created outside plans.py — a one-off deal, a legacy plan — must
+    not 500 the webhook and stall every later event behind it."""
+    r = _post_event(anon, _event("customer.subscription.updated", {
+        "id": "sub_1", "status": "active", "customer": "cus_1",
+        "items": {"data": [{"price": {"id": "price_some_custom_deal"}}]},
+        "metadata": {"org_id": tenants.a["org"], "plan_code": "starter"},
+    }))
+    assert r.status_code == 200
+    db.expire_all()
+    assert db.get(Subscription, tenants.a["org"]).plan_code == "starter"
+
+
 def test_a_replayed_event_is_not_processed_twice(anon, db, tenants, stripe_configured):
     """Stripe retries on any non-2xx. Re-running a handler could open a second
     billing period or post a duplicate invoice item."""

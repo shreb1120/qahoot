@@ -32,6 +32,9 @@ UPLOADS_PER_HOUR_PER_USER = 60
 # In-flight cap. Bounds our own worker pool and vendor concurrency as much as
 # it bounds the customer.
 MAX_CONCURRENT_PER_ORG = 25
+# Written warnings send a whole transcript to the model each time. Far above
+# any real day's coaching, far below a bill worth noticing.
+WRITEUPS_PER_HOUR_PER_ORG = 40
 
 
 class RateLimited(Exception):
@@ -100,6 +103,24 @@ def check_upload(db, org, user, *, now: datetime | None = None) -> None:
             "That's a lot of uploads in a short time, so we've paused them "
             "briefly. Try again in an hour, or get in touch if you're doing a "
             "bulk import — we'll lift the limit.",
+        )
+
+
+def check_spend(db, org, user, action: str, *, per_hour: int,
+               now: datetime | None = None) -> None:
+    """Cap any endpoint that spends vendor money on demand.
+
+    Upload is not the only one. Generating a written warning sends the whole
+    transcript to Anthropic on every request, and it sat behind nothing but a
+    session — so a stolen cookie, or a member in a loop, could run up a bill
+    with no ceiling and no trace in the usage ledger.
+    """
+    n = _bump(db, f"org:{org.id}:{action}", timedelta(hours=1), now=now)
+    if n > per_hour:
+        logger.warning("Spend limit hit: org=%s action=%s (%d/h)", org.id, action, n)
+        raise RateLimited(
+            "That's a lot of requests in a short time, so we've paused them "
+            "briefly. Try again in an hour, or get in touch if you need more."
         )
 
 
