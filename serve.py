@@ -30,9 +30,17 @@ if __name__ == "__main__":
     # suite ended up connecting to production.
     try:
         import pipeline
+        aai_key = application.config.get("ASSEMBLYAI_API_KEY", "")
+        anthropic_key = application.config.get("ANTHROPIC_API_KEY", "")
         pipeline.recover_stranded(
-            assemblyai_key=application.config.get("ASSEMBLYAI_API_KEY", ""),
-            anthropic_key=application.config.get("ANTHROPIC_API_KEY", ""),
+            assemblyai_key=aai_key, anthropic_key=anthropic_key,
+        )
+        # Then keep sweeping. Startup-only recovery left a call abandoned by a
+        # crashed worker sitting in `transcribing` until the next deploy —
+        # already paid for at the vendor, and showing the customer a row that
+        # never finishes.
+        pipeline.start_recovery_sweeper(
+            assemblyai_key=aai_key, anthropic_key=anthropic_key,
         )
     except Exception:
         print("Startup recovery failed; continuing", file=sys.stderr)

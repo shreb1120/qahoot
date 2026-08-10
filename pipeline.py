@@ -19,6 +19,7 @@ import json
 import logging
 import os
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 
@@ -49,6 +50,38 @@ _pool_lock = threading.Lock()
 # died. Comfortably longer than a slow transcription of a 69-minute call.
 STRANDED_AFTER = timedelta(minutes=30)
 ACTIVE_STATUSES = ("pending", "transcribing", "analyzing")
+
+# ── Vendor deadlines ────────────────────────────────────────────────────────
+#
+# Everything that talks to a vendor gets a bound, because the pool has four
+# workers and neither SDK gives up on its own.
+#
+# `transcriber.transcribe()` uploads, then polls until the job reaches a
+# terminal status — with no ceiling. A job that stays `processing` pins one of
+# four workers indefinitely, and `recover_stranded` could not free it: that
+# looks for calls whose row is stale, and this call's worker is alive and
+# faithfully polling. Three workers in that state and the queue stops moving,
+# with nothing in the logs to say why.
+#
+# So the wait is ours, not the SDK's, and it is bounded twice: per HTTP request
+# (a hung socket) and overall (a job that never finishes).
+ASSEMBLYAI_HTTP_TIMEOUT = 300     # one request; generous — this covers uploads
+TRANSCRIBE_TIMEOUT = 1800         # the whole job, ~4x the slowest real call
+TRANSCRIBE_POLL_INTERVAL = 5
+
+# The Anthropic SDK defaults to a 10-minute timeout and 2 retries. Both are
+# stated here rather than inherited, so a default change upstream cannot
+# quietly alter how long a worker is held.
+ANTHROPIC_TIMEOUT = 600
+ANTHROPIC_MAX_RETRIES = 2
+
+
+class TranscriptionTimeout(RuntimeError):
+    """The job did not reach a terminal status inside TRANSCRIBE_TIMEOUT.
+
+    Distinct from a vendor error: the transcript may still complete on
+    AssemblyAI's side, and we have already paid for it either way.
+    """
 
 
 MODEL = "claude-opus-5"
@@ -146,6 +179,32 @@ def _get_pool() -> ThreadPoolExecutor:
         return _pool
 
 
+def _transcribe_with_deadline(transcriber, file_path, config, call_id: str):
+    """Submit, then poll to a wall-clock deadline instead of forever.
+
+    `submit()` returns as soon as the job is queued, so the unbounded wait
+    inside `transcribe()` is replaced by one we control. The transcript id is
+    logged before the first poll: if we do time out, that id is how the work
+    already paid for can be retrieved by hand rather than bought twice.
+    """
+    transcript = transcriber.submit(file_path, config=config)
+    logger.info("Pipeline [%s]: AssemblyAI transcript id %s", call_id, transcript.id)
+
+    deadline = time.monotonic() + TRANSCRIBE_TIMEOUT
+    terminal = (aai.TranscriptStatus.completed, aai.TranscriptStatus.error)
+
+    while transcript.status not in terminal:
+        if time.monotonic() >= deadline:
+            raise TranscriptionTimeout(
+                f"AssemblyAI did not finish within {TRANSCRIBE_TIMEOUT}s "
+                f"(transcript {transcript.id}, last status {transcript.status})"
+            )
+        time.sleep(TRANSCRIBE_POLL_INTERVAL)
+        transcript = aai.Transcript.get_by_id(transcript.id)
+
+    return transcript
+
+
 def _format_transcript(utterances) -> str:
     lines = []
     for utt in utterances:
@@ -199,9 +258,10 @@ def run_pipeline(call_id: str, file_path: str,
         logger.info("Pipeline [%s]: transcribing %s", call_id, file_path)
 
         aai.settings.api_key = assemblyai_key
+        aai.settings.http_timeout = ASSEMBLYAI_HTTP_TIMEOUT
         config = aai.TranscriptionConfig(speaker_labels=True)
         transcriber = aai.Transcriber()
-        result = transcriber.transcribe(file_path, config=config)
+        result = _transcribe_with_deadline(transcriber, file_path, config, call_id)
 
         if result.status == aai.TranscriptStatus.error:
             raise RuntimeError(f"AssemblyAI error: {result.error}")
@@ -270,7 +330,11 @@ def run_pipeline(call_id: str, file_path: str,
         _set_status(db, call, "analyzing")
         logger.info("Pipeline [%s]: running Claude analysis", call_id)
 
-        client = anthropic.Anthropic(api_key=anthropic_key)
+        client = anthropic.Anthropic(
+            api_key=anthropic_key,
+            timeout=ANTHROPIC_TIMEOUT,
+            max_retries=ANTHROPIC_MAX_RETRIES,
+        )
         system_prompt = build_system_prompt(profile_data)
         user_msg = build_user_message(transcript_text)
 
@@ -407,11 +471,11 @@ def spawn(call_id: str, file_path: str,
 def recover_stranded(assemblyai_key: str, anthropic_key: str) -> int:
     """Re-queue calls whose worker died before reaching a terminal state.
 
-    Called once at startup. Safe to run repeatedly: re-running a call rewrites
-    its transcript and report, and the usage ledger's idempotency key stops it
-    being billed twice. The known cost is at the vendor — a re-run pays
-    AssemblyAI a second time while the customer is charged once, which is the
-    right way round.
+    Runs at startup and then on a timer (see `start_recovery_sweeper`). Safe to
+    run repeatedly: re-running a call rewrites its transcript and report, and
+    the usage ledger's idempotency key stops it being billed twice. The known
+    cost is at the vendor — a re-run pays AssemblyAI a second time while the
+    customer is charged once, which is the right way round.
 
     Returns the number of calls re-queued.
     """
@@ -425,6 +489,22 @@ def recover_stranded(assemblyai_key: str, anthropic_key: str) -> int:
             .filter(Call.status.in_(ACTIVE_STATUSES), Call.upload_date < cutoff)
             .all()
         )
+        # Only reachable once this runs on a timer: at startup no worker of ours
+        # is alive, so every stale row was genuinely abandoned. On a timer, a
+        # long-but-healthy transcription is stale by the clock while its worker
+        # is alive and polling — re-queuing it would run the same call twice
+        # against both vendors. `_running` is in-process only, which is exactly
+        # the right scope: it answers "is a worker *here* on this call", and a
+        # row stale because another process died has no entry.
+        with _lock:
+            in_flight = set(_running)
+        if in_flight:
+            skipped = [c.id for c in stranded if c.id in in_flight]
+            if skipped:
+                logger.info("Recovery: %d call(s) still in flight here, leaving them",
+                            len(skipped))
+            stranded = [c for c in stranded if c.id not in in_flight]
+
         queued = 0
         for call in stranded:
             if not call.audio_file_url:
@@ -443,9 +523,67 @@ def recover_stranded(assemblyai_key: str, anthropic_key: str) -> int:
         db.commit()
         if stranded:
             logger.warning(
-                "Startup recovery: %d stranded call(s), %d re-queued",
+                "Recovery: %d stranded call(s), %d re-queued",
                 len(stranded), queued,
             )
         return queued
     finally:
         db.close()
+
+
+# How often the sweeper looks for abandoned work. Recovery used to run only at
+# startup, which meant a call abandoned by a crashed worker sat in
+# `transcribing` until the next deploy — already paid for, invisible to the
+# customer except as a row that never finishes.
+RECOVERY_INTERVAL = 600
+
+_sweeper: threading.Thread | None = None
+_sweeper_lock = threading.Lock()
+_sweeper_stop = threading.Event()
+
+
+def start_recovery_sweeper(assemblyai_key: str, anthropic_key: str,
+                           interval: int = RECOVERY_INTERVAL) -> bool:
+    """Run recovery on a timer for the life of the process.
+
+    Started from `serve.py`, never from `create_app()` — building an app must
+    stay free of side effects, or importing the package starts a thread that
+    writes to whatever database the ambient config points at. That is how the
+    test suite once ended up connected to production.
+
+    Returns True if this call started the sweeper.
+    """
+    global _sweeper
+    with _sweeper_lock:
+        if _sweeper is not None and _sweeper.is_alive():
+            return False
+
+        _sweeper_stop.clear()
+
+        def loop():
+            # `Event.wait` rather than `time.sleep`: a stop signal takes effect
+            # at once instead of after the rest of a ten-minute nap.
+            while not _sweeper_stop.wait(interval):
+                try:
+                    recover_stranded(assemblyai_key, anthropic_key)
+                except Exception:
+                    # A sweep that raises must not end the sweeper — a transient
+                    # DB blip would otherwise silently disable recovery for the
+                    # life of the process, which is the failure it exists to fix.
+                    logger.exception("Recovery sweep failed; will retry")
+
+        _sweeper = threading.Thread(target=loop, name="pipeline-recovery",
+                                    daemon=True)
+        _sweeper.start()
+        logger.info("Recovery sweeper started (every %ds)", interval)
+        return True
+
+
+def stop_recovery_sweeper(timeout: float = 5.0) -> None:
+    """Stop the sweeper and wait for it to finish the current sweep."""
+    global _sweeper
+    _sweeper_stop.set()
+    with _sweeper_lock:
+        thread, _sweeper = _sweeper, None
+    if thread is not None:
+        thread.join(timeout)

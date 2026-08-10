@@ -148,13 +148,14 @@ def test_a_failed_grade_still_leaves_the_minutes_recorded(tenants, db, monkeypat
     class FakeUtt: speaker, start, end, text = "A", 0, 1000, "hi"
 
     class FakeResult:
+        id = "tr_fake"
         status, error, text = "completed", None, "hi"
         utterances = [FakeUtt()]
         audio_duration = 1860           # 31 minutes
 
     monkeypatch.setattr(pipeline.anthropic, "Anthropic", FakeClient)
     monkeypatch.setattr(pipeline.aai, "Transcriber",
-                        lambda: type("T", (), {"transcribe": lambda s, *a, **k: FakeResult()})())
+                        lambda: type("T", (), {"submit": lambda s, *a, **k: FakeResult()})())
     monkeypatch.setattr(pipeline.aai, "settings", type("S", (), {"api_key": ""})())
 
     pipeline.run_pipeline(call_id, "/tmp/x.mp3", "aai", "anth")

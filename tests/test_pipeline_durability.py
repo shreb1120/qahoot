@@ -120,6 +120,9 @@ def _capture_request(monkeypatch, tenants, db):
         speaker, start, end, text = "A", 0, 1000, "hello"
 
     class FakeResult:
+        # `completed` on the first look, so the deadline loop in
+        # _transcribe_with_deadline exits without polling.
+        id = "tr_fake"
         status = "completed"
         error = None
         text = "hello"
@@ -127,7 +130,9 @@ def _capture_request(monkeypatch, tenants, db):
         audio_duration = 600
 
     class FakeTranscriber:
-        def transcribe(self, *a, **kw):
+        # The pipeline submits and polls to its own deadline rather than
+        # calling the SDK's unbounded transcribe().
+        def submit(self, *a, **kw):
             return FakeResult()
 
     monkeypatch.setattr(pipeline.anthropic, "Anthropic", FakeClient)
