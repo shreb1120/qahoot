@@ -1,105 +1,154 @@
 """
 Written-warning document generation.
 
-Loads a completed analysis from the DB, applies any manual overrides,
-and asks Claude for the two call-specific finding-bullet bodies (with
-inline transcript timestamps). Builds a .docx that mirrors the BDS
-Written Warning template (boxes/checkboxes/signatures): the two
-AI-generated narrative bullets are the only call-specific content;
-everything else is fixed template copy.
+Takes a graded call and produces a .docx warning: a standard HR header block
+(warning level, purpose, signatures) and one narrative finding per section of
+**that organization's own checklist** that the call failed, each citing a
+transcript timestamp.
 
-Everything outside the highlighted fields in the source template is
-fixed copy and must not be changed without explicit approval.
+This file was inherited from the single-tenant tool it grew out of, and until
+recently still had that one customer baked into every document it produced —
+their name in the system prompt, their sales process described to the model as
+context, their logo path, and a hardcoded job title and department asserted
+about whoever the warning was for. Nothing here is specific to any tenant now,
+and nothing should become so again: everything that varies is a parameter.
 """
 
 import io
-import os
 import json
 import logging
-import re
-import sqlite3
 
-import anthropic
 from docx import Document
 from docx.enum.table import WD_ALIGN_VERTICAL
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
-from docx.shared import Pt, Inches, RGBColor
+from docx.shared import Pt, Inches
 
-logger = logging.getLogger('call-qa-tool.writeup')
+# One model choice for the whole app. This file used to pin its own, and had
+# drifted a full major version behind the grader whose findings it writes up.
+from pipeline import MODEL
 
-LOGO_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'bds_logo.png')
+logger = logging.getLogger('qaboom.writeup')
 
 
 # ---------------------------------------------------------------------------
 # Claude call to produce the two prose finding bodies
 # ---------------------------------------------------------------------------
 
-_WRITEUP_SYSTEM_PROMPT = """You produce two short paragraphs for a written warning at Better Debt Solutions.
+_WRITEUP_SYSTEM_PROMPT = """You write the findings section of an employee \
+written warning for a call-centre quality review.
 
 You will be given:
-- The agent's name
-- The full transcript of the call (with [MM:SS] or [HH:MM:SS] speaker timestamps)
-- The QA analysis JSON (items not covered, high-risk phrases detected, etc.)
+- the employing organization's name
+- the agent's name
+- the full call transcript, with [MM:SS] or [HH:MM:SS] timestamps
+- the requirements this call failed, exactly as that organization wrote them
+- any prohibited phrases detected, with the sentence that triggered them
 
-Write TWO paragraphs matching this example tone and structure:
-
-EXAMPLE 1 — Failure to Accurately Explain Program / Client Misguidance:
-"{Agent} mischaracterized the program at [12:34], failing to correct or properly explain key components, including stop payments to creditors, implying our company will be making payments, account delinquency, potential closures, and negative credit reporting."
-
-EXAMPLE 2 — Failure to Disclose Risks / Ensure Understanding:
-"{Agent} failed to properly disclose material program risks at [23:15], including potential litigation, tax implications, and negative credit impact, and did not ensure the client had an accurate understanding of the program."
+Write ONE short finding for each failed requirement group you are given.
 
 Rules:
-- Each paragraph is 1-3 sentences. Concise, formal HR/compliance tone.
-- Start with the agent's literal name (no braces, no "the agent").
-- Cite at least one transcript timestamp inline using square brackets, e.g. "at [12:34]". Use timestamps drawn from the analysis JSON or the transcript — do not invent them.
-- Reference SPECIFIC failures from this call. If a category has no clear failures in this call, write a single short sentence stating the agent met expectations in that area (no timestamp needed in that case).
-- Do not invent failures that aren't supported by the transcript or analysis.
-- No long quotes. No bullet lists inside the paragraph.
-
-BDS WORKFLOW CONTEXT — important when writing the misguidance bullet:
-- The BDS call begins as a personal loan application. The agent IS expected to refer to "the loan" / "a personal loan" during the discovery / pre-underwriting phase before the loan decline / pivot occurs. Loan vocabulary BEFORE the pivot is acceptable and must NOT be cited as misguidance.
-- Only loan vocabulary used AFTER the pivot / approval is a violation.
-- If the agent skipped the loan decline pivot entirely, the failure to cite is "the agent did not perform the loan decline pivot" — do NOT quote pre-pivot loan references as the supporting evidence for that bullet. Cite the missing pivot itself, with an approximate timestamp drawn from where the pivot should have occurred (typically right after the agent returns from the underwriting hold).
+- 1-3 sentences each. Formal, factual, HR/compliance tone.
+- Start with the agent's literal name. Not "the agent", no placeholders.
+- Cite at least one timestamp inline as [MM:SS], taken from the material you
+  were given. Never invent one. If no timestamp supports the finding, say the
+  requirement was not addressed at any point in the call, with no timestamp.
+- Describe ONLY what this organization's own requirements say. You do not know
+  their business, their products, their sales process, or what their agents are
+  normally expected to say. Do not infer a workflow and do not import
+  assumptions from any other company.
+- Never assert a failure that is not in the material you were given. This
+  document goes in someone's employment file.
+- No bullet lists, no long quotes inside a finding.
 
 Output STRICT JSON, no prose around it:
-{
-  "misguidance_body": "...",
-  "risk_disclosure_body": "..."
-}
+{"findings": [{"heading": "<the requirement group, as given>",
+               "body": "<your 1-3 sentences>"}]}
 """
 
 
-def generate_finding_bodies(claude_client, agent_name, transcript, results, model="claude-opus-4-6"):
-    user_msg = (
-        f"AGENT NAME: {agent_name}\n\n"
-        f"QA ANALYSIS JSON:\n{json.dumps(results, indent=2)}\n\n"
-        f"FULL TRANSCRIPT:\n{transcript}\n"
-    )
-    response = claude_client.messages.create(
+def failed_groups(report_json: dict | None) -> list[dict]:
+    """The sections this call actually failed, with their missed requirements.
+
+    Drives the document. The predecessor to this file hardcoded two headings
+    from one company's warning template — every org got "Failure to Accurately
+    Explain Program" whether or not that was anything to do with their
+    checklist, or their business.
+    """
+    groups = []
+    for section in (report_json or {}).get("sections") or []:
+        if not isinstance(section, dict):
+            continue
+        missed = [
+            i["name"] for i in section.get("items") or []
+            if isinstance(i, dict) and i.get("name")
+            and i.get("required", True) and i.get("status") != "covered"
+        ]
+        if missed:
+            groups.append({"heading": section.get("name") or "Requirements",
+                           "missed": missed})
+    return groups
+
+
+def prohibited_hits(report_json: dict | None) -> list[dict]:
+    af = (report_json or {}).get("auto_fail_phrases") or {}
+    return [p for p in (af.get("phrases") or []) if isinstance(p, dict)]
+
+
+def generate_finding_bodies(claude_client, org_name, agent_name, transcript,
+                            report_json, model=MODEL):
+    """One narrative finding per failed section. Returns [] when nothing failed.
+
+    Returning an empty list matters: a call with no failures must produce no
+    findings rather than prose inventing some, because this text ends up in an
+    employment record.
+    """
+    groups = failed_groups(report_json)
+    hits = prohibited_hits(report_json)
+    if not groups and not hits:
+        return []
+
+    material = {
+        "organization": org_name,
+        "agent": agent_name,
+        "failed_requirements": groups,
+        "prohibited_phrases": [
+            {"phrase": h.get("phrase", ""), "timestamp": h.get("timestamp"),
+             "quote": h.get("quote", "")}
+            for h in hits
+        ],
+    }
+
+    resp = claude_client.messages.create(
         model=model,
-        max_tokens=1200,
+        max_tokens=1500,
+        thinking={"type": "disabled"},
         system=_WRITEUP_SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": user_msg}],
+        messages=[{"role": "user", "content":
+                   f"{json.dumps(material, indent=2)}\n\nTRANSCRIPT:\n{transcript}"}],
     )
-    raw = response.content[0].text
-    start = raw.find('{')
-    end = raw.rfind('}') + 1
-    if start == -1 or end <= start:
-        raise ValueError(f"Claude write-up response had no JSON: {raw[:200]!r}")
-    payload = json.loads(raw[start:end])
-    return payload['misguidance_body'], payload['risk_disclosure_body']
+
+    raw = resp.content[0].text
+    i, j = raw.find("{"), raw.rfind("}") + 1
+    if i == -1 or j <= i:
+        raise ValueError(f"No JSON in the model response: {raw[:200]!r}")
+    findings = json.loads(raw[i:j]).get("findings") or []
+
+    # Keep only headings we actually asked about. A heading the model invented
+    # would be an unsupported allegation in an HR document.
+    allowed = {g["heading"] for g in groups} | {"Prohibited language"}
+    return [f for f in findings
+            if isinstance(f, dict) and f.get("body")
+            and f.get("heading") in allowed]
 
 
 # ---------------------------------------------------------------------------
 # .docx construction
 #
-# The write-up uses the standardized two-bullet BDS template. The derived
-# finding lists (approval/post-enrollment items not covered, high-risk phrases)
-# were intentionally removed from the document; the two narrative bullets above
-# are AI-generated and call-specific.
+# Findings are one bullet per failed section of the org's own checklist, so a
+# document only ever asserts what that org actually requires. The predecessor
+# emitted two fixed headings from one company's warning template.
 # ---------------------------------------------------------------------------
 
 def _set_cell_borders(cell):
@@ -129,6 +178,10 @@ def _set_paragraph_spacing(paragraph, space_before_pt=0, space_after_pt=4, line_
 
 
 def _build_header_table(doc, agent_name, mode='written'):
+    # Job title, department, hire date and manager are left blank for whoever
+    # signs the document. The app does not hold any of them, and a warning
+    # that states an employee's job title incorrectly is worse than one that
+    # leaves a line to fill in.
     table = doc.add_table(rows=6, cols=3)
     table.style = 'Table Grid'
     table.autofit = False
@@ -136,12 +189,12 @@ def _build_header_table(doc, agent_name, mode='written'):
     row0 = table.rows[0].cells
     row0[1].merge(row0[2])
     _add_runs(row0[0].paragraphs[0], [('Employee Name: ', True), (agent_name, False)])
-    _add_runs(row0[1].paragraphs[0], [('Job Title: ', True), ('Sr Debt Advisor', False)])
+    _add_runs(row0[1].paragraphs[0], [('Job Title: ', True)])
 
     row1 = table.rows[1].cells
     row1[1].merge(row1[2])
     _add_runs(row1[0].paragraphs[0], [('Date of Hire: ', True)])
-    _add_runs(row1[1].paragraphs[0], [('Department: ', True), ('Sales', False)])
+    _add_runs(row1[1].paragraphs[0], [('Department: ', True)])
 
     row2 = table.rows[2].cells
     row2[1].merge(row2[2])
@@ -181,16 +234,19 @@ def _build_header_table(doc, agent_name, mode='written'):
             cell.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
 
 
-def _add_logo_or_placeholder(doc, width_inches=2.2):
+def _add_org_heading(doc, org_name):
+    """The employer's name, as plain text.
+
+    This used to load a bundled logo file belonging to the single customer this
+    tool was originally built for. That file is not in this repo, so what every
+    generated document actually contained was the literal placeholder text.
+    """
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    if os.path.exists(LOGO_PATH):
-        run = p.add_run()
-        run.add_picture(LOGO_PATH, width=Inches(width_inches))
-    else:
-        run = p.add_run('[BDS LOGO]')
-        run.italic = True
-        run.font.color.rgb = RGBColor(0x99, 0x99, 0x99)
+    run = p.add_run(org_name or "")
+    run.bold = True
+    run.font.size = Pt(14)
+    _set_paragraph_spacing(p, space_after_pt=10)
 
 
 def _add_main_bullet(doc, heading, body_text):
@@ -200,8 +256,8 @@ def _add_main_bullet(doc, heading, body_text):
     return p
 
 
-def build_writeup_docx(agent_name, internal_id, call_date,
-                       misguidance_body, risk_disclosure_body, mode='written'):
+def build_writeup_docx(org_name, agent_name, internal_id, call_date,
+                       findings, mode='written'):
     doc = Document()
 
     style = doc.styles['Normal']
@@ -214,7 +270,7 @@ def build_writeup_docx(agent_name, internal_id, call_date,
         section.right_margin = Inches(1.0)
 
     # ---- Page 1 ----
-    _add_logo_or_placeholder(doc, width_inches=2.0)
+    _add_org_heading(doc, org_name)
 
     title = doc.add_paragraph()
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -237,10 +293,9 @@ def build_writeup_docx(agent_name, internal_id, call_date,
     if call_date:
         opening += [(', dated ', False), (call_date, False)]
     opening += [
-        (', Agent failed to properly disclose missed payments to the client which is in '
-         'direct violation of company compliance policies and procedures and regulatory standards. '
-         'Failure to properly complete this critical step invalidates the informed consent and '
-         'exposes the company to significant regulatory and legal risks.', False),
+        (', a compliance review of this call identified the requirement failures '
+         'set out below. Each is a departure from the standards this role is '
+         'expected to meet on every client interaction.', False),
     ]
     _add_runs(intro, opening)
     _set_paragraph_spacing(intro, space_after_pt=8)
@@ -249,15 +304,14 @@ def build_writeup_docx(agent_name, internal_id, call_date,
     p.add_run('Findings include:')
     _set_paragraph_spacing(p, space_after_pt=4)
 
-    # Bullet 1 — Misguidance
-    _add_main_bullet(doc,
-                     'Failure to Accurately Explain Program / Client Misguidance:',
-                     misguidance_body)
-
-    # Bullet 2 — Risk disclosure
-    _add_main_bullet(doc,
-                     'Failure to Disclose Risks / Ensure Understanding:',
-                     risk_disclosure_body)
+    # One bullet per failed section of this org's checklist. The version of this
+    # file inherited from the single-tenant tool asserted, in every document it
+    # produced, that the agent "failed to properly disclose missed payments" —
+    # true of one customer's business and of no other, and not necessarily true
+    # of the call in hand either. An HR document may only allege what was found.
+    for f in findings:
+        heading = (f.get('heading') or '').strip().rstrip(':')
+        _add_main_bullet(doc, f'{heading}:', f.get('body') or '')
 
     # Corrective Action follows the findings directly (no forced page break)
     # so short calls don't leave a large blank gap at the bottom of page 1;
@@ -268,14 +322,17 @@ def build_writeup_docx(agent_name, internal_id, call_date,
     ca_heading.paragraph_format.keep_with_next = True
 
     corrective_items = [
-        'Strictly adhere to all company policies and procedures, including but not limited to all '
-        'compliance policies, procedures, and regulatory compliance standards.',
-        'Follow the program approval and post-enrollment scripts exactly as instructed.',
-        'Provide clients with compliant, accurate, and complete disclosures of the program.',
-        'Cease any misleading or prohibited language during all client interactions.',
-        'Seek guidance from management immediately when needed.',
-        'Attend one-on-one coaching with the manager to obtain a clear understanding of the job '
-        'expectations.',
+        'Follow all company compliance policies, procedures and applicable '
+        'regulatory standards on every call.',
+        'Complete each required step of the approved call checklist in full, in '
+        'the manner the checklist specifies.',
+        'Provide clients with accurate and complete disclosures, and confirm '
+        'their understanding before proceeding.',
+        'Cease any misleading or prohibited language during all client '
+        'interactions.',
+        'Seek guidance from management immediately when a situation is unclear.',
+        'Attend one-on-one coaching with the manager to obtain a clear '
+        'understanding of the job expectations.',
     ]
     for item in corrective_items:
         b = doc.add_paragraph(style='List Bullet')

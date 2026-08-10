@@ -3,9 +3,6 @@ Qaboom — multi-tenant call compliance QA (SaaS rewrite).
 
 This file is the application factory.  Run via serve.py (Waitress) in
 production, or `flask run` for local development.
-
-The original single-tenant tool (qa_prompt.py, writeup.py) is preserved in
-this repo and will be wired in during Phase 2.
 """
 import logging
 import os

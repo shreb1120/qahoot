@@ -125,8 +125,8 @@ proving the core idea works before it was turned into a product.
 
 ## Evidence on Hand
 
-- A working, proven internal predecessor tool (in-repo: `qa_prompt.py`,
-  `writeup.py`, `qa_prompt`'s real checklist) — genuine proof the grading works,
+- A working, proven internal predecessor tool (its grading prompt and write-up
+  generator now generalized into this codebase) — genuine proof the grading works,
   not a mockup.
 - Real cost figures from production use (~$0.20–0.40 per 30-min call vs.
   $7–12/call human labor).

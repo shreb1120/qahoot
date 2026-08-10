@@ -1,8 +1,14 @@
-# Call QA Analyzer
+# Qaboom
 
-Internal compliance-review tool for Better Debt Solutions. A QA reviewer drops a call recording into the browser, the tool transcribes it with speaker labels, and Claude scores the call against the BDS Approval Script (18 items), Post-Enrollment Script (15 items), and a list of high-risk auto-fail phrases. Results — and the full transcript — are saved so they can be reviewed later from the History tab.
+Multi-tenant call compliance QA. A reviewer drops a call recording into the
+browser, the tool transcribes it with speaker labels, and Claude scores the call
+against **that organization's own checklist** — sections, requirements and
+auto-fail phrases they write and edit themselves. Results and the full
+transcript are saved for later review, and failures go into a manager sign-off
+queue.
 
-Built for ~20–200 calls/week, runs on a single internal Windows server, LAN-only access.
+Runs as a hosted SaaS at qaboom.io. Every org's checklist, calls, agents and
+usage are scoped to that org.
 
 ---
 
@@ -45,7 +51,7 @@ Flask app  ──► AssemblyAI (universal, speaker labels)
 
 **Job model.** Uploads are processed by a background thread; the browser polls `/status/<job_id>` every couple of seconds for progress (`uploading` → `transcribing` → `analyzing` → `complete`). In-flight jobs are kept in memory only — a restart loses jobs that haven't finished but **never loses completed history**, which is on disk in SQLite.
 
-**The QA prompt.** `qa_prompt.py` is the BDS-specific checklist. It is the source of truth for what "compliant" means and should be edited deliberately — every change can move pass/fail outcomes.
+**The checklist is per-org data, not code.** What "compliant" means lives in each organization's `ComplianceProfile` and is edited in the app. The prompt in `pipeline.py` is assembled from it at grading time, so nothing in this repo hardcodes any one customer's rules.
 
 **Cost.** Roughly **$0.20–$0.40 per ~30-minute call** between AssemblyAI and Anthropic.
 
@@ -299,7 +305,6 @@ Stop-Process -Id <pid>
 call-qa-tool/
 ├── app.py                # Flask app, routes, job worker, SQLite persistence
 ├── serve.py              # Waitress production entry point
-├── qa_prompt.py          # BDS compliance checklist + Claude prompt
 ├── requirements.txt
 ├── .env.example          # Template — copy to .env and fill in
 ├── .gitignore
@@ -313,6 +318,7 @@ call-qa-tool/
 
 ---
 
-## Internal use only
+## Keep this repository private
 
-This repo contains BDS's compliance review logic and auto-fail criteria. Keep the repository private.
+It holds deployment configuration and the grading pipeline for a live service
+carrying customer call recordings and transcripts.

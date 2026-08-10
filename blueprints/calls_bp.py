@@ -710,13 +710,16 @@ def writeup(call_id: str):
 
     report_data = call.report.report_json
 
-    misguidance, risk_disclosure = writeup_module.generate_finding_bodies(
-        client, agent_name, transcript_text, report_data
+    findings = writeup_module.generate_finding_bodies(
+        client, g.org.name, agent_name, transcript_text, report_data
     )
+    if not findings:
+        flash("Nothing failed on this call, so there is nothing to write up.",
+              "error")
+        return redirect(url_for("calls.report", call_id=call_id))
 
     buf = writeup_module.build_writeup_docx(
-        agent_name, internal_id, call_date_str,
-        misguidance, risk_disclosure,
+        g.org.name, agent_name, internal_id, call_date_str, findings,
     )
 
     # Both parts sanitised: this string goes straight into a Content-Disposition
