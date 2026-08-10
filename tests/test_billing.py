@@ -12,10 +12,11 @@ every time our handler is slow.
 """
 import json
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 import pytest
+from flask import g
 
 import usage
 from models import StripeEvent, Subscription, UsagePeriod
@@ -341,3 +342,165 @@ def test_a_legacy_top_level_period_still_resolves(anon, db, tenants, stripe_conf
     db.expire_all()
     sub = db.get(Subscription, tenants.a["org"])
     assert int(sub.current_period_start.timestamp()) == start
+
+
+# ═══════════════════ overage invoicing ═══════════════════
+#
+# This path had no tests and had never run against live Stripe. It is where the
+# product actually collects money beyond the flat fee, so the three tests below
+# are about the ways it could take the wrong amount — or none.
+
+import time as _time
+
+
+def _period(db, org_id, *, start, used, included, invoice_id=None):
+    p = UsagePeriod(org_id=org_id, period_start=start,
+                    period_end=start + timedelta(days=30),
+                    included_seconds=included, billable_seconds=used,
+                    stripe_invoice_id=invoice_id)
+    db.add(p); db.commit()
+    return p
+
+
+def _invoice(org_customer="cus_1", invoice_id="in_1", created=None):
+    return {"id": invoice_id, "customer": org_customer, "status": "draft",
+            "created": int(created.timestamp()) if created else int(_time.time()),
+            "period_start": 0, "period_end": 0}
+
+
+class _RecordingStripe:
+    """Captures InvoiceItem.create calls, and can be told to fail after Stripe
+    has already applied one — the case an idempotency key exists for."""
+
+    def __init__(self, explode_after=False):
+        self.items = []
+        self.explode_after = explode_after
+        outer = self
+
+        class InvoiceItem:
+            @staticmethod
+            def create(**kw):
+                outer.items.append(kw)
+                if outer.explode_after:
+                    raise RuntimeError("connection reset after Stripe applied it")
+                return {"id": f"ii_{len(outer.items)}"}
+
+        self.InvoiceItem = InvoiceItem
+
+
+def test_overage_is_billed_for_the_period_that_ended_not_the_one_now_open(
+        anon, db, tenants, stripe_configured, monkeypatch):
+    """Stripe guarantees no ordering between customer.subscription.updated and
+    invoice.created. When the subscription advances first, "the current period"
+    is the new, empty cycle — overage computes to zero and a month of real
+    usage is silently never invoiced."""
+    import blueprints.billing_bp as bb
+    from plans import get_plan
+
+    org_id = tenants.a["org"]
+    db.add(Subscription(org_id=org_id, plan_code="growth", status="active",
+                        stripe_customer_id="cus_1",
+                        included_minutes=8000,
+                        overage_micros_per_minute=get_plan("growth").overage_micros_per_minute))
+    now = datetime.now(timezone.utc)
+    ended = now - timedelta(days=31)
+    _period(db, org_id, start=ended, used=9000 * 60, included=8000 * 60)   # 1000 min over
+    # The subscription has already rolled to the new, empty cycle.
+    _period(db, org_id, start=now - timedelta(minutes=5), used=0, included=8000 * 60)
+    db.commit()
+
+    fake = _RecordingStripe()
+    monkeypatch.setattr(bb, "_stripe", lambda: fake)
+
+    with anon.application.test_request_context():
+        g.db = db
+        bb._attach_overage(_invoice())
+
+    assert fake.items, "no overage was billed — a month of usage was written off"
+    assert "1,000 additional minutes" == fake.items[0]["description"]
+
+
+def test_a_retry_after_stripe_already_applied_it_cannot_bill_twice(
+        anon, db, tenants, stripe_configured, monkeypatch):
+    """webhook() deletes the replay-guard row and 500s so Stripe re-delivers. If
+    the create reached Stripe but the response was lost, the retry arrives with
+    nothing recording that the item exists. The idempotency key is the only
+    thing standing between that and a doubled invoice."""
+    import blueprints.billing_bp as bb
+    from plans import get_plan
+
+    org_id = tenants.a["org"]
+    db.add(Subscription(org_id=org_id, plan_code="growth", status="active",
+                        stripe_customer_id="cus_1", included_minutes=8000,
+                        overage_micros_per_minute=get_plan("growth").overage_micros_per_minute))
+    start = datetime.now(timezone.utc) - timedelta(days=31)
+    _period(db, org_id, start=start, used=9000 * 60, included=8000 * 60)
+    db.commit()
+
+    # First delivery: Stripe applies it, then the connection dies.
+    fake = _RecordingStripe(explode_after=True)
+    monkeypatch.setattr(bb, "_stripe", lambda: fake)
+    with anon.application.test_request_context():
+        g.db = db
+        with pytest.raises(RuntimeError):
+            bb._attach_overage(_invoice())
+    db.rollback()
+
+    # Stripe re-delivers. The guard row is gone; nothing in our DB knows.
+    fake2 = _RecordingStripe()
+    monkeypatch.setattr(bb, "_stripe", lambda: fake2)
+    with anon.application.test_request_context():
+        g.db = db
+        bb._attach_overage(_invoice())
+
+    assert fake.items and fake2.items, "expected both deliveries to reach Stripe"
+    assert fake.items[0].get("idempotency_key"), "no idempotency key — Stripe would bill twice"
+    assert fake.items[0]["idempotency_key"] == fake2.items[0]["idempotency_key"], \
+        "the retry used a different key, so Stripe would create a second charge"
+
+
+def test_a_period_already_billed_is_never_billed_again(
+        anon, db, tenants, stripe_configured, monkeypatch):
+    import blueprints.billing_bp as bb
+    org_id = tenants.a["org"]
+    db.add(Subscription(org_id=org_id, plan_code="growth", status="active",
+                        stripe_customer_id="cus_1", included_minutes=8000,
+                        overage_micros_per_minute=120))
+    _period(db, org_id, start=datetime.now(timezone.utc) - timedelta(days=31),
+            used=9000 * 60, included=8000 * 60, invoice_id="in_old")
+    db.commit()
+
+    fake = _RecordingStripe()
+    monkeypatch.setattr(bb, "_stripe", lambda: fake)
+    with anon.application.test_request_context():
+        g.db = db
+        bb._attach_overage(_invoice(invoice_id="in_2"))
+    assert fake.items == []
+
+
+def test_paying_closes_the_period_the_invoice_billed(
+        anon, db, tenants, stripe_configured):
+    """Not whichever period is open now — under the other webhook ordering that
+    would settle an unbilled period and leave the paid one open forever."""
+    import blueprints.billing_bp as bb
+    org_id = tenants.a["org"]
+    db.add(Subscription(org_id=org_id, plan_code="growth", status="active",
+                        stripe_customer_id="cus_1", included_minutes=8000))
+    billed = _period(db, org_id, start=datetime.now(timezone.utc) - timedelta(days=31),
+                     used=9000 * 60, included=8000 * 60, invoice_id="in_paid")
+    fresh = _period(db, org_id, start=datetime.now(timezone.utc), used=0, included=8000 * 60)
+    db.commit()
+    # Hold the keys, not the instances — expire_all() below detaches them.
+    billed_start, fresh_start = billed.period_start, fresh.period_start
+
+    with anon.application.test_request_context():
+        g.db = db
+        bb._close_period({"id": "in_paid", "customer": "cus_1"})
+        # webhook() commits after the handler returns; this test calls the
+        # handler directly, so it has to do the same or the change is discarded.
+        db.commit()
+    db.expire_all()
+
+    assert db.get(UsagePeriod, (org_id, billed_start)).closed_at is not None
+    assert db.get(UsagePeriod, (org_id, fresh_start)).closed_at is None, \
+        "closed a period that was never invoiced"

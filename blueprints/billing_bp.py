@@ -302,6 +302,55 @@ def _sync_subscription(obj) -> None:
     logger.info("Org %s subscription is now %s on %s", org_id, sub.status, sub.plan_code)
 
 
+def _period_to_bill(org_id: str, invoice):
+    """The usage period this invoice should carry overage for.
+
+    Not `usage.current_period()`, for two independent reasons.
+
+    **Ordering.** That function answers "which period are we in *now*", derived
+    from `subscriptions.current_period_start`. Stripe guarantees no ordering
+    between `customer.subscription.updated` and `invoice.created`, so when the
+    subscription row is advanced first, "now" is the new, empty cycle: overage
+    computes to zero, the guard is never set, and a month of real overage is
+    silently never invoiced. A coin flip, every month, per customer.
+
+    **Side effects.** `current_period()` inserts a period row if none exists. A
+    webhook has no business opening a billing period as a side effect of
+    reading one.
+
+    Neither `invoice.period_start` nor the line period can be used directly:
+    on a first invoice the two top-level fields are both the creation instant,
+    and on a renewal the line period describes the cycle being *paid for in
+    advance*, while the overage belongs to the cycle that just ended.
+
+    So the question is asked of our own ledger: the most recent period that has
+    **ended** by the time this invoice was cut, and has not yet been billed.
+
+    "Ended" rather than "begun" is the load-bearing word. Selecting the latest
+    period that had merely started picks the new, empty cycle whenever the
+    subscription was advanced first — reproducing the very bug this function
+    exists to fix. A cycle still in progress is not yet billable; only the one
+    that closed is.
+
+    A first invoice matches nothing, because no period has ended yet. That is
+    correct: there is no overage to collect on a subscription's first day.
+    """
+    from models import UsagePeriod
+
+    cut = invoice.get("created")
+    cut_at = (datetime.fromtimestamp(cut, tz=timezone.utc) if cut
+              else datetime.now(timezone.utc))
+
+    return (
+        g.db.query(UsagePeriod)
+        .filter(UsagePeriod.org_id == org_id,
+                UsagePeriod.stripe_invoice_id.is_(None),
+                UsagePeriod.period_end <= cut_at)
+        .order_by(UsagePeriod.period_end.desc())
+        .first()
+    )
+
+
 def _attach_overage(invoice) -> None:
     """Bill the minutes beyond the allowance, once, as a single line item.
 
@@ -320,9 +369,9 @@ def _attach_overage(invoice) -> None:
     if org is None or sub is None:
         return
 
-    period = usage.current_period(g.db, org)
-    if period.stripe_invoice_id:
-        return                                    # already billed this period
+    period = _period_to_bill(org_id, invoice)
+    if period is None or period.stripe_invoice_id:
+        return                                    # nothing owed, or already billed
 
     over = max(0, usage.minutes_from_seconds(period.billable_seconds)
                   - usage.minutes_from_seconds(period.included_seconds))
@@ -333,25 +382,55 @@ def _attach_overage(invoice) -> None:
     if amount_cents <= 0:
         return
 
+    # The idempotency key is what stops a retry double-billing.
+    #
+    # On any failure `webhook()` deletes the replay-guard row and returns 500 so
+    # Stripe re-delivers. If this call reached Stripe but the response was lost —
+    # a timeout, a dropped connection — or anything after it raised, the rollback
+    # discards `stripe_invoice_id` and the retry arrives with nothing recording
+    # that the item exists. Without a key it posts a second one: a Growth org
+    # owing $480 of overage is invoiced $960.
+    #
+    # Keyed on org and period rather than on the event, because the retry is a
+    # different delivery of the same logical charge, and because two different
+    # events must never collapse into one charge.
     stripe.InvoiceItem.create(
         customer=invoice["customer"],
         invoice=invoice["id"],
         amount=amount_cents,
         currency="usd",
         description=f"{over:,} additional minutes",
+        idempotency_key=f"qaboom:overage:{org_id}:{period.period_start.isoformat()}",
     )
     period.stripe_invoice_id = invoice["id"]
-    logger.info("Org %s billed %d overage minutes (%d cents)", org_id, over, amount_cents)
+    logger.info("Org %s billed %d overage minutes (%d cents) for period starting %s",
+                org_id, over, amount_cents, period.period_start)
 
 
 def _close_period(invoice) -> None:
-    """Mark the period settled once its invoice is paid."""
+    """Mark the period settled once its invoice is paid.
+
+    Closes the period this invoice actually billed, found by the invoice id we
+    recorded when attaching the overage — not whichever period happens to be
+    open now. Under the ordering where the subscription advances first, "now"
+    is the next cycle, and closing that would mark an unbilled period settled
+    while leaving the paid one open forever.
+
+    A paid invoice that carried no overage has no period pointing at it, and
+    there is correspondingly nothing to close.
+    """
+    from models import UsagePeriod
+
     org_id = _org_id_for(invoice)
     if not org_id:
         return
-    from models import Organization
-    org = g.db.get(Organization, org_id)
-    if org is None:
+
+    period = (
+        g.db.query(UsagePeriod)
+        .filter(UsagePeriod.org_id == org_id,
+                UsagePeriod.stripe_invoice_id == invoice["id"])
+        .first()
+    )
+    if period is None:
         return
-    period = usage.current_period(g.db, org)
     period.closed_at = datetime.now(timezone.utc)
