@@ -275,8 +275,24 @@ def _sync_subscription(obj) -> None:
     sub.plan_code = plan_obj.code
     sub.included_minutes = plan_obj.included_minutes
     sub.overage_micros_per_minute = plan_obj.overage_micros_per_minute
-    sub.current_period_start = _ts(obj.get("current_period_start"))
-    sub.current_period_end = _ts(obj.get("current_period_end"))
+    # The billing period lives on the subscription *item*, not the subscription.
+    # Stripe moved it there in API version 2025-06-30; on 2026-07-29 (what this
+    # account is on) the top-level fields are gone entirely, so reading them
+    # returned None on every webhook and no paid org ever had a period recorded.
+    #
+    # That is not cosmetic: usage.current_period() uses these dates to decide
+    # what "this period" means, so every paid org silently fell back to the
+    # calendar month while Stripe invoiced on the subscription's own anniversary.
+    # A customer signing up on the 10th would have had usage counted 1st-to-1st
+    # and billed 10th-to-10th — two different windows for one invoice.
+    #
+    # The top-level read stays as a fallback so an older payload, or a replay of
+    # an event captured before the move, still resolves.
+    item = items[0] if items else {}
+    sub.current_period_start = _ts(item.get("current_period_start")
+                                   or obj.get("current_period_start"))
+    sub.current_period_end = _ts(item.get("current_period_end")
+                                 or obj.get("current_period_end"))
     sub.cancel_at_period_end = bool(obj.get("cancel_at_period_end"))
     sub.trial_ends_at = _ts(obj.get("trial_end"))
 

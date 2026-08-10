@@ -286,3 +286,58 @@ def test_a_plan_without_a_stripe_price_cannot_be_bought(monkeypatch):
 
     monkeypatch.setenv("STRIPE_PRICE_GROWTH", "price_123")
     assert PLANS_BY_CODE["growth"].is_purchasable is True
+
+
+# ─────────────── the payload shape Stripe actually sends ───────────────
+
+def test_the_billing_period_is_read_from_the_subscription_item(anon, db, tenants,
+                                                               stripe_configured):
+    """Stripe moved current_period_start/end from the subscription onto the
+    subscription *item* in API version 2025-06-30. On the version this account
+    is pinned to the top-level fields are gone entirely, so the old read
+    returned None on every webhook and no paid org ever had a period recorded.
+
+    That is a billing defect, not a cosmetic one: usage.current_period() uses
+    these dates to decide what "this period" means, so a customer who subscribed
+    on the 10th had usage counted 1st-to-1st and was invoiced 10th-to-10th.
+
+    The rest of this suite missed it because every fixture put the dates where
+    Stripe used to put them. This one puts them where Stripe puts them now.
+    """
+    from plans import get_plan
+    start, end = 1754611200, 1757289600
+    event = _event("customer.subscription.updated", {
+        "id": "sub_item_period", "status": "active", "customer": "cus_1",
+        "metadata": {"org_id": tenants.a["org"]},
+        "items": {"data": [{
+            "price": {"id": get_plan("growth").stripe_price_id},
+            "current_period_start": start,
+            "current_period_end": end,
+        }]},
+    }, event_id="evt_item_period")
+
+    assert _post_event(anon, event).status_code == 200
+    db.expire_all()
+
+    sub = db.get(Subscription, tenants.a["org"])
+    assert sub is not None
+    assert sub.current_period_start is not None, \
+        "the billing period was not recorded — usage will fall back to the calendar month"
+    assert int(sub.current_period_start.timestamp()) == start
+    assert int(sub.current_period_end.timestamp()) == end
+
+
+def test_a_legacy_top_level_period_still_resolves(anon, db, tenants, stripe_configured):
+    """A replay of an event captured before Stripe moved the fields must still
+    work — the fallback is not decorative."""
+    start, end = 1754611200, 1757289600
+    event = _event("customer.subscription.updated", {
+        "id": "sub_legacy", "status": "active", "customer": "cus_1",
+        "metadata": {"org_id": tenants.a["org"], "plan_code": "growth"},
+        "current_period_start": start, "current_period_end": end,
+    }, event_id="evt_legacy_period")
+
+    assert _post_event(anon, event).status_code == 200
+    db.expire_all()
+    sub = db.get(Subscription, tenants.a["org"])
+    assert int(sub.current_period_start.timestamp()) == start
