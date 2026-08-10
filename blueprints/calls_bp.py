@@ -53,6 +53,7 @@ from sqlalchemy import Date, cast, func
 import pipeline as pipeline_module
 import ratelimit
 import review
+import stats
 import usage
 from auth import login_required, org_required
 from models import Agent, Call, Report
@@ -823,19 +824,15 @@ def history():
     if phone_filter:
         q = q.filter(Call.client_phone.ilike(f"%{phone_filter}%"))
 
-    calls = q.order_by(Call.upload_date.desc()).all()
-
-    # Apply result filter post-query (based on pass_fail_status string)
+    # The result filter is a property of the report, so it becomes an inner
+    # join — which also reproduces the old behaviour of excluding ungraded
+    # calls, since `c.report and …` skipped them.
+    joined_report = False
     if result_filter:
-        if result_filter == "pass":
-            calls = [c for c in calls if c.report and c.report.pass_fail_status
-                     and "PASS" in c.report.pass_fail_status and "FAIL" not in c.report.pass_fail_status]
-        elif result_filter == "fail":
-            calls = [c for c in calls if c.report and c.report.pass_fail_status
-                     and "FAIL" in c.report.pass_fail_status and "CRITICAL" not in c.report.pass_fail_status]
-        elif result_filter == "critical":
-            calls = [c for c in calls if c.report and c.report.pass_fail_status
-                     and "CRITICAL" in c.report.pass_fail_status]
+        criterion = stats.verdict_filter(result_filter)
+        if criterion is not None:
+            q = q.join(Report, Report.call_id == Call.id).filter(criterion)
+            joined_report = True
 
     agents = (
         g.db.query(Agent)
@@ -844,20 +841,22 @@ def history():
         .all()
     )
 
-    # Totals are counted across the whole filtered set, then a single page is
-    # rendered. An org with thousands of calls would otherwise put every row in
-    # the DOM — but a compliance tool must still report honest totals, so the
-    # summary counts below are not page-scoped.
-    total_calls = len(calls)
-    summary = {"passed": 0, "failed": 0, "critical": 0}
-    for c in calls:
-        det = (c.report.pass_fail_status if c.report else "") or ""
-        if "CRITICAL" in det:
-            summary["critical"] += 1
-        elif "PASS" in det and "FAIL" not in det:
-            summary["passed"] += 1
-        elif "FAIL" in det:
-            summary["failed"] += 1
+    # Totals come from one aggregate across the whole filtered set, and the page
+    # comes from a LIMIT. This used to load every matching call — each with its
+    # full JSONB report eagerly joined — and slice fifty rows out in Python, so
+    # an org's thousandth call made every history view read all thousand reports
+    # to display fifty. The counts stay set-wide, not page-wide: a compliance
+    # tool reporting "3 failures" when it means "3 on this page" is worse than
+    # one reporting nothing.
+    #
+    # The join is keyed on whether a criterion was actually applied, not on
+    # whether `result` was present: an unrecognised value (a stale bookmark, a
+    # hand-edited URL) leaves the query unjoined while the aggregate still
+    # references `reports`, and Postgres answers that with a cross join — every
+    # count multiplied by the number of reports in the set.
+    counts_q = q if joined_report else q.outerjoin(Report, Report.call_id == Call.id)
+    summary = stats.verdict_counts(counts_q)
+    total_calls = summary["total"]
 
     try:
         page = max(1, int(request.args.get("page", 1)))
@@ -866,7 +865,13 @@ def history():
     total_pages = max(1, (total_calls + PAGE_SIZE - 1) // PAGE_SIZE)
     page = min(page, total_pages)
     start = (page - 1) * PAGE_SIZE
-    page_calls = calls[start:start + PAGE_SIZE]
+
+    page_calls = (
+        q.order_by(Call.upload_date.desc())
+        .limit(PAGE_SIZE)
+        .offset(start)
+        .all()
+    )
 
     # Preserve the active filters when moving between pages.
     page_args = {k: v for k, v in request.args.items() if k != "page" and v}

@@ -40,6 +40,56 @@ IS_CRITICAL = case(
     (Report.pass_fail_status.ilike("%CRITICAL%"), 1),
     else_=0,
 )
+IS_FAIL = case(
+    (Report.verdict.is_not(None), case((Report.verdict == "fail", 1), else_=0)),
+    (Report.pass_fail_status.ilike("%FAIL%")
+     & ~Report.pass_fail_status.ilike("%CRITICAL%"), 1),
+    else_=0,
+)
+
+# The three are evaluated in this order wherever a call is put in exactly one
+# bucket, because the ILIKE fallback is not mutually exclusive: the pre-migration
+# string "CRITICAL FAIL" matches both IS_CRITICAL and, but for its own guard,
+# IS_FAIL. Critical first is the safe direction — a critical failure must never
+# be reported as an ordinary one.
+_BUCKETS = (("critical", IS_CRITICAL), ("pass", IS_PASS), ("fail", IS_FAIL))
+
+
+def verdict_filter(result: str):
+    """SQL criterion for the history page's result filter, or None.
+
+    History used to fetch every row and filter with `"FAIL" in status` in
+    Python. Same predicate, third copy, and it disagreed with this module:
+    stats read `verdict` and history read the free-text string, so a report
+    written before the normalizer counted one way on the dashboard and the
+    other way in history.
+    """
+    for name, expr in _BUCKETS:
+        if result == name:
+            return expr == 1
+    return None
+
+
+def verdict_counts(query) -> dict:
+    """{'passed': n, 'failed': n, 'critical': n, 'total': n} for a Call query.
+
+    One aggregate over the whole filtered set. The counts stay honest across
+    every page — a compliance tool that reported page-scoped totals would be
+    worse than one that reported none.
+    """
+    # enable_eagerloads(False) matters: the caller's query carries
+    # joinedload(Call.report) for rendering, and leaving it attached to an
+    # aggregate adds a second, unjoined `reports` to the FROM clause — a
+    # cartesian product that multiplies every count by the number of reports.
+    row = query.enable_eagerloads(False).with_entities(
+        func.count(Call.id),
+        func.coalesce(func.sum(IS_PASS), 0),
+        func.coalesce(func.sum(IS_FAIL), 0),
+        func.coalesce(func.sum(IS_CRITICAL), 0),
+    ).one()
+    total, passed, failed, critical = row
+    return {"total": total or 0, "passed": passed or 0,
+            "failed": failed or 0, "critical": critical or 0}
 
 # How many of an agent's calls the miss analysis reads. Headline counters come
 # from SQL and stay exact; only this breakdown is capped.

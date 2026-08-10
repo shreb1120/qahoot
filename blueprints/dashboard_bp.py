@@ -1,8 +1,10 @@
 """
 Dashboard blueprint — the main authenticated area.
 
-Phase 1: stub page confirming the user is in and their org is loaded.
-Phase 2: call upload, analysis results, and history live here.
+Headline counts come from `stats.verdict_counts`, the one place that decides
+what a pass, a failure and a critical failure are. Everything user-facing that
+counts calls has to go through it, or two pages start reporting different
+numbers for the same data.
 """
 from datetime import date, datetime, timedelta, timezone
 
@@ -11,6 +13,7 @@ from sqlalchemy import Date, cast, func
 from sqlalchemy.orm import joinedload
 
 import review
+import stats
 from auth import org_required
 from stats import agent_performance_rows
 from models import Agent, Call, Report
@@ -33,22 +36,19 @@ def index():
         Call.org_id == org_id, Call.status == "complete"
     ).scalar() or 0
 
-    pass_count = db.query(func.count(Report.id)).join(Call).filter(
-        Call.org_id == org_id,
-        Report.pass_fail_status.ilike("%PASS%"),
-        ~Report.pass_fail_status.ilike("%FAIL%"),
-    ).scalar() or 0
-
-    fail_count = db.query(func.count(Report.id)).join(Call).filter(
-        Call.org_id == org_id,
-        Report.pass_fail_status.ilike("%FAIL%"),
-        ~Report.pass_fail_status.ilike("%CRITICAL%"),
-    ).scalar() or 0
-
-    critical_count = db.query(func.count(Report.id)).join(Call).filter(
-        Call.org_id == org_id,
-        Report.pass_fail_status.ilike("%CRITICAL%"),
-    ).scalar() or 0
+    # One aggregate, one definition. These were three separate queries, each
+    # pattern-matching `pass_fail_status` with ILIKE — which can never use an
+    # index, and ignored the `verdict` column the normalizer writes. That made
+    # this the third copy of a predicate that also lived in stats.py and in the
+    # history view, and the copies disagreed for any report saved before the
+    # normalizer existed.
+    verdicts = stats.verdict_counts(
+        db.query(Call).join(Report, Report.call_id == Call.id)
+        .filter(Call.org_id == org_id)
+    )
+    pass_count = verdicts["passed"]
+    fail_count = verdicts["failed"]
+    critical_count = verdicts["critical"]
 
     week_ago = datetime.now(timezone.utc) - timedelta(days=7)
     this_week = db.query(func.count(Call.id)).filter(
