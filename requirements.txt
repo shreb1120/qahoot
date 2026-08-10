@@ -1,12 +1,61 @@
-flask==3.1.1
-anthropic==0.52.0
-assemblyai==0.64.3
-python-dotenv==1.1.0
+# Qaboom runtime dependencies.
+#
+# Direct dependencies are pinned exactly. Transitive ones are pinned only where
+# a version carries a known vulnerability or where drift has bitten us — the
+# rest are left to the resolver so security updates are not held back by a pin
+# nobody revisits.
+#
+# The PDF stack (xhtml2pdf and everything under it) was missing from this file
+# entirely while being imported at runtime, so a rebuild from requirements.txt
+# produced a server whose report-download route raised ImportError. weasyprint
+# is deliberately absent: it needs system libpango, which is not installed.
+
+# ── Web ──
+# Floors, not exact pins: pip-audit found live advisories against the versions
+# this file previously pinned, and an exact pin is how they stayed there.
+flask>=3.1.3          # PYSEC-2026-2151
+Werkzeug>=3.1.6       # PYSEC-2026-2320
 waitress==3.0.2
-python-docx==1.2.0
+
+# CVE-2024-34064 (xmlattr injection), CVE-2024-56326 and CVE-2025-27516
+# (sandbox escapes) are all fixed by 3.1.6. Flask requires >=3.1.2, which is
+# satisfied either way — nothing was holding this back but not looking.
+Jinja2>=3.1.6
+
+# ── Database ──
 sqlalchemy==2.0.41
 alembic==1.16.4
 psycopg2-binary==2.9.10
-PyJWT==2.10.1
-cryptography==45.0.5
+
+# ── Auth ──
+# PyJWT verifies every Clerk token, so this is the most load-bearing pin in the
+# file — and 2.10.1 carried eight advisories, the last fixed in 2.13.0.
+PyJWT>=2.13.0
+cryptography>=45.0.5
+
+# ── Vendors ──
+anthropic==0.52.0
+assemblyai==0.64.3
 stripe==15.4.0
+
+# HTTP, pinned at the floor rather than exactly: these are what the CVEs were
+# in, and holding them at an exact version is how they got three years stale.
+#   urllib3  <2.5.0  — CVE-2023-43804 / CVE-2023-45803 (Cookie and
+#                      Proxy-Authorization leak across redirects),
+#                      CVE-2024-37891 (proxy auth retained on cross-host redirect)
+#   requests <2.32.4 — CVE-2024-35195 (a session that verified once would keep
+#                      making unverified requests)
+urllib3>=2.5.0
+requests>=2.32.4
+
+# ── Documents ──
+# Written warnings (.docx) and report downloads (PDF).
+python-docx==1.2.0
+xhtml2pdf==0.2.17
+reportlab>=4.4.3
+pillow>=12.3.0     # PYSEC-2026-3453/3454/3493/3494/3495/3496
+html5lib==1.1
+svglib==2.1.0
+
+# ── Config ──
+python-dotenv>=1.2.2  # PYSEC-2026-2270
