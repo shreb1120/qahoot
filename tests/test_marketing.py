@@ -103,10 +103,17 @@ def test_public_pages_never_name_our_vendors_or_stack(anon, page):
 def test_public_pages_avoid_machine_facing_language(anon):
     """"The grader", "the model", "the AI" describe our implementation, not the
     customer's job. They also invite the wrong question — whether to trust a
-    machine — instead of the right one, which is whether the evidence holds."""
+    machine — instead of the right one, which is whether the evidence holds.
+
+    Matched on word boundaries, not substrings: "llm" lives inside
+    "enrollment", which is core vocabulary for a debt-settlement checklist. A
+    check that flags legitimate copy is a check people learn to ignore.
+    """
     body = anon.get("/").get_data(as_text=True).lower()
     for term in ("the grader", "the model", "our ai", "llm", "machine learning"):
-        assert term not in body, f"machine-facing language on the landing page: {term!r}"
+        assert not re.search(rf"\b{re.escape(term)}\b", body), (
+            f"machine-facing language on the landing page: {term!r}"
+        )
 
 
 def test_the_page_says_it_is_not_legal_advice(anon):

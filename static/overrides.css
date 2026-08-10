@@ -1076,15 +1076,19 @@ label:has(> input[type="checkbox"]), label:has(> input[type="radio"]) {
 .mk-card-p { font-size: var(--fs-body); line-height: 1.62; color: var(--muted); margin: 0; }
 
 /* ── Plans ── */
+/* Explicit column counts, not auto-fit. With four plans, auto-fit at a 16rem
+   minimum wrapped 3+1 and stranded the featured plan alone on a second row —
+   the worst possible card to orphan. */
 .mk-plans {
   display: grid; gap: 1rem; margin-top: 2rem;
-  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
-  align-items: stretch;
+  grid-template-columns: 1fr; align-items: stretch;
 }
+@media (min-width: 620px)  { .mk-plans { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+@media (min-width: 1040px) { .mk-plans { grid-template-columns: repeat(4, minmax(0,1fr)); gap: .75rem; } }
 .mk-plan {
   position: relative; display: flex; flex-direction: column;
   background: var(--c-bg); border: 1px solid var(--c-line);
-  border-radius: var(--c-radius); padding: 1.5rem 1.25rem 1.25rem;
+  border-radius: var(--c-radius); padding: 1.5rem 1.125rem 1.125rem;
 }
 .mk-section--alt .mk-plan { background: var(--c-panel-2); }
 .mk-plan--featured { border-color: var(--spk-a); box-shadow: 0 0 0 1px var(--spk-a); }
@@ -1188,3 +1192,130 @@ label:has(> input[type="checkbox"]), label:has(> input[type="radio"]) {
   font-variant-numeric: tabular-nums;
 }
 @media (prefers-reduced-motion: reduce) { .qb-meter-fill { transition: none; } }
+
+/* ── Marketing: hero layout with the product beside the pitch ──
+   The report preview is the most persuasive thing on the page, so it gets
+   equal weight with the headline rather than being buried below the fold.
+   Stacks on narrow screens with the copy first — the pitch still has to land
+   before the artifact makes sense. */
+.mk-hero-grid { display: grid; gap: 2.5rem; align-items: center; }
+@media (min-width: 940px) {
+  .mk-hero-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 3rem; }
+  .mk-hero { padding-bottom: 2.5rem; }
+}
+.mk-hero-copy .mk-h1 { max-width: 16ch; }
+.mk-hero-copy .mk-lede { font-size: var(--fs-body); line-height: 1.65; }
+@media (min-width: 940px) { .mk-hero-copy .mk-lede { font-size: var(--mk-fs-lede); } }
+.mk-shot-cap {
+  font-size: var(--fs-meta); color: var(--faint); text-align: center;
+  margin: .75rem 0 0;
+}
+
+/* ── The report preview ──
+   Real rp-* classes inside; this is only the frame around them. */
+.mk-shot {
+  margin: 0; background: var(--c-panel);
+  border: 1px solid var(--c-line-2); border-radius: var(--c-radius);
+  overflow: hidden;
+  /* The one earned shadow on this page: it lifts the artifact off the ground
+     so it reads as a thing rather than another panel. */
+  box-shadow: 0 12px 32px rgba(15, 23, 42, .10), 0 2px 6px rgba(15, 23, 42, .05);
+}
+.mk-shot-bar {
+  display: flex; align-items: center; gap: .625rem;
+  padding: .5rem .875rem; background: var(--c-panel-2);
+  border-bottom: 1px solid var(--c-line);
+}
+.mk-shot-dot {
+  width: .5rem; height: .5rem; border-radius: 999px;
+  background: var(--decor); flex-shrink: 0;
+}
+.mk-shot-file {
+  font-size: var(--fs-meta); color: var(--muted);
+  font-variant-numeric: tabular-nums; flex: 1;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mk-shot-body { padding: .875rem; }
+.mk-shot-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 1rem; padding-bottom: .75rem; border-bottom: 1px solid var(--c-line);
+}
+.mk-shot-agent { font-size: var(--fs-title); font-weight: 650; color: var(--ink); }
+.mk-shot-meta { font-size: var(--fs-meta); color: var(--muted); margin-top: .125rem; }
+.mk-shot-score-n {
+  font-size: var(--fs-metric); font-weight: 700; color: #b45309;
+  font-variant-numeric: tabular-nums; letter-spacing: -.02em;
+}
+.mk-shot-items { list-style: none; padding: 0; margin: 0; }
+.mk-shot-item {
+  display: grid; grid-template-columns: 5.25rem minmax(0,1fr) auto;
+  gap: .625rem; align-items: start;
+  padding: .75rem 0; border-bottom: 1px solid var(--c-line);
+}
+.mk-shot-item:last-child { border-bottom: none; padding-bottom: 0; }
+.mk-shot-item--miss { background: #fffbfb; margin-inline: -.875rem; padding-inline: .875rem;
+                      box-shadow: inset 2px 0 0 #dc2626; }
+.mk-shot-req { font-size: var(--fs-body); font-weight: 500; color: var(--ink-2); }
+.mk-shot-note { font-size: var(--fs-meta); color: var(--muted); margin-top: .25rem; font-style: italic; }
+.mk-shot-dash { font-size: var(--fs-meta); color: var(--decor); }
+@media (max-width: 420px) {
+  .mk-shot-item { grid-template-columns: 1fr auto; }
+  .mk-shot-item .rp-status { grid-column: 1 / -1; }
+}
+
+/* ── Deliverables ── */
+.mk-deliverables {
+  display: grid; gap: 1.25rem; margin-top: 2.25rem;
+  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+}
+.mk-deliv { display: flex; flex-direction: column; }
+.mk-deliv-visual {
+  background: var(--c-bg); border: 1px solid var(--c-line);
+  border-radius: var(--c-radius); padding: .875rem;
+  min-height: 8.5rem; margin-bottom: 1rem;
+  display: flex; flex-direction: column; justify-content: center; gap: .5rem;
+}
+.mk-deliv-h {
+  font-size: var(--fs-title); font-weight: 650; color: var(--ink);
+  margin: 0 0 .375rem; letter-spacing: -.012em;
+}
+.mk-deliv-p { font-size: var(--fs-body); line-height: 1.62; color: var(--muted); margin: 0; }
+
+.mk-mini-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.mk-mini-ts { font-size: var(--fs-meta); color: var(--muted); font-variant-numeric: tabular-nums; }
+.mk-mini-quote {
+  font-size: var(--fs-body); color: var(--ink-2); margin: 0;
+  border-left: 2px solid #fecaca; padding-left: .625rem; line-height: 1.5;
+}
+.mk-mini-note { font-size: var(--fs-meta); color: #b91c1c; margin: 0; font-weight: 600; }
+.mk-mini-row {
+  display: flex; align-items: baseline; justify-content: space-between; gap: .75rem;
+  font-size: var(--fs-meta); color: var(--muted);
+}
+.mk-mini-bad  { color: #b91c1c; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mk-mini-warn { color: #b45309; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mk-mini-bar {
+  height: 4px; border-radius: var(--c-radius-micro);
+  background: var(--c-track); overflow: hidden; margin-bottom: .25rem;
+}
+.mk-mini-bar span {
+  display: block; height: 100%; background: #b91c1c;
+  transform-origin: left center; transform: scaleX(var(--v, 0));
+}
+
+.mk-deliv-visual--doc { position: relative; gap: .4375rem; }
+.mk-doc-line { height: 6px; border-radius: 2px; background: var(--c-line-2); width: 100%; }
+.mk-doc-line--title { width: 45%; height: 9px; background: var(--decor); margin-bottom: .25rem; }
+.mk-doc-line--gap { margin-top: .5rem; }
+.mk-doc-tag {
+  position: absolute; right: .75rem; bottom: .625rem;
+  font-size: var(--fs-meta); font-weight: 700; letter-spacing: .06em;
+  color: var(--faint); background: var(--c-panel);
+  border: 1px solid var(--c-line-2); border-radius: var(--c-radius-sm);
+  padding: .125rem .375rem;
+}
+
+/* Anchor targets sit under a sticky header. */
+[id="how"], [id="proof"], [id="pricing"] { scroll-margin-top: 4.5rem; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }

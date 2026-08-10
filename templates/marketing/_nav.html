@@ -9,7 +9,13 @@
       <span class="mk-brand-mark" aria-hidden="true"></span>
       Qaboom
     </a>
+    {#  Links resolve to the landing page's own sections, and stay absolute so
+        they work from /pricing too. Previously the pricing page was a dead
+        end: nothing on it led back to how the product works. #}
+    {% set home = url_for('marketing.home') %}
     <nav class="mk-nav-links" aria-label="Site">
+      <a href="{{ home }}#how">How it works</a>
+      <a href="{{ home }}#proof">What you get</a>
       <a href="{{ url_for('marketing.pricing') }}">Pricing</a>
       <a href="{{ url_for('auth.login') }}">Sign in</a>
       <a href="{{ url_for('auth.signup') }}" class="qb-btn-primary mk-nav-cta">

@@ -1,0 +1,64 @@
+{#  A faithful preview of what a finished report looks like.
+
+    Built from the same `rp-*` classes the real report page uses, so what a
+    visitor sees here is what they get — not a stylised illustration that
+    flatters the product. The call is invented; the shape is not.
+
+    This is the single most persuasive thing on the page: a compliance buyer
+    wants to see the artifact, not read about it. #}
+<figure class="mk-shot" aria-label="Example compliance report">
+  <figcaption class="mk-shot-bar">
+    <span class="mk-shot-dot" aria-hidden="true"></span>
+    <span class="mk-shot-file">20260809-1412_8005551234.mp3</span>
+    <span class="rp-verdict rp-verdict--sm rp-verdict--fail">
+      <span class="rp-verdict-dot" aria-hidden="true"></span>FAIL
+    </span>
+  </figcaption>
+
+  <div class="mk-shot-body">
+    <div class="mk-shot-head">
+      <div>
+        <div class="mk-shot-agent">Marcus Webb</div>
+        <div class="mk-shot-meta">Approval Script · 4 of 6 requirements met</div>
+      </div>
+      <div class="mk-shot-score">
+        <span class="mk-shot-score-n">67%</span>
+      </div>
+    </div>
+
+    <ul class="mk-shot-items">
+      <li class="mk-shot-item">
+        <span class="rp-status rp-status--ok">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 13 4 4L19 7"/></svg>Covered
+        </span>
+        <div class="mk-shot-item-main">
+          <div class="mk-shot-req">Disclose that enrollment may affect credit rating</div>
+          <div class="rp-evidence">“Enrolling in this program may adversely affect your credit rating, and results vary by creditor.”</div>
+        </div>
+        <span class="rp-ts">0:32</span>
+      </li>
+
+      <li class="mk-shot-item">
+        <span class="rp-status rp-status--ok">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 13 4 4L19 7"/></svg>Covered
+        </span>
+        <div class="mk-shot-item-main">
+          <div class="mk-shot-req">State the fee as a percentage of enrolled debt</div>
+          <div class="rp-evidence">“Our fee is twenty-two percent of the total enrolled debt.”</div>
+        </div>
+        <span class="rp-ts">1:05</span>
+      </li>
+
+      <li class="mk-shot-item mk-shot-item--miss">
+        <span class="rp-status rp-status--miss">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>Missing
+        </span>
+        <div class="mk-shot-item-main">
+          <div class="mk-shot-req">State the cancellation policy</div>
+          <div class="mk-shot-note">Not mentioned at any point in the call.</div>
+        </div>
+        <span class="mk-shot-dash">—</span>
+      </li>
+    </ul>
+  </div>
+</figure>
