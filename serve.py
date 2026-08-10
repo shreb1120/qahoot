@@ -47,4 +47,24 @@ if __name__ == "__main__":
 
     print(f"Qaboom listening on http://{host}:{port} (threads={threads})")
     print("Press Ctrl+C to stop.")
-    serve(application, host=host, port=port, threads=threads)
+
+    # `trusted_proxy` is not optional here, and its absence is silent.
+    #
+    # Waitress defaults to clear_untrusted_proxy_headers=True with no trusted
+    # proxy, so it *deletes* X-Forwarded-* from the environ before the app runs.
+    # ProxyFix in create_app() then finds nothing, the app concludes it is
+    # serving plain http, and every url_for(..., _external=True) yields an
+    # http:// URL — Stripe return URLs, and invite links carrying a token in
+    # the query string.
+    #
+    # Nothing about that failure is visible from inside the app, and it cannot
+    # be reproduced with Flask's test client, which never goes through waitress.
+    # It has to be configured on the server and tested against the real one.
+    #
+    # x-forwarded-for is deliberately not trusted: remote_addr is unused, so
+    # accepting a client-settable header for it is risk without benefit.
+    serve(
+        application, host=host, port=port, threads=threads,
+        trusted_proxy="127.0.0.1",
+        trusted_proxy_headers={"x-forwarded-proto", "x-forwarded-host"},
+    )

@@ -28,6 +28,25 @@ def create_app(config_class: type = Config) -> Flask:
     app = Flask(__name__)
     app.config.from_object(config_class)
 
+    # ── Trust the reverse proxy for scheme and host ───────────────────────
+    #
+    # nginx terminates TLS and forwards to 127.0.0.1:5000 over plain HTTP,
+    # sending X-Forwarded-Proto. Without this the app believed every request
+    # was http://, so *every* url_for(..., _external=True) produced an http URL:
+    #
+    #   * Stripe's success_url, cancel_url and portal return_url — a customer
+    #     was bounced to http:// immediately after paying.
+    #   * Team invite links, which carry a single-use token **in the URL**.
+    #     That is the one that matters: the token crossed the network in
+    #     cleartext on the first hop, before nginx's redirect to https.
+    #
+    # x_for is deliberately left at 0. remote_addr is not used anywhere, so
+    # trusting a client-settable header for it would add risk and buy nothing.
+    # Only nginx can reach this process — it binds 127.0.0.1 — so x_proto and
+    # x_host cannot be spoofed from outside.
+    from werkzeug.middleware.proxy_fix import ProxyFix
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1, x_for=0)
+
     # ── Database ──────────────────────────────────────────────────────────
     init_db(app.config["DATABASE_URL"])
 
