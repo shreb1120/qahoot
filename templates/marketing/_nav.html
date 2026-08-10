@@ -13,14 +13,27 @@
         they work from /pricing too. Previously the pricing page was a dead
         end: nothing on it led back to how the product works. #}
     {% set home = url_for('marketing.home') %}
+    {#  Read g directly rather than a `signed_in` variable. /pricing passes one
+        and /home does not, so a template-local flag would silently be false on
+        any page that forgot it — which is how a signed-in customer ended up
+        being offered "Sign in" and "Start free" on the pricing page, above
+        their own sidebar showing their org name and remaining minutes. #}
+    {% set nav_signed_in = g.user is defined and g.user and g.org is defined and g.org %}
     <nav class="mk-nav-links" aria-label="Site">
       <a href="{{ home }}#how">How it works</a>
       <a href="{{ home }}#proof">What you get</a>
       <a href="{{ url_for('marketing.pricing') }}">Pricing</a>
-      <a href="{{ url_for('auth.login') }}">Sign in</a>
-      <a href="{{ url_for('auth.signup') }}" class="qb-btn-primary mk-nav-cta">
-        Start free
-      </a>
+      {% if nav_signed_in %}
+        <a href="{{ url_for('billing.plan') }}">Your plan</a>
+        <a href="{{ url_for('dashboard.index') }}" class="qb-btn-primary mk-nav-cta">
+          Dashboard
+        </a>
+      {% else %}
+        <a href="{{ url_for('auth.login') }}">Sign in</a>
+        <a href="{{ url_for('auth.signup') }}" class="qb-btn-primary mk-nav-cta">
+          Start free
+        </a>
+      {% endif %}
     </nav>
   </div>
 </header>
