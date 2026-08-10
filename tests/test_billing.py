@@ -26,7 +26,7 @@ from models import StripeEvent, Subscription, UsagePeriod
 @pytest.fixture
 def stripe_configured(monkeypatch):
     monkeypatch.setenv("STRIPE_SECRET_KEY", "sk_test_fake")
-    monkeypatch.setenv("STRIPE_WEBHOOK_SECRET", "whsec_fake")
+    monkeypatch.setenv("STRIPE_WEBHOOK_SECRET", TEST_SECRET)
 
 
 def test_the_plan_page_shows_trial_usage(tenants, db):
@@ -89,24 +89,41 @@ def test_one_orgs_billing_page_never_shows_anothers_usage(tenants, db):
 
 # ─────────────────────────────── webhook ───────────────────────────────
 
+TEST_SECRET = "whsec_testonly_do_not_use_anywhere_real"
+
+
 def _event(kind, obj, event_id="evt_test_1"):
-    return {"id": event_id, "type": kind, "data": {"object": obj}}
+    """A realistically shaped Stripe event.
+
+    `"object": "event"` is not decoration — the SDK reads it to tell a v1
+    event from a v2 one, and its absence made an earlier version of this
+    helper produce payloads Stripe would never send.
+    """
+    return {"id": event_id, "object": "event", "type": kind,
+            "data": {"object": obj}}
+
+
+def _sign(body: bytes, secret: str = TEST_SECRET) -> str:
+    """Build a Stripe-Signature header exactly as Stripe does."""
+    import hashlib, hmac, time
+    ts = int(time.time())
+    mac = hmac.new(secret.encode(), f"{ts}.".encode() + body, hashlib.sha256)
+    return f"t={ts},v1={mac.hexdigest()}"
 
 
 def _post_event(client, event, *, verified=True):
-    """Post a webhook, controlling whether signature verification passes."""
-    import blueprints.billing_bp as bp
+    """Post a genuinely signed webhook and let the real verifier run.
 
-    def construct(payload, sig, secret):
-        if not verified:
-            raise ValueError("Invalid signature")
-        return event
-
-    with patch.object(bp, "_stripe") as fake:
-        fake.return_value.Webhook.construct_event.side_effect = construct
-        return client.post("/billing/webhook", data=json.dumps(event),
-                           content_type="application/json",
-                           headers={"Stripe-Signature": "t=1,v1=x"})
+    Deliberately does NOT mock construct_event. The previous version did, and
+    returned a plain dict — but Stripe's SDK hands the route a StripeObject
+    whose `.get()` raises. Every webhook 500'd in production while this suite
+    stayed green, because the tests were the only place a dict ever appeared.
+    """
+    body = json.dumps(event).encode()
+    sig = _sign(body) if verified else _sign(body, "whsec_wrong_secret")
+    return client.post("/billing/webhook", data=body,
+                       content_type="application/json",
+                       headers={"Stripe-Signature": sig})
 
 
 def test_an_unsigned_webhook_changes_nothing(anon, db, tenants, stripe_configured):

@@ -19,6 +19,7 @@ Three properties this module has to hold:
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 from datetime import datetime, timezone
@@ -164,10 +165,18 @@ def webhook():
         logger.error("Stripe webhook received but billing is not configured")
         abort(503)
 
+    raw = request.get_data()
     try:
-        event = stripe.Webhook.construct_event(
-            request.get_data(), request.headers.get("Stripe-Signature", ""), secret
+        # The SDK's job here is signature verification, and only that. Its
+        # return value is a StripeObject whose attribute access is overloaded
+        # — `obj.get(...)` resolves through __getattr__ and raises rather than
+        # behaving like dict.get — so every handler below works on plain JSON
+        # parsed from the same bytes we just authenticated. Verify with the
+        # library; read with the standard library.
+        stripe.Webhook.construct_event(
+            raw, request.headers.get("Stripe-Signature", ""), secret
         )
+        event = json.loads(raw)
     except Exception as exc:
         logger.warning("Rejected Stripe webhook: %s", exc)
         abort(400)
