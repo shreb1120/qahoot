@@ -65,7 +65,12 @@ def test_a_member_cannot_change_the_plan(tenants, stripe_configured):
     assert 'action="/billing/checkout"' not in body
 
 
-def test_billing_not_configured_says_so_rather_than_showing_dead_buttons(tenants):
+def test_billing_not_configured_says_so_rather_than_showing_dead_buttons(
+        tenants, monkeypatch):
+    """Must control its own environment. This read the ambient .env, so it
+    passed on a machine without Stripe keys and failed the moment real ones
+    were added — the test was measuring the developer's setup, not the code."""
+    monkeypatch.delenv("STRIPE_SECRET_KEY", raising=False)
     body = tenants.a_admin.get("/billing/").get_data(as_text=True)
     assert "Billing isn't switched on yet" in body
     assert "nothing will be charged" in body
