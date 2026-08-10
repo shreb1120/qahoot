@@ -1,0 +1,94 @@
+{#  Manager sign-off.
+
+    Sits at the bottom of the report, after the evidence — the decision comes
+    last because it should be made having read the thing.
+
+    The load-bearing copy is the line under Dismiss. Dismissing clears the
+    queue and does not change the agent's score; only per-item overrides do
+    that. Everyone assumes the opposite, so it is stated at the moment of the
+    click rather than in documentation nobody opens. #}
+
+{% set r = call.report %}
+<div class="rp-panel mt-4" id="signoff"
+     {% if not r.reviewed_at %}style="border-color:var(--spk-a)"{% endif %}>
+  <div class="rp-panel-head"
+       {% if not r.reviewed_at %}style="background:var(--spk-a-soft);border-color:var(--spk-a)"{% endif %}>
+    <h2 class="rp-panel-title"
+        {% if not r.reviewed_at %}style="color:var(--spk-a)"{% endif %}>
+      {{ 'Your decision' if not r.reviewed_at else 'Reviewed' }}
+    </h2>
+    {% if r.reviewed_at %}
+      <span class="text-xs text-muted rp-num">
+        {{ reviewer_email or 'a teammate' }} · {{ r.reviewed_at.strftime('%b %d, %Y') }}
+      </span>
+    {% endif %}
+  </div>
+
+  <div class="p-4">
+    {% if r.reviewed_at %}
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div class="min-w-0">
+          <p class="text-sm">
+            <span class="rp-tag {{ 'rp-tag--req' if r.review_outcome == 'confirmed' else 'rp-tag--opt' }}">
+              {{ outcome_label }}
+            </span>
+            <span class="text-muted ml-1">{{ outcome_blurb }}</span>
+          </p>
+          {% if r.review_note %}
+            <p class="rp-evidence mt-2 qb-break">{{ r.review_note }}</p>
+          {% endif %}
+        </div>
+        <form method="post" action="{{ url_for('calls.reopen_review', call_id=call.id) }}"
+              data-confirm="Put this call back in the review queue?">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="rp-btn">Reopen</button>
+        </form>
+      </div>
+
+    {% else %}
+      <p class="text-sm text-muted mb-3 max-w-2xl">
+        {% if is_failing %}
+          You don't have to touch every requirement. Correct any the grader got
+          wrong above — then record what happens to this call.
+        {% else %}
+          This call passed. Confirm you've seen it to clear it from the queue.
+        {% endif %}
+      </p>
+
+      <form method="post" action="{{ url_for('calls.review_call', call_id=call.id) }}"
+            data-busy-label="Saving…">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="rp-field mb-3">
+          <label class="rp-field-label" for="review-note">
+            Note <span class="font-normal">(optional — what you did, or why not)</span>
+          </label>
+          <textarea class="rp-input w-full" id="review-note" name="note" rows="2"
+                    maxlength="2000"
+                    placeholder="{{ 'e.g. Coached Marcus on the cancellation policy.' if is_failing else 'e.g. Spot-checked, nothing to flag.' }}"></textarea>
+        </div>
+
+        <div class="flex flex-wrap gap-2">
+          <button type="submit" name="outcome" value="confirmed" class="qb-btn-primary">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 13 4 4L19 7"/></svg>
+            {{ 'Confirm the failure' if is_failing else 'Confirm reviewed' }}
+          </button>
+          {% if is_failing %}
+            <button type="submit" name="outcome" value="dismissed" class="rp-btn">
+              Dismiss
+            </button>
+          {% endif %}
+        </div>
+
+        {% if is_failing %}
+          <p class="text-xs text-muted mt-2.5 max-w-2xl">
+            <b class="text-ink-2">Dismissing clears this call from the queue but
+            doesn't change {{ (call.agent.name.split()[0] if call.agent else 'the agent') }}'s
+            score.</b> If the grader got a requirement wrong, approve that item
+            above — that's what the scorecard counts.
+          </p>
+        {% endif %}
+      </form>
+    {% endif %}
+  </div>
+</div>

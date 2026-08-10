@@ -52,6 +52,7 @@ from sqlalchemy import Date, cast, func
 
 import pipeline as pipeline_module
 import ratelimit
+import review
 import usage
 from auth import login_required, org_required
 from models import Agent, Call, Report
@@ -484,10 +485,112 @@ def report(call_id: str):
     agents = (
         g.db.query(Agent).filter_by(org_id=g.org.id).order_by(Agent.name).all()
     )
+    # Sign-off context. The reviewer's email is looked up rather than joined
+    # onto Report, because the FK is SET NULL — a departed colleague's review
+    # must survive their user row being removed, just without a name on it.
+    rpt = call.report
+    reviewer_email = None
+    if rpt.reviewed_by_user_id:
+        from models import User
+        u = g.db.get(User, rpt.reviewed_by_user_id)
+        reviewer_email = u.email if u else None
+
     return render_template(
-        "calls/report.html", call=call, report=call.report,
+        "calls/report.html", call=call, report=rpt,
         vm=_report_view_model(call), agents=agents,
+        reviewer_email=reviewer_email,
+        is_failing=(rpt.verdict or "") in ("fail", "critical"),
+        outcome_label=review.OUTCOME_LABEL.get(rpt.review_outcome or ""),
+        outcome_blurb=review.OUTCOME_BLURB.get(rpt.review_outcome or ""),
     )
+
+
+# ── Manager sign-off ──────────────────────────────────────────────────────────
+#
+# Distinct from the per-item override below. Sign-off says "I have dealt with
+# this call"; an override says "the grader was wrong about this requirement".
+# Conflating them is what made the review queue impossible to clear.
+
+@calls_bp.post("/<call_id>/review")
+@org_required
+def review_call(call_id: str):
+    call = _org_call_or_404(call_id)
+    if not call.report:
+        abort(404)
+
+    outcome = (request.form.get("outcome") or "").strip()
+    if outcome not in review.OUTCOMES:
+        flash("Choose whether the failure is confirmed or dismissed.", "error")
+        return redirect(url_for("calls.report", call_id=call.id))
+
+    review.sign_off(g.db, call, g.user, outcome,
+                    note=request.form.get("note"))
+    g.db.commit()
+
+    flash(f"Call marked {review.OUTCOME_LABEL[outcome].lower()}.", "success")
+    # Straight to the next thing waiting, so a reviewer working a queue is not
+    # bounced back to a call they just finished.
+    nxt = review.pending(g.db, g.org.id, limit=1)
+    if nxt:
+        return redirect(url_for("calls.report", call_id=nxt[0].id))
+    return redirect(url_for("calls.review_queue"))
+
+
+@calls_bp.post("/<call_id>/review/reopen")
+@org_required
+def reopen_review(call_id: str):
+    call = _org_call_or_404(call_id)
+    review.reopen(g.db, call)
+    g.db.commit()
+    flash("Call reopened.", "success")
+    return redirect(url_for("calls.report", call_id=call.id))
+
+
+@calls_bp.get("/review")
+@org_required
+def review_queue():
+    """Everything waiting for a person, worst first."""
+    counts = review.pending_counts(g.db, g.org.id)
+    return render_template(
+        "calls/review.html",
+        counts=counts,
+        failures=review.pending(g.db, g.org.id,
+                                verdicts=("critical", "fail"), limit=50),
+        passes=review.pending(g.db, g.org.id, verdicts=("pass",), limit=100),
+    )
+
+
+@calls_bp.post("/review/bulk")
+@org_required
+def review_bulk():
+    """Confirm a page of passing calls at once.
+
+    Only offered for passes. A failure is a judgment a person has to make one
+    at a time; a pass is a confirmation, and requiring 200 individual clicks
+    for those is how a queue stops being opened at all.
+    """
+    ids = request.form.getlist("call_id")
+    if not ids:
+        flash("Select at least one call.", "error")
+        return redirect(url_for("calls.review_queue"))
+
+    calls = (
+        g.db.query(Call)
+        .join(Report, Report.call_id == Call.id)
+        .filter(Call.org_id == g.org.id, Call.id.in_(ids),
+                Report.reviewed_at.is_(None),
+                # Scoped to passes even if the form is tampered with: a failure
+                # must never be cleared without someone reading it.
+                Report.verdict == "pass")
+        .all()
+    )
+    for call in calls:
+        review.sign_off(g.db, call, g.user, review.CONFIRMED)
+    g.db.commit()
+
+    flash(f"{len(calls)} passing call{'s' if len(calls) != 1 else ''} confirmed.",
+          "success")
+    return redirect(url_for("calls.review_queue"))
 
 
 # ── Manager override ──────────────────────────────────────────────────────────

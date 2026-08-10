@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}Review queue — Qaboom{% endblock %}
+
+{% block content %}
+{#  The queue.
+
+    Split in two on purpose. Every graded call needs sign-off here, which is a
+    deliberate choice — an audit trail where a person looked at all of it — and
+    that only stays workable if the two kinds of waiting are kept apart.
+    Failures need a judgment, one call at a time. Passes need confirming, and
+    asking for two hundred individual clicks is how a queue stops being opened. #}
+<div class="max-w-4xl">
+  <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+    <div class="min-w-0">
+      <h1 class="qb-page-title">Review queue</h1>
+      <p class="text-xs text-muted mt-1.5 rp-num">
+        {% if counts.total %}
+          {{ counts.total }} call{{ 's' if counts.total != 1 }} waiting ·
+          {{ counts.needs_judgment }} need{{ 's' if counts.needs_judgment == 1 }} a decision
+        {% else %}
+          Nothing waiting
+        {% endif %}
+      </p>
+    </div>
+    <a href="{{ url_for('calls.history') }}" class="rp-btn">Call history</a>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in messages %}
+      <div class="rp-flash {{ 'rp-flash--err' if cat == 'error' else 'rp-flash--ok' }} mb-3" role="status">{{ msg }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  {% if not counts.total %}
+    <div class="rp-panel rp-empty">
+      <div class="rp-empty-icon">
+        <svg fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+      </div>
+      <h2 class="qb-section-title mb-1">Everything's been reviewed</h2>
+      <p class="text-sm text-muted max-w-sm mx-auto">
+        Every graded call has a decision against it. New uploads will appear
+        here once they finish processing.
+      </p>
+    </div>
+  {% endif %}
+
+  {# ── Failures: one at a time ── #}
+  {% if failures %}
+    <div class="rp-panel overflow-hidden mb-4" style="border-color:#fecaca">
+      <div class="rp-panel-head" style="background:#fef2f2;border-color:#fecaca">
+        <h2 class="rp-panel-title" style="color:#b91c1c">Needs a decision</h2>
+        <span class="text-xs text-ink-2 rp-num">oldest first</span>
+      </div>
+      <div>
+        {% for call in failures %}
+          <a class="rp-queue-item" href="{{ url_for('calls.report', call_id=call.id) }}">
+            {% if call.report.verdict == 'critical' %}
+              <span class="rp-verdict rp-verdict--sm rp-verdict--crit flex-shrink-0"><span class="rp-verdict-dot" aria-hidden="true"></span>CRITICAL</span>
+            {% else %}
+              <span class="rp-verdict rp-verdict--sm rp-verdict--fail flex-shrink-0"><span class="rp-verdict-dot" aria-hidden="true"></span>FAIL</span>
+            {% endif %}
+            <span class="rp-activity-main">
+              <span class="rp-activity-name block text-ink">{{ call.agent.name if call.agent else 'Unassigned' }}</span>
+              <span class="rp-activity-meta">
+                {%- if call.internal_id %}{{ call.internal_id }} · {% endif -%}
+                waiting since {{ call.upload_date.strftime('%b %d') }}
+              </span>
+            </span>
+            <span class="rp-link text-xs flex-shrink-0">Review →</span>
+          </a>
+        {% endfor %}
+      </div>
+      {% if counts.needs_judgment > failures | length %}
+        <div class="px-3.5 py-2 text-xs text-muted rp-num" style="border-top:1px solid var(--c-line)">
+          Showing the {{ failures | length }} oldest of {{ counts.needs_judgment }}.
+        </div>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  {# ── Passes: in bulk ── #}
+  {% if passes %}
+    <form method="post" action="{{ url_for('calls.review_bulk') }}" data-busy-label="Confirming…">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="rp-panel overflow-hidden">
+        <div class="rp-panel-head">
+          <h2 class="rp-panel-title">Passing calls</h2>
+          <span class="text-xs text-muted rp-num">{{ counts.passes }} waiting</span>
+        </div>
+
+        <div class="px-3.5 py-2.5 flex flex-wrap items-center gap-3"
+             style="border-bottom:1px solid var(--c-line);background:var(--c-panel-2)">
+          <label class="flex items-center gap-2 text-sm text-ink-2">
+            <input type="checkbox" id="check-all" class="rp-check">
+            Select all {{ passes | length }} shown
+          </label>
+          <button type="submit" class="rp-btn">Confirm selected</button>
+          <span class="text-xs text-faint">These met every requirement — confirming just records that you saw them.</span>
+        </div>
+
+        <div class="qb-scroll-x">
+          <table class="rp-table rp-table--rows">
+            <thead>
+              <tr>
+                <th style="width:2.5rem"><span class="qb-sr-only">Select</span></th>
+                <th>Agent</th>
+                <th>Recording</th>
+                <th style="width:9rem">Call date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for call in passes %}
+                <tr>
+                  <td>
+                    <input type="checkbox" name="call_id" value="{{ call.id }}" class="rp-check js-pass"
+                           aria-label="Confirm {{ call.agent.name if call.agent else 'unassigned call' }}">
+                  </td>
+                  <td class="qb-break font-medium text-ink-2">{{ call.agent.name if call.agent else '—' }}</td>
+                  <td>
+                    <a class="rp-link rp-file block" href="{{ url_for('calls.report', call_id=call.id) }}" title="{{ call.filename }}">{{ call.filename }}</a>
+                  </td>
+                  <td class="rp-num whitespace-nowrap text-muted">
+                    {{ (call.call_date or call.upload_date.date()).strftime('%b %d, %Y') }}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </form>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const all = document.getElementById('check-all');
+  if (!all) return;
+  const boxes = document.querySelectorAll('.js-pass');
+  all.addEventListener('change', function () {
+    boxes.forEach(function (b) { b.checked = all.checked; });
+  });
+  // Keep the header box honest when individual rows are toggled.
+  boxes.forEach(function (b) {
+    b.addEventListener('change', function () {
+      const on = document.querySelectorAll('.js-pass:checked').length;
+      all.checked = on === boxes.length;
+      all.indeterminate = on > 0 && on < boxes.length;
+    });
+  });
+})();
+</script>
+{% endblock %}

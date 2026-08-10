@@ -104,6 +104,10 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
         <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/></svg>
         Upload
       </a>
+      <a href="{{ url_for('calls.review_queue') }}" class="sidebar-link {% if request.endpoint == 'calls.review_queue' %}active{% endif %}"{% if request.endpoint == 'calls.review_queue' %} aria-current="page"{% endif %}>
+        <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+        Review
+      </a>
       <a href="{{ url_for('calls.history') }}" class="sidebar-link {% if request.endpoint == 'calls.history' %}active{% endif %}"{% if request.endpoint == 'calls.history' %} aria-current="page"{% endif %}>
         <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
         History

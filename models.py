@@ -303,6 +303,11 @@ class Report(Base):
     __tablename__ = "reports"
     __table_args__ = (
         Index("ix_reports_verdict", "verdict"),
+        # The review queue asks "which reports are still unreviewed" on every
+        # dashboard load. Partial, because reviewed rows are the ones that
+        # accumulate and they are never what the queue is looking for.
+        Index("ix_reports_unreviewed", "reviewed_at",
+              postgresql_where=text("reviewed_at IS NULL")),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
@@ -320,7 +325,33 @@ class Report(Base):
     # which can never use an index, and free text drifts — production still
     # holds a pre-normalizer "FAIL — Both" that no current code path emits.
     verdict: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    # Per-item corrections: {"section_key::Item name": "approved"|"failed"}.
+    # These say the *grader was wrong about a requirement*, so they change the
+    # score and the agent's scorecard.
     overrides_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
+    # ── Manager sign-off ──
+    # Deliberately separate from overrides_json, which is what the two used to
+    # be conflated into: a call left the review queue as soon as *any* item
+    # override existed, so a manager who read a call and agreed with every
+    # line could never clear it — the common case.
+    #
+    # Sign-off answers "have I dealt with this call", overrides answer "was the
+    # grader right about this requirement". A call can be signed off with no
+    # overrides at all, and vice versa.
+    reviewed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    reviewed_by_user_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    # "confirmed" — the failure is real, act on it.
+    # "dismissed"  — not worth acting on. Note that this clears the queue and
+    #                deliberately does NOT change the agent's score; only item
+    #                overrides do that. The UI says so at the point of use,
+    #                because the assumption otherwise runs the other way.
+    review_outcome: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    review_note: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_now
     )

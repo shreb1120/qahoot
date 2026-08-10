@@ -1327,3 +1327,12 @@ html { scroll-behavior: smooth; }
 .qb-logo { flex-shrink: 0; display: block; color: var(--spk-a); }
 /* Dark chrome — sidebar, mobile top bar — takes the surrounding text colour. */
 .qb-logo--inherit { color: inherit; }
+
+/* ── Checkbox ──
+   Only used in the review queue's bulk-confirm. 18px rather than the browser
+   default so it clears the WCAG 2.2 target size in a dense table row. */
+.rp-check {
+  width: 1.125rem; height: 1.125rem; flex-shrink: 0;
+  accent-color: var(--spk-a); cursor: pointer; margin: 0;
+}
+.rp-check:focus-visible { outline: 2px solid var(--spk-a); outline-offset: 2px; }

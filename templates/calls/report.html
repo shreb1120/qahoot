@@ -313,7 +313,12 @@
 
   <p class="qb-sr-only" id="override-status" role="status" aria-live="polite"></p>
 
-  <p class="mt-5 text-xs"><a href="{{ url_for('calls.history') }}" class="text-muted no-underline hover:text-ink">← Call history</a></p>
+  {# The decision comes last, after the evidence it should be based on. #}
+  {% include "calls/_signoff.html" %}
+
+  <p class="mt-5 text-xs"><a href="{{ url_for('calls.review_queue') }}" class="text-muted no-underline hover:text-ink">← Review queue</a>
+    <span class="text-decor mx-1">·</span>
+    <a href="{{ url_for('calls.history') }}" class="text-muted no-underline hover:text-ink">Call history</a></p>
 </div>
 {% endblock %}
 

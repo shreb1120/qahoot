@@ -10,6 +10,7 @@ from flask import Blueprint, g, render_template
 from sqlalchemy import Date, cast, func
 from sqlalchemy.orm import joinedload
 
+import review
 from auth import org_required
 from stats import agent_performance_rows
 from models import Agent, Call, Report
@@ -71,21 +72,15 @@ def index():
     )
 
     # ── Needs review ──
-    # A failed call nobody has ruled on yet is the only thing on this page that
-    # is actually a task. Overrides are JSONB, so emptiness is settled in Python
-    # rather than with a fragile SQL comparison; the query is bounded first.
-    failing = (
-        db.query(Call)
-        .options(joinedload(Call.agent), joinedload(Call.report))
-        .join(Report, Report.call_id == Call.id)
-        .filter(Call.org_id == org_id, Report.pass_fail_status.ilike("%FAIL%"))
-        .order_by(Call.upload_date.desc())
-        .limit(40)
-        .all()
-    )
-    unreviewed = [c for c in failing if not (c.report and c.report.overrides_json)]
-    needs_review = unreviewed[:5]
-    needs_review_total = len(unreviewed)
+    # The only thing on this page that is actually a task.
+    #
+    # This used to read "a failed call with no per-item override", which meant
+    # a manager who read a call and agreed with every line could never clear
+    # it — there was nothing to override — while correcting one item silently
+    # cleared a call they were halfway through. Sign-off is now its own thing;
+    # see review.py.
+    review_counts = review.pending_counts(db, org_id)
+    needs_review = review.pending(db, org_id, verdicts=("critical", "fail"), limit=5)
 
     # ── Per-agent performance ──
     # The comparison a QA manager actually opens this tool to make. Shared with
@@ -114,7 +109,7 @@ def index():
         org=g.org,
         recent_calls=recent_calls,
         needs_review=needs_review,
-        needs_review_total=needs_review_total,
+        review_counts=review_counts,
         agent_stats=agent_stats,
         volume=volume,
         volume_peak=volume_peak,

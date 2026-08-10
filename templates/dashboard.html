@@ -77,11 +77,12 @@
   {% else %}
 
     {# ── Needs review: the only thing on this page that is a task ── #}
-    {% if needs_review %}
-      <div class="rp-panel mt-4" style="border-color:#fecaca">
-        <div class="rp-panel-head" style="background:#fef2f2;border-color:#fecaca">
-          <h2 class="rp-panel-title" style="color:#b91c1c">Needs review</h2>
-          <span class="text-xs text-ink-2 rp-num">{{ needs_review_total }} failed call{{ 's' if needs_review_total != 1 }} with no manager decision</span>
+    {% if review_counts.total %}
+      {% set urgent = review_counts.needs_judgment > 0 %}
+      <div class="rp-panel mt-4"{% if urgent %} style="border-color:#fecaca"{% endif %}>
+        <div class="rp-panel-head"{% if urgent %} style="background:#fef2f2;border-color:#fecaca"{% endif %}>
+          <h2 class="rp-panel-title"{% if urgent %} style="color:#b91c1c"{% endif %}>Needs review</h2>
+          <span class="text-xs text-ink-2 rp-num">{{ review_counts.needs_judgment }} waiting for your decision</span>
         </div>
         <div>
           {% for call in needs_review %}
@@ -100,11 +101,14 @@
             </a>
           {% endfor %}
         </div>
-        {% if needs_review_total > needs_review | length %}
-          <div class="px-3.5 py-2 border-t border-slate-100">
-            <a href="{{ url_for('calls.history', result='fail') }}" class="rp-link text-xs">See all {{ needs_review_total }} →</a>
-          </div>
-        {% endif %}
+        <div class="px-3.5 py-2 border-t border-slate-100 flex flex-wrap items-center gap-x-3 gap-y-1">
+          <a href="{{ url_for('calls.review_queue') }}" class="rp-link text-xs">Open the review queue →</a>
+          {% if review_counts.passes %}
+            <span class="text-xs text-faint rp-num">
+              and {{ review_counts.passes }} passing call{{ 's' if review_counts.passes != 1 }} to confirm
+            </span>
+          {% endif %}
+        </div>
       </div>
     {% endif %}
 
