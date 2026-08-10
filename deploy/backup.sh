@@ -29,6 +29,18 @@ if [ -d /srv/qaboom/uploads ]; then
   rsync -a --delete \
     ${LATEST:+--link-dest="$LATEST"} \
     /srv/qaboom/uploads/ "$DEST/audio-$STAMP/"
+
+  # `rsync -a` preserves the SOURCE directory's mtime, so every mirror was
+  # stamped with the upload directory's date — the day the first recording
+  # landed — regardless of when the mirror was actually taken. The retention
+  # sweep below matches on mtime, so once that date passed KEEP_DAYS, every
+  # nightly run would delete every mirror including the one it had just
+  # written, and still print "ok", because verification only inspected the
+  # database dump.
+  #
+  # Stamping the mirror with the time it was made is what makes the retention
+  # line below mean what it says.
+  touch "$DEST/audio-$STAMP"
 fi
 
 find "$DEST" -maxdepth 1 -name 'db-*.dump' -mtime "+$KEEP_DAYS" -delete
@@ -39,6 +51,19 @@ find "$DEST" -maxdepth 1 -name 'audio-*' -type d -mtime "+$KEEP_DAYS" -exec rm -
 # backup failure is a file that grows every night and restores an empty schema.
 pg_restore --list "$DEST/db-$STAMP.dump" > /dev/null
 
+# The audio mirror is verified too, and for the same reason the retention bug
+# above went unnoticed: the "ok" line only ever described the database dump, so
+# a mirror that was emptied — or never written — looked exactly like success.
+audio_files=0
+if [ -d /srv/qaboom/uploads ]; then
+  src_files="$(find /srv/qaboom/uploads -type f | wc -l)"
+  audio_files="$(find "$DEST/audio-$STAMP" -type f 2>/dev/null | wc -l)"
+  if [ "$audio_files" -lt "$src_files" ]; then
+    echo "$(date -Is) FAIL audio-$STAMP holds $audio_files of $src_files files" >&2
+    exit 1
+  fi
+fi
+
 rows="$(pg_restore --data-only --table=calls -f - "$DEST/db-$STAMP.dump" 2>/dev/null \
         | awk '/^COPY /{f=1;next} /^\\\.$/{f=0} f{c++} END{print c+0}')"
 if [ "$rows" -lt 1 ]; then
@@ -46,4 +71,4 @@ if [ "$rows" -lt 1 ]; then
   exit 1
 fi
 
-echo "$(date -Is) ok  db-$STAMP.dump  ${rows} calls  $(du -sh "$DEST" | cut -f1) total"
+echo "$(date -Is) ok  db-$STAMP.dump  ${rows} calls  ${audio_files} audio files  $(du -sh "$DEST" | cut -f1) total"
