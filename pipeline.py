@@ -37,6 +37,14 @@ logger = logging.getLogger(__name__)
 # it is a courtesy, not a guarantee. Exactly-once metering is enforced by the
 # unique idempotency key on usage_events, not by this set.
 _running: set = set()
+# Calls handed to the pool that have not finished — which is NOT the same as
+# `_running`. A worker only adds itself to `_running` when it *starts*, so a
+# call sitting in the executor's queue appears in neither the database as
+# finished nor in `_running` as busy. `recover_stranded` read `_running` alone
+# and therefore treated queued work as abandoned: a bulk import whose tail
+# waited past STRANDED_AFTER was re-submitted every sweep, paying AssemblyAI
+# and Anthropic again each time while the customer was correctly billed once.
+_queued: set = set()
 _lock = threading.Lock()
 
 # Bounded pool. Four concurrent calls is comfortably above one customer's
@@ -436,6 +444,7 @@ def run_pipeline(call_id: str, file_path: str,
         db.close()
         with _lock:
             _running.discard(call_id)
+            _queued.discard(call_id)
 
 
 def _after_usage(db, call) -> None:
@@ -463,9 +472,18 @@ def spawn(call_id: str, file_path: str,
     Returns as soon as the work is queued. Keyword-compatible with the old
     thread-per-call version — the upload route and six tests call it by keyword.
     """
-    _get_pool().submit(
-        run_pipeline, call_id, file_path, assemblyai_key, anthropic_key
-    )
+    with _lock:
+        _queued.add(call_id)
+    try:
+        _get_pool().submit(
+            run_pipeline, call_id, file_path, assemblyai_key, anthropic_key
+        )
+    except Exception:
+        # Never leave a call marked as queued when it is not — recovery would
+        # then refuse to pick it up, which is the opposite failure.
+        with _lock:
+            _queued.discard(call_id)
+        raise
 
 
 def recover_stranded(assemblyai_key: str, anthropic_key: str) -> int:
@@ -497,7 +515,7 @@ def recover_stranded(assemblyai_key: str, anthropic_key: str) -> int:
         # the right scope: it answers "is a worker *here* on this call", and a
         # row stale because another process died has no entry.
         with _lock:
-            in_flight = set(_running)
+            in_flight = _running | _queued
         if in_flight:
             skipped = [c.id for c in stranded if c.id in in_flight]
             if skipped:

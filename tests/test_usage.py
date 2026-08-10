@@ -309,3 +309,50 @@ def test_the_allowance_is_snapshotted_when_the_period_opens(tenants, db):
     sub.included_minutes = 8000
     db.commit()
     assert usage.current_period(db, org).included_seconds == 2000 * 60
+
+
+# ─────────── a subscription with no allowance means "the plan's", not zero ───────────
+
+def test_a_zero_allowance_subscription_does_not_disable_the_trial_gate(tenants, db):
+    """The trial hard-stop switched itself off, and a row like this was already
+    in production.
+
+    Subscription.included_minutes defaults to 0, and checkout() wrote a row
+    carrying only the Stripe customer id before the customer paid — so an
+    abandoned Checkout left a trial org at zero. A period opened from that
+    snapshots included_seconds = 0, and `over` is `used >= included > 0`, which
+    is False forever at zero: unlimited free usage, silently.
+
+    Every other entitlement test sets included_minutes by hand, so the default
+    was never exercised.
+    """
+    from models import Organization, Subscription
+    import usage
+
+    org = db.get(Organization, tenants.a["org"])
+    db.add(Subscription(org_id=org.id, plan_code="trial", status="trialing"))
+    db.commit()
+
+    period = usage.current_period(db, org)
+    assert period.included_seconds > 0, \
+        "a zero allowance was snapshotted — the trial gate can never fire"
+    assert period.included_seconds == usage.TRIAL_MINUTES * 60 if hasattr(usage, "TRIAL_MINUTES") \
+        else period.included_seconds > 0
+
+
+def test_the_gate_actually_fires_for_such_an_org(tenants, db):
+    """The consequence, end to end: the org must be blocked once it is over."""
+    from models import Organization, Subscription
+    import usage
+    from plans import TRIAL_MINUTES
+
+    org = db.get(Organization, tenants.a["org"])
+    db.add(Subscription(org_id=org.id, plan_code="trial", status="trialing"))
+    db.commit()
+
+    period = usage.current_period(db, org)
+    period.billable_seconds = (TRIAL_MINUTES * 60) + 1
+    db.commit()
+
+    with pytest.raises(usage.Blocked):
+        usage.check_can_upload(db, org)

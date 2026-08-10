@@ -226,3 +226,72 @@ def test_creating_the_app_starts_no_sweeper():
     }
     assert "start_recovery_sweeper" not in called
     assert "recover_stranded" not in called
+
+
+# ─────────── the sweeper must not re-run work it has already queued ───────────
+
+def test_recovery_leaves_alone_a_call_that_is_queued_but_not_yet_started(tenants, db,
+                                                                        monkeypatch):
+    """The bug the first version of the sweeper shipped with.
+
+    `_running` is populated by a worker when it *starts*. A call sitting in the
+    pool's queue is in neither `_running` nor a terminal state, so recovery saw
+    it as abandoned. A bulk import whose tail waited past STRANDED_AFTER was
+    re-submitted every ten minutes — paying AssemblyAI and Anthropic again on
+    each sweep while the customer was correctly billed once.
+
+    Simulated by submitting to a pool that never runs anything, which is exactly
+    what a saturated pool looks like from outside.
+    """
+    call = db.get(Call, tenants.a["call"])
+    call.status = "pending"
+    call.upload_date = datetime.now(timezone.utc) - timedelta(hours=2)
+    db.commit()
+
+    class NeverRuns:
+        def submit(self, *a, **kw):
+            return None
+
+    monkeypatch.setattr(pipeline, "_get_pool", lambda: NeverRuns())
+    pipeline.spawn(call_id=call.id, file_path="/tmp/x.mp3",
+                   assemblyai_key="a", anthropic_key="b")
+    assert call.id in pipeline._queued, "spawn did not record the call as queued"
+
+    resubmitted = []
+    monkeypatch.setattr(pipeline, "spawn",
+                        lambda **kw: resubmitted.append(kw["call_id"]))
+    try:
+        assert pipeline.recover_stranded("aai", "anthropic") == 0
+        assert resubmitted == [], "re-queued a call that was already waiting in the pool"
+    finally:
+        with pipeline._lock:
+            pipeline._queued.discard(call.id)
+
+
+def test_a_failed_submit_does_not_leave_the_call_marked_as_queued(tenants, db,
+                                                                  monkeypatch):
+    """The opposite failure: a call stuck as 'queued' when nothing holds it
+    would be invisible to recovery forever."""
+    class Broken:
+        def submit(self, *a, **kw):
+            raise RuntimeError("pool is shut down")
+
+    monkeypatch.setattr(pipeline, "_get_pool", lambda: Broken())
+    with pytest.raises(RuntimeError):
+        pipeline.spawn(call_id="call-x", file_path="/tmp/x.mp3",
+                       assemblyai_key="a", anthropic_key="b")
+    assert "call-x" not in pipeline._queued
+
+
+def test_a_finished_call_stops_being_queued(tenants, db, monkeypatch):
+    """Otherwise the set grows forever and recovery stops working for those ids."""
+    call = db.get(Call, tenants.a["call"])
+    with pipeline._lock:
+        pipeline._queued.add(call.id)
+
+    monkeypatch.setattr(pipeline.aai, "settings", type("S", (), {"api_key": ""})())
+    monkeypatch.setattr(pipeline, "_get_pool", lambda: None)
+    # Run with a key that fails fast; we only care that the finally block clears.
+    pipeline.run_pipeline(call.id, "/nonexistent.mp3", "bad", "bad")
+    assert call.id not in pipeline._queued
+    assert call.id not in pipeline._running

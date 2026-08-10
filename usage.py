@@ -73,7 +73,19 @@ def current_period(db, org, *, now: datetime | None = None) -> UsagePeriod:
     else:
         start, end = _month_window(now, org.created_at.day if org.created_at else 1)
 
-    included = (sub.included_minutes if sub else plan.included_minutes) * 60
+    # `or plan.included_minutes` is load-bearing, not defensive noise.
+    #
+    # Subscription.included_minutes defaults to 0, and checkout() writes a row
+    # carrying only the Stripe customer id before the customer has paid for
+    # anything — so an abandoned Checkout leaves a trial org with a zero
+    # allowance. A period opened from that snapshots included_seconds = 0, and
+    # `over` is `used >= included > 0`, which is False forever at zero. The
+    # trial hard-stop switches itself off and the org uploads free of charge
+    # indefinitely. One such row already existed in production.
+    #
+    # A subscription that does not state an allowance means "whatever the plan
+    # says", never "nothing".
+    included = ((sub.included_minutes if sub else 0) or plan.included_minutes) * 60
 
     db.execute(
         pg_insert(UsagePeriod)

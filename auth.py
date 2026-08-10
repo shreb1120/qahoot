@@ -40,18 +40,66 @@ def _get_jwks_client() -> PyJWKClient:
 
 
 def _verify_session_token(token: str) -> dict | None:
-    """Return the verified JWT claims dict, or None if the token is invalid."""
+    """Return the verified JWT claims dict, or None if the token is invalid.
+
+    A valid signature is not the same as a token meant for us. Two bindings
+    beyond the signature, and the reason for each:
+
+    **Issuer.** Pins the token to our own Clerk instance. Without it any Clerk
+    instance whose key our JWKS client would fetch could authenticate here.
+
+    **Authorized party (`azp`).** This is the one that matters. `azp` is the
+    origin that asked Clerk for the token. A Clerk *development* instance
+    answers any origin, and the publishable key is public in our page source —
+    so another site can have Clerk mint a genuine, correctly-signed session
+    token for a visiting user of ours, with `azp` set to that site. Replayed
+    here as `Authorization: Bearer`, it used to be accepted: full account
+    takeover with a signature that verifies perfectly. CSRF does not help, as
+    the attacker's own server can fetch a matching token and cookie pair.
+
+    `azp` is enforced when present rather than required, deliberately. Clerk
+    puts it in every token this instance issues (verified against a live one),
+    so "must match if present" blocks the attack completely — the attacker's
+    token *has* an `azp`, just the wrong one. Requiring it would add nothing
+    against that attack while risking locking every user out if Clerk ever
+    changes its claim set.
+
+    `aud` is not checked at all: these tokens do not carry one.
+    """
     try:
         signing_key = _get_jwks_client().get_signing_key_from_jwt(token)
-        return jwt.decode(
+        claims = jwt.decode(
             token,
             signing_key.key,
             algorithms=["RS256"],
-            options={"verify_exp": True, "verify_nbf": True},
+            issuer=current_app.config.get("CLERK_ISSUER") or None,
+            options={
+                "verify_exp": True,
+                "verify_nbf": True,
+                "verify_iss": bool(current_app.config.get("CLERK_ISSUER")),
+                "verify_aud": False,
+            },
         )
     except Exception as exc:
         logger.debug("JWT verification failed: %s", exc)
         return None
+
+    allowed = current_app.config.get("CLERK_AUTHORIZED_PARTIES") or ()
+    azp = claims.get("azp")
+    if azp and allowed and azp not in allowed:
+        # Warning, not debug: this is either an attack or a misconfiguration
+        # after adding a domain, and both need to be visible.
+        logger.warning(
+            "Rejected a validly-signed Clerk token issued to another origin "
+            "(azp=%s, user=%s). If this domain is legitimately ours, add it to "
+            "CLERK_AUTHORIZED_PARTIES.",
+            azp, claims.get("sub"),
+        )
+        return None
+    if not azp:
+        logger.warning("Clerk token has no azp claim; origin binding not enforced")
+
+    return claims
 
 
 def _sync_user(clerk_user_id: str, email: str, db) -> User:
