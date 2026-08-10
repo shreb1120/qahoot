@@ -92,7 +92,7 @@
 <footer class="mk-footer">
   <div class="mk-wrap mk-footer-inner">
     <span class="mk-brand mk-brand--sm">
-      <span class="mk-brand-mark" aria-hidden="true"></span> Qaboom
+      {% with size=18 %}{% include "_logo.html" %}{% endwith %} Qaboom
     </span>
     <nav class="mk-footer-links" aria-label="Footer">
       <a href="{{ url_for('marketing.home') }}#how">How it works</a>

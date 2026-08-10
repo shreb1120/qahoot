@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Qaboom">
+  <!--
+    Tab icon. The same idea as logo.svg, redrawn for 16 pixels rather than
+    scaled down to them. Three things had to change from the inline mark:
+
+    * **Corner radius is 1, not half the bar width.** A pill-shaped rect that
+      is only 4 units tall is a circle, and the first draft read as four
+      scattered dots rather than a level meter.
+    * **Four bars, not five**, spaced wider. At 16px a bar lands on 2 device
+      pixels and its gap on 1; a fifth bar pushes both under a pixel and the
+      whole thing greys into a block.
+    * **Two tones only.** Three opacity steps collapse into mud at this size,
+      so the quiet bars share one value and the accent bar carries all the
+      contrast.
+
+    No letterform on purpose — a "Q" at 16px is a smudge, a silhouette is not.
+  -->
+  <rect width="32" height="32" rx="7" fill="#4338ca"/>
+  <g fill="#a5b4fc">
+    <rect x="5"    y="11" width="4" height="10" rx="1"/>
+    <rect x="11.3" y="7"  width="4" height="18" rx="1"/>
+    <rect x="23.9" y="12" width="4" height="8"  rx="1"/>
+  </g>
+  <rect x="17.6" y="4" width="4" height="24" rx="1" fill="#fff"/>
+</svg>

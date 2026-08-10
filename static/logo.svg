@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" role="img" aria-label="Qaboom">
+  <!--
+    The mark: a call as a level meter, with one bar picked out.
+
+    Bars are already the app's own vocabulary — the upload-volume chart, the
+    pass-rate bars, the miss-rate bars all speak it — so the logo is drawn from
+    the product rather than applied to it.
+
+    The heights are deliberately irregular. A symmetric equaliser is the
+    generic "audio" icon; real speech is lopsided, and the asymmetry is what
+    makes this readable as *a call* and not a graphic-equaliser cliché.
+
+    The fourth bar is the tall one and carries the accent. That is the whole
+    product in a mark: out of everything said on the call, this is the moment
+    that mattered. It also gives the silhouette an off-centre weight that
+    survives being shrunk to 16 pixels, where a symmetric mark turns to mush.
+
+    Radii are 1px on a 24px grid — the same 2px-on-a-48px-grid feel as
+    --c-radius-micro, which is what every other bar in the interface uses.
+  -->
+  <rect x="2"    y="9"    width="2.6" height="6"    rx="1" fill="currentColor" opacity=".45"/>
+  <rect x="6.2"  y="6"    width="2.6" height="12"   rx="1" fill="currentColor" opacity=".65"/>
+  <rect x="10.4" y="10.5" width="2.6" height="3"    rx="1" fill="currentColor" opacity=".45"/>
+  <rect x="14.6" y="3"    width="2.6" height="18"   rx="1" fill="var(--logo-accent, currentColor)"/>
+  <rect x="18.8" y="8"    width="2.6" height="8"    rx="1" fill="currentColor" opacity=".45"/>
+</svg>

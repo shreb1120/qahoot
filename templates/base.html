@@ -7,6 +7,19 @@
   {% if g.user is defined and g.user %}<meta name="csrf-token" content="{{ csrf_token() }}">{% endif %}
   <title>{% block title %}Qaboom{% endblock %}</title>
 
+  {# ── Tab icon ──
+     SVG first for browsers that take it (crisp at any size, one file); the
+     32px PNG is the fallback for Safari and older engines, which ignore
+     rel="icon" with an SVG type. apple-touch-icon is what iOS uses when
+     someone saves the site to a home screen — without it iOS screenshots the
+     page, which looks broken. #}
+  <link rel="icon" href="{{ static_url('favicon.svg') }}" type="image/svg+xml">
+  <link rel="icon" href="{{ static_url('favicon-32.png') }}" sizes="32x32" type="image/png">
+  <link rel="icon" href="{{ static_url('favicon-16.png') }}" sizes="16x16" type="image/png">
+  <link rel="apple-touch-icon" href="{{ static_url('apple-touch-icon.png') }}">
+  <link rel="manifest" href="{{ static_url('site.webmanifest') }}">
+  <meta name="theme-color" content="#4338ca">
+
   {# Fonts and CSS are all same-origin: no third-party request blocks the
      first paint. Tailwind is built ahead of time by `npm run build:css`
      (config in tailwind.config.js) instead of compiled in the browser. #}
@@ -61,7 +74,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
       <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/></svg>
     </button>
     <a href="{{ url_for('dashboard.index') }}" class="ml-3 text-white font-bold text-lg tracking-tight no-underline flex items-center gap-2">
-      <span class="w-2 h-2 rounded-sm bg-indigo-500"></span>Qaboom
+      {% with size=20, tone='inherit' %}{% include "_logo.html" %}{% endwith %}Qaboom
     </a>
   </div>
 
@@ -74,7 +87,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
     {# Brand header #}
     <div class="flex items-center justify-between px-5 h-14 lg:h-16">
       <a href="{{ url_for('dashboard.index') }}" class="text-white font-bold text-lg tracking-tight no-underline flex items-center gap-2.5">
-        <span class="w-2.5 h-2.5 rounded-sm bg-indigo-400 ring-2 ring-indigo-400/30" aria-hidden="true"></span>Qaboom
+        {% with size=22, tone='inherit' %}{% include "_logo.html" %}{% endwith %}Qaboom
       </a>
       <button id="sidebar-close" type="button" class="qb-icon-btn lg:hidden text-decor hover:text-white" aria-label="Close menu">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>

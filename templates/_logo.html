@@ -1,0 +1,43 @@
+{#  The Qaboom mark.
+
+    Same drawing as favicon.svg, so the tab icon and the site logo are one
+    identity rather than two — which is the entire point of having a logo.
+
+    Two forms:
+      default          indigo tile, light bars. Enough weight to hold its own
+                       beside a wordmark on a white header, where the bare
+                       bars read as faint scratches.
+      tone='inherit'   bars only, in currentColor, no tile. For dark chrome
+                       (sidebar, mobile top bar) where a solid indigo tile
+                       would fight the navy gradient behind it.
+
+    Inlined as SVG rather than referenced as an image file, so the second
+    form can take its colour from context, and so neither costs a request on
+    first paint.
+
+    Usage:  {% with size=22 %}{% include "_logo.html" %}{% endwith %}
+            {% with size=22, tone='inherit' %}{% include "_logo.html" %}{% endwith %}
+#}
+{% set s = size | default(22) %}
+{% if tone == 'inherit' %}
+  <svg class="qb-logo qb-logo--inherit" viewBox="0 0 32 32" fill="none"
+       width="{{ s }}" height="{{ s }}" aria-hidden="true">
+    <g fill="currentColor" opacity=".55">
+      <rect x="5"    y="11" width="4" height="10" rx="1"/>
+      <rect x="11.3" y="7"  width="4" height="18" rx="1"/>
+      <rect x="23.9" y="12" width="4" height="8"  rx="1"/>
+    </g>
+    <rect x="17.6" y="4" width="4" height="24" rx="1" fill="currentColor"/>
+  </svg>
+{% else %}
+  <svg class="qb-logo" viewBox="0 0 32 32" fill="none"
+       width="{{ s }}" height="{{ s }}" aria-hidden="true">
+    <rect width="32" height="32" rx="7" fill="var(--spk-a)"/>
+    <g fill="#a5b4fc">
+      <rect x="5"    y="11" width="4" height="10" rx="1"/>
+      <rect x="11.3" y="7"  width="4" height="18" rx="1"/>
+      <rect x="23.9" y="12" width="4" height="8"  rx="1"/>
+    </g>
+    <rect x="17.6" y="4" width="4" height="24" rx="1" fill="#fff"/>
+  </svg>
+{% endif %}

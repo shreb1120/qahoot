@@ -1319,3 +1319,11 @@ label:has(> input[type="checkbox"]), label:has(> input[type="radio"]) {
 [id="how"], [id="proof"], [id="pricing"] { scroll-margin-top: 4.5rem; }
 html { scroll-behavior: smooth; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+/* ── Logo mark ──
+   Inherits colour, so one file serves the indigo marketing header and the
+   white-on-indigo sidebar. flex-shrink stops it collapsing next to a long
+   org name in the sidebar. */
+.qb-logo { flex-shrink: 0; display: block; color: var(--spk-a); }
+/* Dark chrome — sidebar, mobile top bar — takes the surrounding text colour. */
+.qb-logo--inherit { color: inherit; }

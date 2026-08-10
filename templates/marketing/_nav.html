@@ -6,7 +6,7 @@
 <header class="mk-nav">
   <div class="mk-wrap mk-nav-inner">
     <a href="{{ url_for('marketing.home') }}" class="mk-brand">
-      <span class="mk-brand-mark" aria-hidden="true"></span>
+      {% with size=22 %}{% include "_logo.html" %}{% endwith %}
       Qaboom
     </a>
     {#  Links resolve to the landing page's own sections, and stay absolute so
