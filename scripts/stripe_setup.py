@@ -30,6 +30,13 @@ load_dotenv()
 
 from plans import purchasable_plans        # noqa: E402
 
+# Stripe's "Software as a service (SaaS) — business use" tax code. Required:
+# Managed Payments is on by default for new accounts and rejects a Checkout
+# session whose product has no tax code. Business-use rather than personal-use
+# because Qaboom is sold to organizations, and some jurisdictions tax the two
+# differently.
+TAX_CODE = "txcd_10103000"
+
 
 def main() -> int:
     ap = argparse.ArgumentParser()
@@ -59,10 +66,18 @@ def main() -> int:
                 product = stripe.Product.create(
                     name=f"Qaboom {plan.name}",
                     description=plan.blurb,
+                    tax_code=TAX_CODE,
                     metadata={"qaboom_plan": plan.code},
                 )
         else:
             print(f"{plan.name}: product exists ({product.id})")
+            # Backfill on an existing product: Stripe enables Managed Payments
+            # by default on new accounts, and a product without a tax code makes
+            # every Checkout session fail with a 400. Cheap to set, and the
+            # failure it prevents only shows up when a real customer clicks buy.
+            if not args.dry_run and getattr(product, "tax_code", None) != TAX_CODE:
+                stripe.Product.modify(product.id, tax_code=TAX_CODE)
+                print(f"{plan.name}: set tax code")
 
         if args.dry_run and product is None:
             env_lines.append(f"{plan.stripe_price_env}=price_...   # {plan.name}")
