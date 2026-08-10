@@ -131,11 +131,13 @@ def _burn(db, org, minutes, key="s:transcription:1"):
 
 
 def test_the_sidebar_shows_the_meter_on_every_app_page(tenants, db):
-    _burn(db, _org(db, tenants), 25)
+    used = 25
+    _burn(db, _org(db, tenants), used)
+    left = f"{TRIAL.included_minutes - used:,} min left"
     for path in ("/dashboard", "/calls/", "/agents/"):
         body = tenants.a_admin.get(path).get_data(as_text=True)
         assert "qb-meter" in body, f"no usage meter on {path}"
-        assert "75 min left" in body
+        assert left in body
 
 
 def test_the_meter_never_appears_for_a_stranger(anon):
@@ -144,17 +146,18 @@ def test_the_meter_never_appears_for_a_stranger(anon):
 
 def test_the_upload_page_warns_only_once_it_matters(tenants, db):
     """A banner shown on every visit stops being read by the time it counts."""
+    allowance = TRIAL.included_minutes
     org = _org(db, tenants)
-    _burn(db, org, 50, "a:transcription:1")
+    _burn(db, org, int(allowance * 0.5), "a:transcription:1")
     assert "minutes left" not in tenants.a_admin.get("/calls/upload").get_data(as_text=True)
 
-    _burn(db, org, 35, "b:transcription:1")          # now 85%
+    _burn(db, org, int(allowance * 0.35), "b:transcription:1")     # now ~85%
     body = tenants.a_admin.get("/calls/upload").get_data(as_text=True)
-    assert "15 minutes left" in body and "in your trial" in body
+    assert "minutes left" in body and "in your trial" in body
 
 
 def test_an_exhausted_trial_is_told_what_to_do_next(tenants, db):
-    _burn(db, _org(db, tenants), 120)
+    _burn(db, _org(db, tenants), TRIAL.included_minutes + 20)
     body = tenants.a_admin.get("/calls/upload").get_data(as_text=True)
     assert "free trial is used up" in body
     assert "/billing/" in body

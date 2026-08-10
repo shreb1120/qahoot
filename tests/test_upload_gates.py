@@ -36,6 +36,12 @@ def _org(db, tenants):
     return db.get(Organization, tenants.a["org"])
 
 
+def _exhaust_trial(db, org, key="burn:transcription:1"):
+    """Use up whatever the trial currently allows, plus a minute."""
+    from plans import TRIAL
+    _burn(db, org, TRIAL.included_minutes + 1, key)
+
+
 def _burn(db, org, minutes, key):
     usage.record(db, org_id=org.id, call_id=None,
                  resource_type=usage.TRANSCRIPTION,
@@ -52,7 +58,7 @@ def test_a_healthy_trial_can_upload(tenants):
 def test_an_exhausted_trial_is_refused_with_payment_required(tenants, db):
     """402 rather than 403: this is a "you need a plan" answer, not a
     "you're not allowed" one, and the page says so."""
-    _burn(db, _org(db, tenants), 200, "burn:transcription:1")
+    _exhaust_trial(db, _org(db, tenants))
 
     r = _upload(tenants.a_admin, tenants)
     assert r.status_code == 402
@@ -86,7 +92,7 @@ def test_a_canceled_subscription_is_refused(tenants, db):
 
 def test_a_refused_upload_writes_no_call_and_no_file(tenants, db):
     """Being refused must cost nothing — no orphan row, no orphan file."""
-    _burn(db, _org(db, tenants), 200, "burn:transcription:1")
+    _exhaust_trial(db, _org(db, tenants))
     before = db.query(Call).filter_by(org_id=tenants.a["org"]).count()
 
     _upload(tenants.a_admin, tenants)

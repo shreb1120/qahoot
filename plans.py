@@ -19,10 +19,12 @@ from dataclasses import dataclass
 
 MICROS = 1_000_000
 
-# Trial allowance. Deliberately generous enough to grade a real day's calls —
-# at a ~31-minute average that is three or four whole calls, which is the point
-# at which a QA manager can tell whether the grading is any good.
-TRIAL_MINUTES = 100
+# Trial allowance, in minutes. Sized in *calls*, not round numbers: at the
+# measured ~31-minute average, 100 minutes was three calls, which is a sample
+# rather than a pattern. 300 is roughly ten — enough for a QA manager to see
+# whether the grading holds up across different agents and call types, which
+# is the only question a trial exists to answer. Costs us well under a dollar.
+TRIAL_MINUTES = 300
 
 
 @dataclass(frozen=True)
@@ -73,6 +75,21 @@ PLANS: tuple[Plan, ...] = (
             "Your checklist, yours to edit",
             "Full reports with timestamped evidence",
             "No card, nothing to cancel",
+        ),
+    ),
+    Plan(
+        code="solo",
+        name="Solo",
+        price_micros=99 * MICROS,
+        included_minutes=600,
+        overage_micros_per_minute=220_000,          # $0.22/min
+        stripe_price_env="STRIPE_PRICE_SOLO",
+        blurb="One reviewer, a few calls a day.",
+        features=(
+            "600 minutes a month included",
+            "$0.22 a minute after that",
+            "Everyone on your team, no seat count",
+            "Full reports with timestamped evidence",
         ),
     ),
     Plan(

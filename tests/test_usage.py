@@ -161,9 +161,14 @@ def test_partial_minutes_round_up(seconds, minutes):
 
 def test_a_trial_that_runs_out_is_blocked(tenants, db):
     """The trial hard-stops. That is the conversion moment — a free plan with
-    soft overage is just a free plan."""
+    soft overage is just a free plan.
+
+    Derived from plans.py rather than hardcoded: the allowance is a pricing
+    decision that will move again, and a test that pins it just breaks every
+    time someone changes it."""
+    from plans import TRIAL
     org = _org(db, tenants)
-    _meter(db, org, 101 * 60, key="t:transcription:1")
+    _meter(db, org, (TRIAL.included_minutes + 1) * 60, key="t:transcription:1")
 
     with pytest.raises(usage.Blocked) as e:
         usage.check_can_upload(db, org)
@@ -208,21 +213,24 @@ def test_an_unknown_plan_code_does_not_break_the_billing_page(tenants, db):
 
 def test_each_threshold_fires_once(tenants, db):
     """Told once, not on every upload."""
+    from plans import TRIAL
+    allowance = TRIAL.included_minutes
     org = _org(db, tenants)
-    _meter(db, org, 80 * 60, key="w1:transcription:1")
+    _meter(db, org, int(allowance * 0.8) * 60, key="w1:transcription:1")
     assert usage.thresholds_crossed(db, org) == ["80"]
     db.commit()
     assert usage.thresholds_crossed(db, org) == []
 
-    _meter(db, org, 25 * 60, key="w2:transcription:1")
+    _meter(db, org, int(allowance * 0.25) * 60, key="w2:transcription:1")
     assert usage.thresholds_crossed(db, org) == ["100"]
     db.commit()
     assert usage.thresholds_crossed(db, org) == []
 
 
 def test_no_warning_below_eighty_percent(tenants, db):
+    from plans import TRIAL
     org = _org(db, tenants)
-    _meter(db, org, 79 * 60, key="w:transcription:1")
+    _meter(db, org, int(TRIAL.included_minutes * 0.79) * 60, key="w:transcription:1")
     assert usage.thresholds_crossed(db, org) == []
 
 
