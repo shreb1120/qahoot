@@ -64,11 +64,52 @@ if [ -d /srv/qaboom/uploads ]; then
   fi
 fi
 
-rows="$(pg_restore --data-only --table=calls -f - "$DEST/db-$STAMP.dump" 2>/dev/null \
-        | awk '/^COPY /{f=1;next} /^\\\.$/{f=0} f{c++} END{print c+0}')"
-if [ "$rows" -lt 1 ]; then
-  echo "$(date -Is) FAIL db-$STAMP.dump restores zero calls — investigate" >&2
-  exit 1
-fi
+# Every table that would hurt to lose is counted out of the dump and compared
+# against the live database.
+#
+# The previous check asked only whether `calls` restored at least one row, which
+# passed while twelve of thirteen calls silently vanished, and said nothing at
+# all about reports, transcripts or the usage ledger the invoices are built from.
+# A backup that restores 8% of the data is not a backup, and this is the only
+# place that would ever notice.
+rows_in_dump() {
+  pg_restore --data-only --table="$1" -f - "$DEST/db-$STAMP.dump" 2>/dev/null \
+    | awk '/^COPY /{f=1;next} /^\\\.$/{f=0} f{c++} END{print c+0}'
+}
+rows_live() {
+  psql "$DB_URL" -tAc "SELECT count(*) FROM $1"
+}
+
+rows=0
+for t in organizations users calls reports transcripts agents \
+         compliance_profiles subscriptions usage_events usage_periods; do
+  live="$(rows_live "$t")"
+  dumped="$(rows_in_dump "$t")"
+  if [ "$dumped" -ne "$live" ]; then
+    echo "$(date -Is) FAIL db-$STAMP.dump has $dumped of $live rows in $t" >&2
+    rm -f "$DEST/db-$STAMP.dump"
+    exit 1
+  fi
+  [ "$t" = "calls" ] && rows="$dumped"
+done
+
+# The configuration needed to rebuild this box, which the database dump does not
+# contain. Without SECRET_KEY every existing session and CSRF token is void, and
+# without the vendor keys the app cannot run at all — losing /srv would have made
+# them unrecoverable.
+#
+# 0600, and inside a backup directory that is already the same trust boundary as
+# the .env it copies. This does NOT solve off-site: these still sit on the
+# machine they protect against losing.
+umask 077
+tar czf "$DEST/config-$STAMP.tar.gz" \
+  -C / \
+  srv/qaboom/.env \
+  $( [ -r /etc/nginx/sites-available/qaboom.io ] && echo etc/nginx/sites-available/qaboom.io ) \
+  $( [ -r /etc/systemd/system/qaboom.service ] && echo etc/systemd/system/qaboom.service ) \
+  2>/dev/null || echo "$(date -Is) WARN config archive incomplete" >&2
+chmod 600 "$DEST/config-$STAMP.tar.gz" 2>/dev/null || true
+find "$DEST" -maxdepth 1 -name 'config-*.tar.gz' -mtime "+$KEEP_DAYS" -delete
+umask 022
 
 echo "$(date -Is) ok  db-$STAMP.dump  ${rows} calls  ${audio_files} audio files  $(du -sh "$DEST" | cut -f1) total"
