@@ -17,7 +17,12 @@ server {
     listen [::]:80;
     server_name www.qaboom.io;
     server_tokens off;
-    return 301 http://qaboom.io$request_uri;
+    # https, not http. This redirect fires for anyone who reaches the www host,
+    # and the app hands out invite links carrying a single-use token **in the
+    # URL path**. Redirecting to http:// put that token on the wire in cleartext
+    # on the first hop — and a first-time invitee has no HSTS entry for this
+    # domain yet, so the browser really does send it.
+    return 301 https://qaboom.io$request_uri;
 }
 
 # ─── Main HTTP block (certbot will add HTTPS) ─────────────────────────────────
@@ -27,7 +32,13 @@ server {
     server_name qaboom.io;
     server_tokens off;
 
-    client_max_body_size 100M;
+    # Must exceed the app's MAX_CONTENT_LENGTH (500 MB), not undercut it.
+    # At 100M nginx rejected a 150 MB recording itself, with its own bare error
+    # page — while the app's upload screen and its 413 handler both said the
+    # limit was 500 MB. The app owns this limit so that the person who hits it
+    # gets an explanation and a suggestion; nginx is only here to stop something
+    # absurd reaching the worker.
+    client_max_body_size 512M;
 
     # Required for certbot ACME challenge
     location /.well-known/acme-challenge/ {
