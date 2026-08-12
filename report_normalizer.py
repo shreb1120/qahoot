@@ -84,6 +84,31 @@ def _clean_status(value) -> str:
     return NOT_ASSESSED
 
 
+def _spoken_by(hit: dict) -> str:
+    """Who said it: "agent", "client", or "" when genuinely unknown.
+
+    The grader is asked for an explicit `spoken_by`, which is the reliable
+    answer. The fallback reads the free-text `speaker` label, because reports
+    graded before that field existed carry attribution only there — in practice
+    as strings like "Speaker B (Client - Isaac)".
+
+    Unknown resolves to agent-attributable, deliberately. Silently excusing a
+    phrase nobody could attribute would hide real misconduct, which is a worse
+    failure than the one being fixed here; a reviewer can see the attribution on
+    the report and override.
+    """
+    explicit = str(hit.get("spoken_by") or "").strip().lower()
+    if explicit in ("agent", "client"):
+        return explicit
+
+    label = str(hit.get("speaker") or "").lower()
+    if "client" in label or "customer" in label:
+        return "client"
+    if "agent" in label:
+        return "agent"
+    return ""
+
+
 def normalize_report(raw: dict | None, checklist: dict | None) -> dict:
     """Return a report guaranteed to describe exactly `checklist`."""
     raw = raw if isinstance(raw, dict) else {}
@@ -171,14 +196,32 @@ def normalize_report(raw: dict | None, checklist: dict | None) -> dict:
             "phrase": hit.get("phrase", ""),
             "timestamp": hit.get("timestamp") or None,
             "speaker": hit.get("speaker") or "",
+            "spoken_by": _spoken_by(hit),
             "quote": hit.get("quote") or "",
             "violation": hit.get("violation") or "",
         })
 
+    # Only the agent can fail the call.
+    #
+    # This tool grades the agent. A client using a prohibited phrase to describe
+    # their own situation is not misconduct by the person under review — but for
+    # a long time it was scored as one: any kept phrase became CRITICAL FAIL
+    # regardless of who spoke it. Call 888454 covered all 33 required items and
+    # was marked CRITICAL FAIL because the client said "consolidation loan"
+    # about his own prior account. The grader had correctly recorded
+    # `speaker: "Speaker B (Client - Isaac)"` and written "spoken by the CLIENT,
+    # not the agent" into the violation text. The verdict logic simply never
+    # looked.
+    #
+    # Client-spoken phrases stay in the report: a reviewer may well want to know
+    # the framing was used and the agent let it stand. They just cannot fail
+    # anyone.
+    agent_hits = [h for h in kept if h["spoken_by"] != "client"]
+
     # Determination is derived, never trusted, so a verdict can never disagree
     # with the rows underneath it. `verdict` is the same decision in a form a
     # query can index; the prose is for the reader.
-    if kept:
+    if agent_hits:
         determination, verdict = "CRITICAL FAIL", CRITICAL
     elif not sections_out:
         determination = raw.get("final_determination") or "FAIL — no checklist sections"
@@ -253,7 +296,12 @@ def normalize_report(raw: dict | None, checklist: dict | None) -> dict:
         "verdict": verdict,
         "summary": str(raw.get("summary") or ""),
         "sections": sections_out,
-        "auto_fail_phrases": {"detected": bool(kept), "phrases": kept},
+        "auto_fail_phrases": {
+            "detected": bool(agent_hits),
+            "phrases": kept,
+            "agent_count": len(agent_hits),
+            "client_count": len(kept) - len(agent_hits),
+        },
         "program_flip": {
             "detected": flip_detected,
             "reason": flip_reason,

@@ -21,7 +21,22 @@ def _new_clerk_id():
     return "user_" + uuid.uuid4().hex[:24]
 
 
-def test_signing_up_again_with_the_same_email_does_not_break_login(tenants, db):
+@pytest.fixture
+def verified(monkeypatch):
+    calls = []
+
+    def _fake(clerk_user_id, email):
+        calls.append((clerk_user_id, email))
+        return _fake.result
+
+    _fake.result = True
+    _fake.calls = calls
+    monkeypatch.setattr(auth, "_email_is_verified", _fake)
+    return _fake
+
+
+
+def test_signing_up_again_with_the_same_email_does_not_break_login(tenants, db, verified):
     """The bug, end to end. This used to raise IntegrityError."""
     existing = db.get(User, tenants.a["admin"])
     email = existing.email
@@ -33,7 +48,7 @@ def test_signing_up_again_with_the_same_email_does_not_break_login(tenants, db):
     assert user.email == email
 
 
-def test_the_org_and_role_come_with_them(tenants, db):
+def test_the_org_and_role_come_with_them(tenants, db, verified):
     """Otherwise the person signs in successfully and finds an empty account,
     which is arguably worse than the error."""
     existing = db.get(User, tenants.a["admin"])
@@ -46,7 +61,7 @@ def test_the_org_and_role_come_with_them(tenants, db):
     assert user.role == "admin", "an admin came back as a member — they would lose access"
 
 
-def test_their_history_follows_them(tenants, db):
+def test_their_history_follows_them(tenants, db, verified):
     """Calls they uploaded and reviews they signed off must not be orphaned."""
     old_id = tenants.a["admin"]
     call_id = tenants.a["call"]
@@ -62,7 +77,7 @@ def test_their_history_follows_them(tenants, db):
     assert db.get(Call, call_id).report.reviewed_by_user_id == new_id
 
 
-def test_the_old_identity_is_gone(tenants, db):
+def test_the_old_identity_is_gone(tenants, db, verified):
     """A leftover row would keep the unique index occupied and re-break the next
     sign-in with that address."""
     old_id = tenants.a["admin"]
@@ -101,3 +116,72 @@ def test_no_email_means_no_adoption(tenants, db):
     # — they would collide and 500 exactly like the bug this file is about.
     assert first.email != second.email
     assert first.email.endswith(".invalid"), "placeholder must be unroutable"
+
+
+# ═══════════════ re-linking must not become account takeover ═══════════════
+#
+# Adopting an existing account because the email matches is a takeover if that
+# address was never proven: signing up as someone@example.com would inherit
+# their organization and their admin role. This instance does demand an emailed
+# code, but the session token carries no `email_verified` claim, so the app
+# cannot see that — and an instance setting can change without this code being
+# touched. Flagged by a security review of the original fix.
+
+def test_an_unverified_address_never_adopts_an_existing_account(tenants, db, verified):
+    """The takeover. They must land on org setup, not in someone else's org."""
+    verified.result = False
+    victim = db.get(User, tenants.a["admin"])
+    victim_org, victim_role = victim.org_id, victim.role
+
+    attacker = auth._sync_user(_new_clerk_id(), victim.email, db)
+
+    assert attacker.org_id is None, "inherited the victim's organization"
+    assert attacker.role != "admin", "inherited the victim's admin role"
+    db.expire_all()
+    assert db.get(User, tenants.a["admin"]).org_id == victim_org
+    assert db.get(User, tenants.a["admin"]).role == victim_role
+
+
+def test_an_unknown_verification_status_also_refuses(tenants, db, verified):
+    """Clerk unreachable, or no secret key configured. Not-a-clear-yes is a no."""
+    verified.result = None
+    victim = db.get(User, tenants.a["admin"])
+    attacker = auth._sync_user(_new_clerk_id(), victim.email, db)
+    assert attacker.org_id is None
+
+
+def test_refusing_still_does_not_500(tenants, db, verified):
+    """The bug this whole path exists to fix must stay fixed: whatever we
+    decide, the unique index must not be violated."""
+    verified.result = False
+    email = db.get(User, tenants.a["admin"]).email
+    first = auth._sync_user(_new_clerk_id(), email, db)
+    second = auth._sync_user(_new_clerk_id(), email, db)
+    assert first.id != second.id and first.email != second.email
+
+
+def test_a_verified_address_still_re_links(tenants, db, verified):
+    """The legitimate case — a real person who remade their Clerk account —
+    must keep working, or the security fix has just recreated the lockout."""
+    verified.result = True
+    victim = db.get(User, tenants.a["admin"])
+    email, org_id = victim.email, victim.org_id
+
+    new_id = _new_clerk_id()
+    user = auth._sync_user(new_id, email, db)
+
+    assert user.id == new_id
+    assert user.org_id == org_id
+    assert user.role == "admin"
+
+
+def test_verification_is_asked_about_the_right_person(tenants, db, verified):
+    """Asking about the *existing* user would confirm an address the attacker
+    does not control and defeat the check entirely."""
+    victim_email = db.get(User, tenants.a["admin"]).email
+    new_id = _new_clerk_id()
+    auth._sync_user(new_id, victim_email, db)
+
+    asked_id, asked_email = verified.calls[-1]
+    assert asked_id == new_id, "confirmed the wrong person's address"
+    assert asked_email == victim_email

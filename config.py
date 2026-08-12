@@ -19,6 +19,12 @@ class Config:
     # Clerk
     CLERK_PUBLISHABLE_KEY: str = os.environ["CLERK_PUBLISHABLE_KEY"]
     CLERK_JWKS_URL: str = os.environ["CLERK_JWKS_URL"]
+
+    # Optional, and only used to confirm that an email address was actually
+    # verified before an existing account is re-linked to a new Clerk id.
+    # Without it that re-link cannot be proven safe and is refused — see
+    # auth._email_is_verified.
+    CLERK_SECRET_KEY: str = os.environ.get("CLERK_SECRET_KEY", "")
     # e.g. https://<your-clerk-frontend-api>/.well-known/jwks.json
 
     # Who is allowed to have asked Clerk for a token we will accept.

@@ -102,6 +102,55 @@ def _verify_session_token(token: str) -> dict | None:
     return claims
 
 
+def _email_is_verified(clerk_user_id: str, email: str) -> bool | None:
+    """Has Clerk actually verified that this user owns this address?
+
+    True / False / None, where None means "could not determine".
+
+    This exists because re-linking an existing account to a new Clerk id on the
+    strength of a matching email is an account takeover if the address was never
+    proven. Signing up as someone@example.com would inherit their organization
+    and their admin role.
+
+    This instance does demand an emailed code at sign-up and on a new device, so
+    in practice the addresses are verified — but the session token carries no
+    `email_verified` claim, so the app cannot see that, and an instance setting
+    can change without anyone touching this code. An assumption that grants
+    admin access has to be checked, not remembered.
+
+    Asked of Clerk directly, which is authoritative. Anything that is not a
+    clear yes returns None and the caller refuses to re-link.
+    """
+    secret = current_app.config.get("CLERK_SECRET_KEY")
+    if not secret:
+        return None
+
+    import json as _json
+    import urllib.error
+    import urllib.request
+
+    req = urllib.request.Request(
+        f"https://api.clerk.com/v1/users/{clerk_user_id}",
+        headers={"Authorization": f"Bearer {secret}"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = _json.loads(resp.read())
+    except Exception as exc:
+        # Never let Clerk being slow or unreachable turn into a login failure —
+        # the caller degrades to "do not re-link", which is safe.
+        logger.warning("Could not confirm email verification for %s: %s",
+                       clerk_user_id, exc)
+        return None
+
+    target = (email or "").strip().lower()
+    for addr in data.get("email_addresses") or []:
+        if str(addr.get("email_address", "")).strip().lower() != target:
+            continue
+        return (addr.get("verification") or {}).get("status") == "verified"
+    return None
+
+
 def _sync_user(clerk_user_id: str, email: str, db) -> User:
     """
     Return the User row for this Clerk user ID, creating one on first login.
@@ -129,7 +178,21 @@ def _sync_user(clerk_user_id: str, email: str, db) -> User:
     if email:
         prior = db.query(User).filter_by(email=email).first()
         if prior is not None:
-            return _relink_user(prior, clerk_user_id, email, db)
+            # Only re-link on a *proven* address. Anything less would let
+            # signing up as someone@example.com inherit their org and role.
+            if _email_is_verified(clerk_user_id, email) is True:
+                return _relink_user(prior, clerk_user_id, email, db)
+            logger.error(
+                "Refusing to re-link %s to Clerk id %s — could not confirm the "
+                "address is verified. They get a new, empty account. Set "
+                "CLERK_SECRET_KEY to enable this check.",
+                email, clerk_user_id,
+            )
+            # Fall through with a distinct address so the unique index is not
+            # violated. The 500 loop this whole function exists to fix stays
+            # fixed; the person lands on org setup rather than someone else's
+            # organization, which is the safe direction to be wrong in.
+            email = f"{email}#unverified-{clerk_user_id[-8:]}"
 
     # `users.email` is NOT NULL and UNIQUE, so an absent email claim cannot be
     # stored as "" more than once — the second such user would collide and 500

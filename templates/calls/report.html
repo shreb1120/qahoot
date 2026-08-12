@@ -216,11 +216,23 @@
     </div>
   {% endif %}
 
-  {% if af.get('detected') %}
-    <div class="rp-panel mt-4" style="border-color:#fecaca">
-      <div class="rp-panel-head" style="background:#fef2f2;border-color:#fecaca">
-        <h2 class="rp-panel-title" style="color:#b91c1c">Auto-fail phrase detected</h2>
-        <span class="text-xs font-semibold text-red-800">{{ af.get('phrases', []) | length }} occurrence{{ 's' if af.get('phrases', []) | length != 1 }}</span>
+  {#  Shown whenever a phrase was heard at all — including when only the client
+      said it, which is not a failure but is still worth a reviewer's eye. The
+      colour follows `detected`, which now counts agent-attributable phrases
+      only, so a client-only match reads as a note rather than a violation. #}
+  {% set af_agent = af.get('agent_count', af.get('phrases', []) | length) %}
+  {% set af_client = af.get('client_count', 0) %}
+  {% if af.get('phrases') %}
+    {% set crit = af.get('detected') %}
+    <div class="rp-panel mt-4" style="border-color:{{ '#fecaca' if crit else '#fcd34d' }}">
+      <div class="rp-panel-head" style="background:{{ '#fef2f2' if crit else '#fffbeb' }};border-color:{{ '#fecaca' if crit else '#fcd34d' }}">
+        <h2 class="rp-panel-title" style="color:{{ '#b91c1c' if crit else '#92400e' }}">
+          {{ 'Auto-fail phrase detected' if crit else 'Prohibited phrase heard — not spoken by the agent' }}
+        </h2>
+        <span class="text-xs font-semibold" style="color:{{ '#991b1b' if crit else '#92400e' }}">
+          {%- if crit %}{{ af_agent }} by the agent{% if af_client %}, {{ af_client }} by the client{% endif %}
+          {%- else %}{{ af_client }} by the client — the agent's score is unaffected{% endif %}
+        </span>
       </div>
       <div class="qb-scroll-x">
         <table class="rp-table">
