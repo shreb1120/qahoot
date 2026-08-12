@@ -106,15 +106,92 @@ def _sync_user(clerk_user_id: str, email: str, db) -> User:
     """
     Return the User row for this Clerk user ID, creating one on first login.
     The org_id starts as None — the user is prompted to create/join an org.
+
+    Handles the case where the email is already known under a *different* Clerk
+    id. That happens whenever a Clerk account is deleted and remade, or someone
+    signs up again with an address they used before: Clerk issues a brand new
+    `sub`, while `users.email` is UNIQUE here.
+
+    Before this, the insert below raised IntegrityError from inside a
+    before_request hook, so every authenticated request died and the person was
+    bounced to the landing page — permanently, with no way out from the UI, and
+    no clue as to why. It locked a real user out during a live test.
+
+    Re-linking is the right resolution rather than a second row: Clerk verifies
+    ownership of the mailbox before it will issue a session, so the same
+    verified address is the same person. That is the model `users.email UNIQUE`
+    already asserted; this makes the code agree with it.
     """
     user = db.query(User).filter_by(id=clerk_user_id).first()
-    if user is None:
-        user = User(id=clerk_user_id, email=email, role="member")
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-        logger.info("First login — created user record %s (%s)", clerk_user_id, email)
+    if user is not None:
+        return user
+
+    if email:
+        prior = db.query(User).filter_by(email=email).first()
+        if prior is not None:
+            return _relink_user(prior, clerk_user_id, email, db)
+
+    # `users.email` is NOT NULL and UNIQUE, so an absent email claim cannot be
+    # stored as "" more than once — the second such user would collide and 500
+    # exactly like the bug above. `.invalid` is reserved by RFC 2606 and can
+    # never route, so a placeholder here is unmistakably not a real address.
+    # Clerk does send `email` for this instance; this is a guard, not a path we
+    # expect to take.
+    if not email:
+        email = f"unknown+{clerk_user_id}@users.qaboom.invalid"
+        logger.warning("Clerk token for %s carried no email claim", clerk_user_id)
+
+    user = User(id=clerk_user_id, email=email, role="member")
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    logger.info("First login — created user record %s (%s)", clerk_user_id, email)
     return user
+
+
+def _relink_user(prior: User, clerk_user_id: str, email: str, db) -> User:
+    """Move an existing user's org, role and history onto a new Clerk id.
+
+    The id cannot simply be updated: `calls.uploaded_by_user_id` and
+    `reports.reviewed_by_user_id` reference it ON UPDATE NO ACTION, so the row
+    is migrated rather than mutated — free the unique email, insert the new
+    identity, re-point everything that referenced the old one, drop it. One
+    transaction, so a failure anywhere leaves the old identity intact and the
+    person merely sees the same error as before rather than losing their work.
+    """
+    from sqlalchemy import update as sa_update
+
+    from models import Call, Report
+
+    old_id, org_id, role, created = (
+        prior.id, prior.org_id, prior.role, prior.created_at
+    )
+    logger.warning(
+        "Re-linking %s from Clerk id %s to %s — same verified address, new "
+        "Clerk account. Org and history are preserved.",
+        email, old_id, clerk_user_id,
+    )
+
+    # Free the unique email before inserting the replacement.
+    prior.email = f"{email}#migrating-{clerk_user_id[-8:]}"
+    db.flush()
+
+    replacement = User(id=clerk_user_id, org_id=org_id, email=email,
+                       role=role, created_at=created)
+    db.add(replacement)
+    db.flush()
+
+    db.execute(sa_update(Call)
+               .where(Call.uploaded_by_user_id == old_id)
+               .values(uploaded_by_user_id=clerk_user_id))
+    db.execute(sa_update(Report)
+               .where(Report.reviewed_by_user_id == old_id)
+               .values(reviewed_by_user_id=clerk_user_id))
+
+    db.delete(db.get(User, old_id))
+    db.commit()
+    db.refresh(replacement)
+    return replacement
 
 
 def load_user() -> None:

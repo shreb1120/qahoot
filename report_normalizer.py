@@ -198,12 +198,68 @@ def normalize_report(raw: dict | None, checklist: dict | None) -> dict:
             missing_from_response, discarded,
         )
 
+    # Program flip: context for the reviewer, never an input to the verdict.
+    #
+    # Deliberately normalised *after* `determination` and `verdict` are already
+    # decided above, so there is no ordering in which this block could change
+    # them. A client who is already in another program is not committing a
+    # violation — but which disclosures are meaningful may differ (credit impact
+    # on accounts already defaulted under a prior program, for one), and that is
+    # a judgment for the person reviewing, not for the grader.
+    raw_flip = raw.get("program_flip")
+    raw_flip = raw_flip if isinstance(raw_flip, dict) else {}
+    flip_evidence = [
+        {
+            "timestamp": e.get("timestamp") or None,
+            "speaker": e.get("speaker") or "",
+            "quote": e.get("quote") or "",
+        }
+        for e in (raw_flip.get("evidence") or [])
+        if isinstance(e, dict) and e.get("quote")
+    ]
+    # A bare `detected: true` with nothing to show would put an unfalsifiable
+    # banner on the report. Evidence or a reason, or it does not appear.
+    flip_reason = str(raw_flip.get("reason") or "").strip()
+    flip_detected = bool(raw_flip.get("detected")) and bool(flip_evidence or flip_reason)
+
+    # Accounts the client said something disqualifying about. Same contract as
+    # the program flip: normalised after the verdict is already decided, so it
+    # cannot participate in it, and dropped unless it carries a quote a reviewer
+    # can check.
+    #
+    # The reason_code set is closed. An open one lets the model invent
+    # categories, and a category nobody defined is a category nobody has decided
+    # what to do about.
+    INELIGIBLE_REASONS = {"prior_settlement", "secured_vehicle", "litigation"}
+    ineligible = []
+    for raw_item in raw.get("ineligible_accounts") or []:
+        if not isinstance(raw_item, dict):
+            continue
+        code = str(raw_item.get("reason_code") or "").strip().lower()
+        quote = str(raw_item.get("quote") or "").strip()
+        if code not in INELIGIBLE_REASONS or not quote:
+            continue
+        ineligible.append({
+            "reason_code": code,
+            "account": str(raw_item.get("account") or "").strip(),
+            "timestamp": raw_item.get("timestamp") or None,
+            "speaker": str(raw_item.get("speaker") or ""),
+            "quote": quote,
+            "note": str(raw_item.get("note") or "").strip(),
+        })
+
     return {
         "final_determination": determination,
         "verdict": verdict,
         "summary": str(raw.get("summary") or ""),
         "sections": sections_out,
         "auto_fail_phrases": {"detected": bool(kept), "phrases": kept},
+        "program_flip": {
+            "detected": flip_detected,
+            "reason": flip_reason,
+            "evidence": flip_evidence,
+        },
+        "ineligible_accounts": ineligible,
         "_reconciliation": {
             "items_not_assessed": unassessed,
             "phrases_discarded": discarded,
