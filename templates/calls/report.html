@@ -153,10 +153,45 @@
     </audio>
 
     <div class="rp-transport-row">
-      <button type="button" class="rp-play" id="rp-play" aria-label="Play call">
-        <svg id="rp-icon-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.14v13.72a1 1 0 0 0 1.52.85l11.14-6.86a1 1 0 0 0 0-1.7L9.52 4.29A1 1 0 0 0 8 5.14Z"/></svg>
-        <svg id="rp-icon-pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="display:none"><path d="M7 4h3v16H7zM14 4h3v16h-3z"/></svg>
-      </button>
+      {#  Skip buttons flank the play control.
+          On a 94-minute call in a ~600px timeline one pixel is about nine
+          seconds, so the scrubber can never be the way to move a small,
+          known amount. "I missed that, play it again" is the single most
+          common thing a reviewer does, and it now has a button instead of a
+          drag that overshoots. #}
+      <div class="rp-controls">
+        {#  The numeral lives inside the SVG rather than in an overlaid span:
+            at 32px an absolutely-positioned badge sits on top of the arrow and
+            neither is legible. Inside the viewBox both scale together. #}
+        <button type="button" class="rp-skip" id="rp-back10"
+                aria-label="Back 10 seconds" title="Back 10 seconds (←)">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 5a7 7 0 1 1-6.9 8.2" fill="none" stroke="currentColor"
+                  stroke-width="1.8" stroke-linecap="round"/>
+            <path d="M12 2.2 8.6 5 12 7.8z" fill="currentColor"/>
+            <text x="12.4" y="15.6" text-anchor="middle" font-size="8.5"
+                  font-weight="700" fill="currentColor"
+                  font-family="inherit" letter-spacing="-.4">10</text>
+          </svg>
+        </button>
+
+        <button type="button" class="rp-play" id="rp-play" aria-label="Play call">
+          <svg id="rp-icon-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.14v13.72a1 1 0 0 0 1.52.85l11.14-6.86a1 1 0 0 0 0-1.7L9.52 4.29A1 1 0 0 0 8 5.14Z"/></svg>
+          <svg id="rp-icon-pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="display:none"><path d="M7 4h3v16H7zM14 4h3v16h-3z"/></svg>
+        </button>
+
+        <button type="button" class="rp-skip" id="rp-fwd10"
+                aria-label="Forward 10 seconds" title="Forward 10 seconds (→)">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 5a7 7 0 1 0 6.9 8.2" fill="none" stroke="currentColor"
+                  stroke-width="1.8" stroke-linecap="round"/>
+            <path d="M12 2.2 15.4 5 12 7.8z" fill="currentColor"/>
+            <text x="11.6" y="15.6" text-anchor="middle" font-size="8.5"
+                  font-weight="700" fill="currentColor"
+                  font-family="inherit" letter-spacing="-.4">10</text>
+          </svg>
+        </button>
+      </div>
 
       {% if vm.has_timeline %}
         <div class="rp-timeline" id="rp-timeline">
@@ -171,17 +206,36 @@
           <div class="rp-track" id="rp-track" role="slider" tabindex="0"
                aria-label="Call position" aria-valuemin="0" aria-valuemax="{{ vm.duration }}"
                aria-valuenow="0" aria-valuetext="0:00">
+            {# What the browser has actually downloaded. A 94-minute file does
+               not arrive instantly, and without this a seek into un-buffered
+               audio looks like the player has frozen. #}
+            <span class="rp-buffered" id="rp-buffered"></span>
             {% for b in vm.bands %}
               <span class="rp-band rp-band--{{ b.slot }}" style="left:{{ b.left }}%;width:{{ b.width }}%"></span>
             {% endfor %}
           </div>
           <div class="rp-playhead" id="rp-playhead" style="left:0%"></div>
+          {#  Where a click would land, shown before it lands. The whole point:
+              you aim, read the time, then commit — rather than seeking blind
+              and correcting afterwards. Also names the nearest evidence marker,
+              since those are the moments anyone is actually hunting for. #}
+          <div class="rp-bubble" id="rp-bubble" hidden aria-hidden="true">
+            <span class="rp-bubble-t" id="rp-bubble-t">0:00</span>
+            <span class="rp-bubble-l" id="rp-bubble-l"></span>
+          </div>
         </div>
       {% else %}
         <div class="flex-1 text-xs text-faint">Timeline unavailable — this call has no speaker timing.</div>
       {% endif %}
 
       <div class="rp-time"><b id="rp-current">0:00</b> / {{ vm.duration_label }}</div>
+
+      {#  Reviewers work through hour-long calls. Speed is not a luxury here,
+          it is the difference between listening to a 94-minute call and
+          listening to 47 minutes of it. Cycles rather than opening a menu —
+          one control, one tap, no target to hit. #}
+      <button type="button" class="rp-speed" id="rp-speed"
+              aria-label="Playback speed, currently normal" title="Playback speed">1&times;</button>
     </div>
 
     {% if vm.has_timeline %}
@@ -521,31 +575,151 @@
     highlight(lineAt(seconds * 1000));
   }
 
-  // Scrubbing: click, drag, and keyboard.
+  // ── Skip ──
+  // 10 seconds is the unit because the thing reviewers do constantly is "say
+  // that again", and a drag cannot express it: at ~600px for a 94-minute call,
+  // one pixel is about nine seconds.
+  const SKIP = 10;
+  function nudge(delta) {
+    if (!audio) return;
+    const max = DURATION || audio.duration || 0;
+    seek(Math.max(0, Math.min(max, audio.currentTime + delta)), false);
+  }
+  const back10 = document.getElementById('rp-back10');
+  const fwd10 = document.getElementById('rp-fwd10');
+  if (back10) back10.addEventListener('click', function () { nudge(-SKIP); });
+  if (fwd10) fwd10.addEventListener('click', function () { nudge(SKIP); });
+
+  // ── Playback speed ──
+  const SPEEDS = [1, 1.25, 1.5, 1.75, 2];
+  const speedBtn = document.getElementById('rp-speed');
+  let speedIdx = 0;
+  if (speedBtn && audio) {
+    speedBtn.addEventListener('click', function () {
+      speedIdx = (speedIdx + 1) % SPEEDS.length;
+      const rate = SPEEDS[speedIdx];
+      audio.playbackRate = rate;
+      speedBtn.textContent = (rate === 1 ? '1' : String(rate)) + '×';
+      speedBtn.classList.toggle('is-fast', rate !== 1);
+      speedBtn.setAttribute('aria-label',
+        'Playback speed, currently ' + (rate === 1 ? 'normal' : rate + ' times'));
+    });
+  }
+
+  // ── Buffered ──
+  const buffered = document.getElementById('rp-buffered');
+  function paintBuffered() {
+    if (!buffered || !audio || !DURATION || !audio.buffered.length) return;
+    buffered.style.width = Math.min(100,
+      audio.buffered.end(audio.buffered.length - 1) / DURATION * 100) + '%';
+  }
+  if (audio) {
+    audio.addEventListener('progress', paintBuffered);
+    audio.addEventListener('loadedmetadata', paintBuffered);
+  }
+
+  // ── Scrubbing ──
+  //
+  // Two deliberate departures from the version this replaces.
+  //
+  // The time under the cursor is shown *before* you commit to it, so aiming is
+  // possible at all — and it names the nearest evidence marker, because those
+  // moments are what anyone is actually hunting for.
+  //
+  // And the seek happens on release, not on every pointermove. Setting
+  // currentTime dozens of times a second makes the decoder stutter and on a
+  // long file can stall it; the playhead follows the pointer continuously
+  // either way, so it looks the same and behaves far better.
+  const bubble = document.getElementById('rp-bubble');
+  const bubbleT = document.getElementById('rp-bubble-t');
+  const bubbleL = document.getElementById('rp-bubble-l');
+
+  const markerAt = (function () {
+    const marks = Array.prototype.map.call(
+      document.querySelectorAll('.rp-marker'),
+      function (el) {
+        return {
+          at: parseTs(el.dataset.ts),
+          label: (el.getAttribute('title') || '').split(' · ').slice(1).join(' · ')
+        };
+      }).filter(function (m) { return m.at !== null; });
+    // Within 1% of the call or 15 seconds, whichever is larger: a fixed window
+    // is useless across calls running from four minutes to ninety.
+    return function (sec) {
+      const tol = Math.max(15, (DURATION || 0) * 0.01);
+      let best = null, bestD = Infinity;
+      for (const m of marks) {
+        const d = Math.abs(m.at - sec);
+        if (d < bestD && d <= tol) { best = m; bestD = d; }
+      }
+      return best;
+    };
+  })();
+
   if (timeline && DURATION && audio) {
     const posToSeconds = function (clientX) {
       const rect = timeline.getBoundingClientRect();
       return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width)) * DURATION;
     };
-    let scrubbing = false;
+
+    const showBubble = function (clientX, sec) {
+      if (!bubble) return;
+      const rect = timeline.getBoundingClientRect();
+      bubble.hidden = false;
+      bubble.style.left = Math.max(0, Math.min(rect.width, clientX - rect.left)) + 'px';
+      if (bubbleT) bubbleT.textContent = fmt(sec);
+      const m = markerAt(sec);
+      if (bubbleL) bubbleL.textContent = m ? m.label : '';
+    };
+    const hideBubble = function () { if (bubble) bubble.hidden = true; };
+
+    let scrubbing = false, pending = null;
+
+    timeline.addEventListener('pointermove', function (e) {
+      const sec = posToSeconds(e.clientX);
+      showBubble(e.clientX, sec);
+      if (scrubbing) {
+        pending = sec;
+        if (playhead) playhead.style.left = (sec / DURATION * 100) + '%';
+        if (current) current.textContent = fmt(sec);
+      }
+    });
+    timeline.addEventListener('pointerleave', function () {
+      if (!scrubbing) hideBubble();
+    });
+
     timeline.addEventListener('pointerdown', function (e) {
       if (e.target.closest('.rp-marker')) return;   // markers handle themselves
       scrubbing = true;
+      pending = posToSeconds(e.clientX);
+      timeline.classList.add('is-scrubbing');
       timeline.setPointerCapture(e.pointerId);
-      seek(posToSeconds(e.clientX), false);
+      showBubble(e.clientX, pending);
+      if (playhead) playhead.style.left = (pending / DURATION * 100) + '%';
+      if (current) current.textContent = fmt(pending);
     });
-    timeline.addEventListener('pointermove', function (e) {
-      if (scrubbing) seek(posToSeconds(e.clientX), false);
-    });
-    timeline.addEventListener('pointerup', function (e) {
+
+    const endScrub = function (e) {
       if (!scrubbing) return;
       scrubbing = false;
-      timeline.releasePointerCapture(e.pointerId);
-    });
+      timeline.classList.remove('is-scrubbing');
+      try { timeline.releasePointerCapture(e.pointerId); } catch (_) {}
+      if (pending !== null) seek(pending, false);
+      pending = null;
+      hideBubble();
+    };
+    timeline.addEventListener('pointerup', endScrub);
+    timeline.addEventListener('pointercancel', endScrub);
+
+    // Keyboard mirrors the buttons, so what you learn from one transfers to the
+    // other. Shift drops to a single second, which is the only way to land on
+    // an exact phrase.
     (track || timeline).addEventListener('keydown', function (e) {
-      const step = e.shiftKey ? 30 : 5;
-      if (e.key === 'ArrowRight') { e.preventDefault(); seek(Math.min(DURATION, audio.currentTime + step), false); }
-      else if (e.key === 'ArrowLeft') { e.preventDefault(); seek(Math.max(0, audio.currentTime - step), false); }
+      const step = e.shiftKey ? 1 : SKIP;
+      if (e.key === 'ArrowRight') { e.preventDefault(); nudge(step); }
+      else if (e.key === 'ArrowLeft') { e.preventDefault(); nudge(-step); }
+      else if (e.key === 'PageUp') { e.preventDefault(); nudge(60); }
+      else if (e.key === 'PageDown') { e.preventDefault(); nudge(-60); }
       else if (e.key === 'Home') { e.preventDefault(); seek(0, false); }
       else if (e.key === 'End') { e.preventDefault(); seek(DURATION, false); }
       else if (e.key === ' ' || e.key === 'Enter') {
