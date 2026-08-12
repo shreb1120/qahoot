@@ -1,0 +1,186 @@
+{#  The walkthrough.
+
+    Wraps the real report template rather than reproducing it. That is the
+    whole design: anything that changes about the report changes here too, so
+    the tour cannot drift out of date the way captured screenshots do.
+
+    `{% block main %}` is used rather than `content` so the page escapes the
+    app's content container — an anonymous visitor has no sidebar, and the
+    report should sit in the same full-width frame the marketing pages use. #}
+{% extends "base.html" %}
+{% block title %}See how it works — Qaboom{% endblock %}
+
+{% block main %}
+{% include "marketing/_nav.html" %}
+
+<div class="tour-frame">
+  <div class="tour-intro">
+    <p class="tour-eyebrow">Product walkthrough</p>
+    <h1 class="tour-h1">A real report, and the person reading it</h1>
+    <p class="tour-lede">
+      This is the actual review screen, not a picture of one. The call, the
+      client and the recording are invented; everything else works exactly as it
+      does in the product. Click through at your own pace.
+    </p>
+  </div>
+
+  {#  The report itself, rendered by the same template the app uses. #}
+  <div class="tour-stage" id="tour-stage">
+    {% include "calls/_report_body.html" %}
+  </div>
+</div>
+
+{#  ── The tour overlay ──
+    Steps are data, rendered here rather than assembled in JavaScript, so the
+    narration is readable to anything that does not run scripts — including a
+    search engine, and anyone who lands here with JS blocked. #}
+<div class="tour-ui" id="tour-ui" hidden>
+  <div class="tour-spot" id="tour-spot" aria-hidden="true"></div>
+  <div class="tour-card" id="tour-card" role="dialog" aria-modal="false"
+       aria-labelledby="tour-title" aria-describedby="tour-body">
+    <p class="tour-narrator">
+      <span class="tour-avatar" aria-hidden="true">D</span>
+      Dana · QA manager
+    </p>
+    <h2 class="tour-title" id="tour-title"></h2>
+    <p class="tour-body" id="tour-body"></p>
+    <div class="tour-cta" id="tour-cta" hidden>
+      <a class="qb-btn-primary" href="{{ url_for('auth.signup') }}">Score 300 minutes free</a>
+      <a class="tour-secondary" href="{{ url_for('marketing.pricing') }}">See pricing</a>
+    </div>
+    <div class="tour-foot">
+      <span class="tour-count" id="tour-count"></span>
+      <span class="tour-nav">
+        <button type="button" class="tour-btn" id="tour-prev">Back</button>
+        <button type="button" class="tour-btn tour-btn--go" id="tour-next">Next</button>
+      </span>
+    </div>
+    <button type="button" class="tour-close" id="tour-close" aria-label="Close the walkthrough">&times;</button>
+  </div>
+</div>
+
+<noscript>
+  <div class="tour-frame">
+    <ol class="tour-static">
+      {% for s in tour_steps %}
+        <li><b>{{ s.title }}</b> {{ s.body }}</li>
+      {% endfor %}
+    </ol>
+  </div>
+</noscript>
+
+<script id="tour-data" type="application/json">{{ tour_steps | tojson }}</script>
+{% endblock %}
+
+{% block scripts %}
+{% include "calls/_report_scripts.html" %}
+<script>
+(function () {
+  var steps = JSON.parse(document.getElementById('tour-data').textContent);
+  var ui = document.getElementById('tour-ui');
+  var spot = document.getElementById('tour-spot');
+  var card = document.getElementById('tour-card');
+  var titleEl = document.getElementById('tour-title');
+  var bodyEl = document.getElementById('tour-body');
+  var countEl = document.getElementById('tour-count');
+  var ctaEl = document.getElementById('tour-cta');
+  var prevBtn = document.getElementById('tour-prev');
+  var nextBtn = document.getElementById('tour-next');
+  if (!steps.length || !ui) return;
+
+  // A step whose target has gone from the page is dropped rather than left
+  // pointing at nothing. The report template changes often; the tour should
+  // lose a step quietly instead of highlighting empty space.
+  var live = steps.filter(function (s) {
+    return !s.target || document.querySelector(s.target);
+  });
+  if (!live.length) return;
+
+  var i = 0;
+  ui.hidden = false;
+
+  function place(el) {
+    if (!el) {
+      spot.style.opacity = '0';
+      card.style.position = 'fixed';
+      card.style.top = '50%';
+      card.style.left = '50%';
+      card.style.transform = 'translate(-50%, -50%)';
+      return;
+    }
+    var r = el.getBoundingClientRect();
+    var pad = 8;
+    spot.style.opacity = '1';
+    spot.style.top = (r.top - pad + window.scrollY) + 'px';
+    spot.style.left = (r.left - pad + window.scrollX) + 'px';
+    spot.style.width = (r.width + pad * 2) + 'px';
+    spot.style.height = (r.height + pad * 2) + 'px';
+
+    card.style.position = 'absolute';
+    card.style.transform = 'none';
+    var below = r.bottom + window.scrollY + 14;
+    var cardW = Math.min(360, window.innerWidth - 32);
+    var left = r.left + window.scrollX + r.width / 2 - cardW / 2;
+    left = Math.max(16, Math.min(left, window.innerWidth - cardW - 16));
+    card.style.left = left + 'px';
+    card.style.width = cardW + 'px';
+    // Above the target when there is no room below it.
+    if (r.bottom + 240 > window.innerHeight && r.top > 260) {
+      card.style.top = (r.top + window.scrollY - 14) + 'px';
+      card.style.transform = 'translateY(-100%)';
+    } else {
+      card.style.top = below + 'px';
+    }
+  }
+
+  function render() {
+    var s = live[i];
+    titleEl.textContent = s.title;
+    bodyEl.textContent = s.body;
+    countEl.textContent = (i + 1) + ' of ' + live.length;
+    ctaEl.hidden = !s.cta;
+    prevBtn.disabled = i === 0;
+    nextBtn.textContent = i === live.length - 1 ? 'Finish' : 'Next';
+
+    var el = s.target ? document.querySelector(s.target) : null;
+    if (el) {
+      var r = el.getBoundingClientRect();
+      var need = r.top + window.scrollY - window.innerHeight / 2 + r.height / 2;
+      window.scrollTo({ top: Math.max(0, need),
+                        behavior: matchMedia('(prefers-reduced-motion: reduce)').matches
+                                  ? 'auto' : 'smooth' });
+      setTimeout(function () { place(el); }, 260);
+    } else {
+      place(null);
+    }
+  }
+
+  function go(n) {
+    if (n < 0 || n >= live.length) { return; }
+    i = n;
+    render();
+  }
+
+  nextBtn.addEventListener('click', function () {
+    if (i === live.length - 1) { window.location = '{{ url_for("auth.signup") }}'; }
+    else go(i + 1);
+  });
+  prevBtn.addEventListener('click', function () { go(i - 1); });
+  document.getElementById('tour-close').addEventListener('click', function () {
+    ui.hidden = true;
+  });
+  document.addEventListener('keydown', function (e) {
+    if (ui.hidden) return;
+    if (e.key === 'ArrowRight') { e.preventDefault(); go(i + 1); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); go(i - 1); }
+    else if (e.key === 'Escape') { ui.hidden = true; }
+  });
+  window.addEventListener('resize', function () {
+    var s = live[i];
+    place(s.target ? document.querySelector(s.target) : null);
+  });
+
+  render();
+})();
+</script>
+{% endblock %}

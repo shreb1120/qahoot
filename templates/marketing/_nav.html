@@ -22,6 +22,7 @@
     <nav class="mk-nav-links" aria-label="Site">
       <a href="{{ home }}#how">How it works</a>
       <a href="{{ home }}#proof">What you get</a>
+      <a href="{{ url_for('marketing.tour') }}">See it work</a>
       <a href="{{ url_for('marketing.pricing') }}">Pricing</a>
       {% if nav_signed_in %}
         <a href="{{ url_for('billing.plan') }}">Your plan</a>

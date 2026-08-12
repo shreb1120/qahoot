@@ -12,6 +12,11 @@ ADMIN_ONLY_POSTS = [
 # edit rather than something that happens by forgetting a decorator.
 PUBLIC_PATHS = [
     "/", "/pricing",
+    # The product walkthrough. Public on purpose — its entire reason for
+    # existing is that every other call to action required an account first.
+    # It renders the real report template from a synthetic fixture, so there is
+    # no customer data behind this door; test_tour.py holds that to account.
+    "/tour",
     "/auth/login", "/auth/signup",
     # Signing out has to work for someone whose session already expired —
     # gating it would strand them on a page they cannot leave.

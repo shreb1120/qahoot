@@ -1,0 +1,366 @@
+{#  Report behaviour, shared by the app page and the public walkthrough.
+
+    Extracted for the same reason as _report_body.html: the tour renders the
+    real report, so it needs the real report's player. Two copies would mean
+    the demo and the product diverging silently. #}
+<script>
+(function () {
+  const audio = document.getElementById('call-audio');
+  const timeline = document.getElementById('rp-timeline');
+  const track = document.getElementById('rp-track');
+  const playhead = document.getElementById('rp-playhead');
+  const playBtn = document.getElementById('rp-play');
+  const iconPlay = document.getElementById('rp-icon-play');
+  const iconPause = document.getElementById('rp-icon-pause');
+  const current = document.getElementById('rp-current');
+  const follow = document.getElementById('rp-follow');
+  const transcript = document.getElementById('rp-transcript');
+  const DURATION = {{ vm.duration or 0 }};
+
+  function fmt(s) {
+    s = Math.max(0, Math.floor(s));
+    return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+  }
+
+  function parseTs(ts) {
+    if (!ts) return null;
+    const p = ts.trim().split(':').map(Number);
+    if (p.some(isNaN)) return null;
+    if (p.length === 2) return p[0] * 60 + p[1];
+    if (p.length === 3) return p[0] * 3600 + p[1] * 60 + p[2];
+    return null;
+  }
+
+  if (audio && playBtn) {
+    playBtn.addEventListener('click', function () {
+      if (audio.paused) audio.play(); else audio.pause();
+    });
+    audio.addEventListener('play', function () {
+      iconPlay.style.display = 'none'; iconPause.style.display = '';
+      playBtn.setAttribute('aria-label', 'Pause call');
+    });
+    audio.addEventListener('pause', function () {
+      iconPlay.style.display = ''; iconPause.style.display = 'none';
+      playBtn.setAttribute('aria-label', 'Play call');
+    });
+  }
+
+  let activeLine = null;
+  function highlight(line) {
+    if (line === activeLine) return;
+    if (activeLine) activeLine.classList.remove('is-playing');
+    activeLine = line;
+    if (!line) return;
+    line.classList.add('is-playing');
+    if (follow && follow.checked && transcript) {
+      const t = transcript.getBoundingClientRect();
+      const l = line.getBoundingClientRect();
+      if (l.top < t.top || l.bottom > t.bottom) {
+        transcript.scrollTop += (l.top - t.top) - t.height / 2 + l.height / 2;
+      }
+    }
+  }
+
+  function lineAt(ms) {
+    if (!transcript) return null;
+    const lines = transcript.querySelectorAll('.rp-line');
+    let best = null, bestDiff = Infinity;
+    for (const el of lines) {
+      const a = +el.dataset.start, b = +el.dataset.end;
+      if (ms >= a && ms <= b) return el;
+      const d = Math.abs(a - ms);
+      if (d < bestDiff) { bestDiff = d; best = el; }
+    }
+    return best;
+  }
+
+  if (audio) {
+    audio.addEventListener('timeupdate', function () {
+      const t = audio.currentTime;
+      if (current) current.textContent = fmt(t);
+      if (playhead && DURATION) playhead.style.left = Math.min(100, t / DURATION * 100) + '%';
+      if (track && DURATION) {
+        track.setAttribute('aria-valuenow', Math.floor(t));
+        track.setAttribute('aria-valuetext', fmt(t));
+      }
+      highlight(lineAt(t * 1000));
+    });
+  }
+
+  function seek(seconds, play) {
+    if (!audio || seconds === null) return;
+    audio.currentTime = seconds;
+    if (play !== false) audio.play().catch(function () {});
+    highlight(lineAt(seconds * 1000));
+  }
+
+  // ── Skip ──
+  // 10 seconds is the unit because the thing reviewers do constantly is "say
+  // that again", and a drag cannot express it: at ~600px for a 94-minute call,
+  // one pixel is about nine seconds.
+  const SKIP = 10;
+  function nudge(delta) {
+    if (!audio) return;
+    const max = DURATION || audio.duration || 0;
+    seek(Math.max(0, Math.min(max, audio.currentTime + delta)), false);
+  }
+  const back10 = document.getElementById('rp-back10');
+  const fwd10 = document.getElementById('rp-fwd10');
+  if (back10) back10.addEventListener('click', function () { nudge(-SKIP); });
+  if (fwd10) fwd10.addEventListener('click', function () { nudge(SKIP); });
+
+  // ── Playback speed ──
+  const SPEEDS = [1, 1.25, 1.5, 1.75, 2];
+  const speedBtn = document.getElementById('rp-speed');
+  let speedIdx = 0;
+  if (speedBtn && audio) {
+    speedBtn.addEventListener('click', function () {
+      speedIdx = (speedIdx + 1) % SPEEDS.length;
+      const rate = SPEEDS[speedIdx];
+      audio.playbackRate = rate;
+      speedBtn.textContent = (rate === 1 ? '1' : String(rate)) + '×';
+      speedBtn.classList.toggle('is-fast', rate !== 1);
+      speedBtn.setAttribute('aria-label',
+        'Playback speed, currently ' + (rate === 1 ? 'normal' : rate + ' times'));
+    });
+  }
+
+  // ── Buffered ──
+  const buffered = document.getElementById('rp-buffered');
+  function paintBuffered() {
+    if (!buffered || !audio || !DURATION || !audio.buffered.length) return;
+    buffered.style.width = Math.min(100,
+      audio.buffered.end(audio.buffered.length - 1) / DURATION * 100) + '%';
+  }
+  if (audio) {
+    audio.addEventListener('progress', paintBuffered);
+    audio.addEventListener('loadedmetadata', paintBuffered);
+  }
+
+  // ── Scrubbing ──
+  //
+  // Two deliberate departures from the version this replaces.
+  //
+  // The time under the cursor is shown *before* you commit to it, so aiming is
+  // possible at all — and it names the nearest evidence marker, because those
+  // moments are what anyone is actually hunting for.
+  //
+  // And the seek happens on release, not on every pointermove. Setting
+  // currentTime dozens of times a second makes the decoder stutter and on a
+  // long file can stall it; the playhead follows the pointer continuously
+  // either way, so it looks the same and behaves far better.
+  const bubble = document.getElementById('rp-bubble');
+  const bubbleT = document.getElementById('rp-bubble-t');
+  const bubbleL = document.getElementById('rp-bubble-l');
+
+  const markerAt = (function () {
+    const marks = Array.prototype.map.call(
+      document.querySelectorAll('.rp-marker'),
+      function (el) {
+        return {
+          at: parseTs(el.dataset.ts),
+          label: (el.getAttribute('title') || '').split(' · ').slice(1).join(' · ')
+        };
+      }).filter(function (m) { return m.at !== null; });
+    // Within 1% of the call or 15 seconds, whichever is larger: a fixed window
+    // is useless across calls running from four minutes to ninety.
+    return function (sec) {
+      const tol = Math.max(15, (DURATION || 0) * 0.01);
+      let best = null, bestD = Infinity;
+      for (const m of marks) {
+        const d = Math.abs(m.at - sec);
+        if (d < bestD && d <= tol) { best = m; bestD = d; }
+      }
+      return best;
+    };
+  })();
+
+  if (timeline && DURATION && audio) {
+    const posToSeconds = function (clientX) {
+      const rect = timeline.getBoundingClientRect();
+      return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width)) * DURATION;
+    };
+
+    const showBubble = function (clientX, sec) {
+      if (!bubble) return;
+      const rect = timeline.getBoundingClientRect();
+      bubble.hidden = false;
+      bubble.style.left = Math.max(0, Math.min(rect.width, clientX - rect.left)) + 'px';
+      if (bubbleT) bubbleT.textContent = fmt(sec);
+      const m = markerAt(sec);
+      if (bubbleL) bubbleL.textContent = m ? m.label : '';
+    };
+    const hideBubble = function () { if (bubble) bubble.hidden = true; };
+
+    let scrubbing = false, pending = null;
+
+    timeline.addEventListener('pointermove', function (e) {
+      const sec = posToSeconds(e.clientX);
+      showBubble(e.clientX, sec);
+      if (scrubbing) {
+        pending = sec;
+        if (playhead) playhead.style.left = (sec / DURATION * 100) + '%';
+        if (current) current.textContent = fmt(sec);
+      }
+    });
+    timeline.addEventListener('pointerleave', function () {
+      if (!scrubbing) hideBubble();
+    });
+
+    timeline.addEventListener('pointerdown', function (e) {
+      if (e.target.closest('.rp-marker')) return;   // markers handle themselves
+      scrubbing = true;
+      pending = posToSeconds(e.clientX);
+      timeline.classList.add('is-scrubbing');
+      timeline.setPointerCapture(e.pointerId);
+      showBubble(e.clientX, pending);
+      if (playhead) playhead.style.left = (pending / DURATION * 100) + '%';
+      if (current) current.textContent = fmt(pending);
+    });
+
+    const endScrub = function (e) {
+      if (!scrubbing) return;
+      scrubbing = false;
+      timeline.classList.remove('is-scrubbing');
+      try { timeline.releasePointerCapture(e.pointerId); } catch (_) {}
+      if (pending !== null) seek(pending, false);
+      pending = null;
+      hideBubble();
+    };
+    timeline.addEventListener('pointerup', endScrub);
+    timeline.addEventListener('pointercancel', endScrub);
+
+    // Keyboard mirrors the buttons, so what you learn from one transfers to the
+    // other. Shift drops to a single second, which is the only way to land on
+    // an exact phrase.
+    (track || timeline).addEventListener('keydown', function (e) {
+      const step = e.shiftKey ? 1 : SKIP;
+      if (e.key === 'ArrowRight') { e.preventDefault(); nudge(step); }
+      else if (e.key === 'ArrowLeft') { e.preventDefault(); nudge(-step); }
+      else if (e.key === 'PageUp') { e.preventDefault(); nudge(60); }
+      else if (e.key === 'PageDown') { e.preventDefault(); nudge(-60); }
+      else if (e.key === 'Home') { e.preventDefault(); seek(0, false); }
+      else if (e.key === 'End') { e.preventDefault(); seek(DURATION, false); }
+      else if (e.key === ' ' || e.key === 'Enter') {
+        e.preventDefault();
+        if (audio.paused) audio.play(); else audio.pause();
+      }
+    });
+  }
+
+  // Markers are interactive only where they can meet the target-size minimum.
+  // Below the split breakpoint they are presentational; the items table carries
+  // the same jump on a properly sized control.
+  const wide = window.matchMedia('(min-width: 1180px)');
+  function syncMarkers() {
+    const on = wide.matches;
+    document.querySelectorAll('.rp-marker').forEach(function (m) {
+      m.tabIndex = on ? 0 : -1;
+      if (on) m.removeAttribute('aria-hidden');
+      else m.setAttribute('aria-hidden', 'true');
+    });
+  }
+  syncMarkers();
+  wide.addEventListener('change', syncMarkers);
+
+  // Every timestamp in the page aims the same transport.
+  document.addEventListener('click', function (e) {
+    const hit = e.target.closest('[data-ts]');
+    if (!hit) return;
+    e.preventDefault();
+    seek(parseTs(hit.dataset.ts), true);
+  });
+})();
+
+// Overrides update the row in place: a reload would stop playback and lose the
+// reviewer's place halfway down a long report.
+function applyOverride(cell, status) {
+  const td = cell.parentElement;
+  cell.dataset.busy = '';
+  let pill = td.querySelector('.ov-pill');
+  if (!pill) {
+    pill = document.createElement('span');
+    pill.className = 'ov-pill';
+    td.insertBefore(pill, cell);
+  }
+  if (status === 'approved') {
+    pill.className = 'ov-pill inline-block text-xs font-semibold px-2 py-0.5 rounded bg-green-50 text-green-700 mb-1';
+    pill.textContent = '✓ Approved';
+  } else if (status === 'failed') {
+    pill.className = 'ov-pill inline-block text-xs font-semibold px-2 py-0.5 rounded bg-red-50 text-red-700 mb-1';
+    pill.textContent = '✗ Flagged';
+  } else {
+    pill.remove();
+  }
+  cell.querySelectorAll('.ov-btn').forEach(function (b) {
+    b.disabled = false;
+    if (b.dataset.idle) b.textContent = b.dataset.idle;
+    const target = b.classList.contains('ov-approve') ? 'approved'
+                 : b.classList.contains('ov-flag') ? 'failed' : null;
+    if (target) b.classList.toggle('ov-active', status === target);
+  });
+  let clear = cell.querySelector('.ov-clear');
+  if (status && !clear) {
+    clear = document.createElement('button');
+    clear.type = 'button';
+    clear.className = 'ov-btn ov-clear';
+    clear.textContent = 'Clear';
+    clear.addEventListener('click', function () { setOverride(clear, ''); });
+    cell.appendChild(clear);
+  } else if (!status && clear) {
+    clear.remove();
+  }
+  const live = document.getElementById('override-status');
+  if (live) {
+    live.textContent = 'Override ' + (status === 'approved' ? 'approved'
+                     : status === 'failed' ? 'flagged' : 'cleared') + '.';
+  }
+}
+
+function setOverride(btn, status) {
+  const cell = btn.closest('.override-btns');
+  if (!cell || cell.dataset.busy === '1') return;
+  const buttons = cell.querySelectorAll('.ov-btn');
+  const previousLabel = btn.textContent;
+
+  function fail(message) {
+    cell.dataset.busy = '';
+    buttons.forEach(function (b) { b.disabled = false; });
+    btn.textContent = previousLabel;
+    let note = cell.parentElement.querySelector('.ov-error');
+    if (!note) {
+      note = document.createElement('p');
+      note.className = 'ov-error qb-field-error';
+      note.setAttribute('role', 'alert');
+      cell.parentElement.appendChild(note);
+    }
+    note.textContent = message;
+  }
+
+  cell.dataset.busy = '1';
+  buttons.forEach(function (b) { b.disabled = true; });
+  btn.textContent = 'Saving…';
+  const existing = cell.parentElement.querySelector('.ov-error');
+  if (existing) existing.remove();
+
+  fetch('{{ url_for("calls.override", call_id=call.id) }}', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+    },
+    body: JSON.stringify({
+      section_key: cell.dataset.sectionKey,
+      item_name: cell.dataset.itemName,
+      status: status
+    }),
+  })
+  .then(function (res) {
+    if (res.status === 401 || res.status === 403) { fail('Your session expired. Reload the page and sign in again.'); return null; }
+    if (!res.ok) { fail('Could not save that override (error ' + res.status + '). Try again.'); return null; }
+    return res.json();
+  })
+  .then(function (data) { if (data) applyOverride(cell, status); })
+  .catch(function () { fail('Could not reach the server. Check your connection and try again.'); });
+}
+</script>

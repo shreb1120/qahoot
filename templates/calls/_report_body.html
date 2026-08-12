@@ -1,0 +1,491 @@
+{#  The report body, shared by the app page and the public walkthrough.
+
+    Extracted so /tour renders the *same* markup the product renders. A tour
+    built from a copy — or from screenshots — starts drifting the first time
+    this file changes, and this file changes often.
+
+    Expects: call, report, vm, agents, reviewer_email, outcome_label,
+    outcome_blurb, is_failing. #}
+{% set r = report.report_json %}
+{% set det = r.get('final_determination', '') %}
+{% set overrides = report.overrides_json or {} %}
+{% set sections = r.get('sections', []) %}
+{% set af = r.get('auto_fail_phrases', {}) %}
+{% set flip = r.get('program_flip', {}) %}
+{% set ineligible = r.get('ineligible_accounts', []) %}
+{% set ns = namespace(total=0, covered=0) %}
+{% for sec in sections %}
+  {% set ns.total = ns.total + sec.get('total_count', 0) %}
+  {% set ns.covered = ns.covered + sec.get('covered_count', 0) %}
+{% endfor %}
+{% set score_pct = (ns.covered / ns.total * 100) | round | int if ns.total else 0 %}
+{% set is_crit = 'CRITICAL' in det %}
+{% set is_pass = 'PASS' in det and 'FAIL' not in det %}
+
+<div>
+
+  {#  ── Possible program flip ──
+      Above the verdict on purpose: it changes how a reviewer should read the
+      requirements below, so it has to be seen before them rather than found
+      afterwards. Deliberately hedged as *possible* — the grader is told to
+      flag ambiguity rather than resolve it, because whether a flip changes
+      what needed disclosing is a judgment for the person reviewing.
+
+      It carries no colour from the pass/fail palette and no verdict styling:
+      a flip is context, not a violation, and must not read as one. #}
+  {% if flip.get('detected') %}
+    <div class="rp-panel mb-4 p-3.5" style="background:#eef2ff;border-color:#c7d2fe"
+         role="note" aria-label="Possible program flip">
+      <p class="text-sm" style="color:#3730a3">
+        <b>Possible program flip.</b>
+        {% if flip.get('reason') %}
+          <span class="qb-break">{{ flip.reason }}</span>
+        {% endif %}
+      </p>
+      {% if flip.get('evidence') %}
+        <ul class="mt-2 space-y-1">
+          {% for e in flip.evidence %}
+            <li class="text-xs text-muted qb-break">
+              {% if e.timestamp %}<span class="rp-num">[{{ e.timestamp }}]</span>{% endif %}
+              {% if e.speaker %}<span class="font-medium">{{ e.speaker }}:</span>{% endif %}
+              “{{ e.quote }}”
+            </li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+      <p class="text-xs mt-2" style="color:#4338ca">
+        Requirements below are graded as normal. If the client was already
+        enrolled elsewhere, some disclosures — credit impact on accounts already
+        in default, for instance — may not apply the same way. That call is yours.
+      </p>
+    </div>
+  {% endif %}
+
+  {#  ── Accounts the client said something disqualifying about ──
+      Sits with the flip note, above the verdict, for the same reason: it
+      changes what a reviewer is looking for. Also not styled as a failure —
+      whether the account was actually enrolled is exactly what the reviewer
+      has to go and check, and presenting it as a violation pre-judges that. #}
+  {% if ineligible %}
+    {% set reason_label = {
+         'prior_settlement': 'Already settled elsewhere',
+         'secured_vehicle':  'Secured to a vehicle',
+         'litigation':       'Already sued on this account',
+       } %}
+    <div class="rp-panel mb-4 p-3.5" style="background:#fffbeb;border-color:#fcd34d"
+         role="note" aria-label="Possibly ineligible accounts">
+      <p class="text-sm" style="color:#92400e">
+        <b>{{ ineligible | length }} account{{ 's' if ineligible | length != 1 }}
+        may not be eligible to enroll.</b>
+        Check whether {{ 'any were' if ineligible | length != 1 else 'it was' }}
+        actually included.
+      </p>
+      <ul class="mt-2 space-y-1.5">
+        {% for a in ineligible %}
+          <li class="text-xs qb-break" style="color:#78350f">
+            <span class="font-semibold">{{ reason_label.get(a.reason_code, a.reason_code) }}</span>
+            {%- if a.account %} — {{ a.account }}{% endif %}
+            {% if a.timestamp %}<span class="rp-num">[{{ a.timestamp }}]</span>{% endif %}
+            <div class="text-muted mt-0.5">
+              {% if a.speaker %}{{ a.speaker }}: {% endif %}“{{ a.quote }}”
+            </div>
+            {% if a.note %}<div class="mt-0.5">{{ a.note }}</div>{% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+
+  {# ── Call identity + verdict ── #}
+  <div class="flex flex-wrap items-start justify-between gap-4 mb-4">
+    <div class="min-w-0">
+      <div class="flex items-center gap-2 flex-wrap">
+        {% if call.agent %}
+          <h1 class="qb-section-title">
+            <a class="rp-link" href="{{ url_for('agents.agent_profile', agent_id=call.agent.id) }}">{{ call.agent.name }}</a>
+          </h1>
+        {% else %}
+          <h1 class="qb-section-title text-warn">Unassigned</h1>
+        {% endif %}
+        {% if call.internal_id %}
+          <span class="rp-num text-xs font-semibold text-muted bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5" title="Internal ID">{{ call.internal_id }}</span>
+        {% endif %}
+      </div>
+
+      {# Metadata is optional at upload, so attribution happens here. #}
+      <details class="mt-1"{% if not call.agent %} open{% endif %}>
+        <summary class="rp-disclosure">{{ 'Change agent' if call.agent else 'Assign an agent' }}</summary>
+        <form method="post" action="{{ url_for('calls.assign_agent', call_id=call.id) }}"
+              class="rp-inline" data-busy-label="Saving…">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="rp-field flex-1 min-w-[180px]">
+            <label class="rp-field-label" for="assign-agent">Agent</label>
+            <select class="rp-select" id="assign-agent" name="agent_id">
+              <option value="">— Unassigned —</option>
+              {% for a in agents %}
+                <option value="{{ a.id }}" {% if call.agent and call.agent.id == a.id %}selected{% endif %}>{{ a.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <button type="submit" class="rp-btn">Save</button>
+        </form>
+      </details>
+      <p class="text-xs text-faint mt-1 rp-num qb-break">
+        {% if call.call_date %}{{ call.call_date.strftime('%b %d, %Y') }} &middot; {% endif %}
+        {% if vm.duration %}{{ vm.duration_label }} &middot; {% endif %}
+        {% if call.client_phone %}{{ call.client_phone }} &middot; {% endif %}
+        {{ call.filename }}
+      </p>
+    </div>
+
+    <div class="flex items-center gap-3">
+      {% if is_pass %}
+        <span class="rp-verdict rp-verdict--pass"><span class="rp-verdict-dot" aria-hidden="true"></span>PASS</span>
+      {% elif is_crit %}
+        <span class="rp-verdict rp-verdict--crit"><span class="rp-verdict-dot" aria-hidden="true"></span>CRITICAL FAIL</span>
+      {% else %}
+        <span class="rp-verdict rp-verdict--fail"><span class="rp-verdict-dot" aria-hidden="true"></span>FAIL</span>
+      {% endif %}
+    </div>
+  </div>
+
+  {# ── Transport: play, scrub, and every piece of evidence on one axis ── #}
+  {% if call.audio_file_url %}
+  <div class="rp-transport">
+    <audio id="call-audio" preload="metadata" class="qb-sr-only">
+      {#  `audio_src` lets the public walkthrough point at a static synthetic file.
+          The normal path is the authenticated per-call route, which correctly
+          404s for an anonymous visitor — so the demo cannot borrow it. #}
+      <source src="{{ audio_src or url_for('calls.audio', call_id=call.id) }}">
+    </audio>
+
+    <div class="rp-transport-row">
+      {#  Skip buttons flank the play control.
+          On a 94-minute call in a ~600px timeline one pixel is about nine
+          seconds, so the scrubber can never be the way to move a small,
+          known amount. "I missed that, play it again" is the single most
+          common thing a reviewer does, and it now has a button instead of a
+          drag that overshoots. #}
+      <div class="rp-controls">
+        {#  The numeral lives inside the SVG rather than in an overlaid span:
+            at 32px an absolutely-positioned badge sits on top of the arrow and
+            neither is legible. Inside the viewBox both scale together. #}
+        <button type="button" class="rp-skip" id="rp-back10"
+                aria-label="Back 10 seconds" title="Back 10 seconds (←)">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 5a7 7 0 1 1-6.9 8.2" fill="none" stroke="currentColor"
+                  stroke-width="1.8" stroke-linecap="round"/>
+            <path d="M12 2.2 8.6 5 12 7.8z" fill="currentColor"/>
+            <text x="12.4" y="15.6" text-anchor="middle" font-size="8.5"
+                  font-weight="700" fill="currentColor"
+                  font-family="inherit" letter-spacing="-.4">10</text>
+          </svg>
+        </button>
+
+        <button type="button" class="rp-play" id="rp-play" aria-label="Play call">
+          <svg id="rp-icon-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.14v13.72a1 1 0 0 0 1.52.85l11.14-6.86a1 1 0 0 0 0-1.7L9.52 4.29A1 1 0 0 0 8 5.14Z"/></svg>
+          <svg id="rp-icon-pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="display:none"><path d="M7 4h3v16H7zM14 4h3v16h-3z"/></svg>
+        </button>
+
+        <button type="button" class="rp-skip" id="rp-fwd10"
+                aria-label="Forward 10 seconds" title="Forward 10 seconds (→)">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 5a7 7 0 1 0 6.9 8.2" fill="none" stroke="currentColor"
+                  stroke-width="1.8" stroke-linecap="round"/>
+            <path d="M12 2.2 15.4 5 12 7.8z" fill="currentColor"/>
+            <text x="11.6" y="15.6" text-anchor="middle" font-size="8.5"
+                  font-weight="700" fill="currentColor"
+                  font-family="inherit" letter-spacing="-.4">10</text>
+          </svg>
+        </button>
+      </div>
+
+      {% if vm.has_timeline %}
+        <div class="rp-timeline" id="rp-timeline">
+          <div class="rp-markers">
+            {% for m in vm.markers %}
+              <button type="button" class="rp-marker rp-marker--{{ m.kind }}"
+                      style="left:{{ m.pct }}%" data-ts="{{ m.ts }}"
+                      title="{{ m.ts }} · {{ m.label }}"
+                      aria-label="Jump to {{ m.ts }} — {{ m.label }}"></button>
+            {% endfor %}
+          </div>
+          <div class="rp-track" id="rp-track" role="slider" tabindex="0"
+               aria-label="Call position" aria-valuemin="0" aria-valuemax="{{ vm.duration }}"
+               aria-valuenow="0" aria-valuetext="0:00">
+            {# What the browser has actually downloaded. A 94-minute file does
+               not arrive instantly, and without this a seek into un-buffered
+               audio looks like the player has frozen. #}
+            <span class="rp-buffered" id="rp-buffered"></span>
+            {% for b in vm.bands %}
+              <span class="rp-band rp-band--{{ b.slot }}" style="left:{{ b.left }}%;width:{{ b.width }}%"></span>
+            {% endfor %}
+          </div>
+          <div class="rp-playhead" id="rp-playhead" style="left:0%"></div>
+          {#  Where a click would land, shown before it lands. The whole point:
+              you aim, read the time, then commit — rather than seeking blind
+              and correcting afterwards. Also names the nearest evidence marker,
+              since those are the moments anyone is actually hunting for. #}
+          <div class="rp-bubble" id="rp-bubble" hidden aria-hidden="true">
+            <span class="rp-bubble-t" id="rp-bubble-t">0:00</span>
+            <span class="rp-bubble-l" id="rp-bubble-l"></span>
+          </div>
+        </div>
+      {% else %}
+        <div class="flex-1 text-xs text-faint">Timeline unavailable — this call has no speaker timing.</div>
+      {% endif %}
+
+      <div class="rp-time"><b id="rp-current">0:00</b> / {{ vm.duration_label }}</div>
+
+      {#  Reviewers work through hour-long calls. Speed is not a luxury here,
+          it is the difference between listening to a 94-minute call and
+          listening to 47 minutes of it. Cycles rather than opening a menu —
+          one control, one tap, no target to hit. #}
+      <button type="button" class="rp-speed" id="rp-speed"
+              aria-label="Playback speed, currently normal" title="Playback speed">1&times;</button>
+    </div>
+
+    {% if vm.has_timeline %}
+      <div class="rp-legend">
+        <span class="rp-legend-item"><span class="rp-swatch" style="background:var(--spk-a)" aria-hidden="true"></span>Speaker A{% if vm.talk_share.a %} · {{ vm.talk_share.a }}% talk{% endif %}</span>
+        {% if vm.speaker_count > 1 %}
+          <span class="rp-legend-item"><span class="rp-swatch" style="background:var(--spk-b)" aria-hidden="true"></span>Speaker B{% if vm.talk_share.b %} · {{ vm.talk_share.b }}% talk{% endif %}</span>
+        {% endif %}
+        {% if 'ok' in vm.marker_kinds %}
+          <span class="rp-legend-item"><span class="rp-swatch" style="background:#94a3b8;transform:rotate(45deg)" aria-hidden="true"></span>Disclosure covered</span>
+        {% endif %}
+        {% if 'miss' in vm.marker_kinds %}
+          <span class="rp-legend-item"><span class="rp-swatch" style="background:#dc2626;transform:rotate(45deg)" aria-hidden="true"></span>Missing disclosure</span>
+        {% endif %}
+        {% if 'crit' in vm.marker_kinds %}
+          <span class="rp-legend-item"><span class="rp-swatch" style="background:#7f1d1d;transform:rotate(45deg)" aria-hidden="true"></span>Auto-fail</span>
+        {% endif %}
+      </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% set recon = r.get('_reconciliation', {}) %}
+  {% if recon.get('items_not_assessed') %}
+    <div class="rp-panel mt-4 p-3.5" style="background:#fffbeb;border-color:#fcd34d">
+      <p class="text-sm text-ink-2">
+        <strong>{{ recon.items_not_assessed }} requirement{{ 's' if recon.items_not_assessed != 1 }}</strong>
+        came back without a verdict from the grader and {{ 'are' if recon.items_not_assessed != 1 else 'is' }}
+        counted as not covered. They are marked <em>Not assessed</em> below —
+        re-run the call if you need a determination on {{ 'them' if recon.items_not_assessed != 1 else 'it' }}.
+      </p>
+    </div>
+  {% endif %}
+
+  {#  Shown whenever a phrase was heard at all — including when only the client
+      said it, which is not a failure but is still worth a reviewer's eye. The
+      colour follows `detected`, which now counts agent-attributable phrases
+      only, so a client-only match reads as a note rather than a violation. #}
+  {% set af_agent = af.get('agent_count', af.get('phrases', []) | length) %}
+  {% set af_client = af.get('client_count', 0) %}
+  {% if af.get('phrases') %}
+    {% set crit = af.get('detected') %}
+    <div class="rp-panel mt-4" data-tour="phrases" style="border-color:{{ '#fecaca' if crit else '#fcd34d' }}">
+      <div class="rp-panel-head" style="background:{{ '#fef2f2' if crit else '#fffbeb' }};border-color:{{ '#fecaca' if crit else '#fcd34d' }}">
+        <h2 class="rp-panel-title" style="color:{{ '#b91c1c' if crit else '#92400e' }}">
+          {{ 'Auto-fail phrase detected' if crit else 'Prohibited phrases heard — none count against the agent' }}
+        </h2>
+        {#  Three populations, counted separately, because the report says
+            something different about each: the agent asserted it, the client
+            said it, or the agent named it in order to deny it. Deriving
+            "client" as everything-that-is-not-a-violation lumped the third in
+            with the second and printed a plainly false sentence. #}
+        {%- set af_disc = af.get('disclaimed_count', 0) %}
+        <span class="text-xs font-semibold" style="color:{{ '#991b1b' if crit else '#92400e' }}">
+          {%- if crit %}{{ af_agent }} by the agent
+            {%- if af_client %}, {{ af_client }} by the client{% endif %}
+            {%- if af_disc %}, {{ af_disc }} disclaimed{% endif %}
+          {%- else %}heard
+            {%- if af_client %} {{ af_client }}× from the client{% endif %}
+            {%- if af_disc %}{{ ',' if af_client }} {{ af_disc }}× disclaimed by the agent{% endif %}
+          {%- endif %}
+        </span>
+      </div>
+      <div class="qb-scroll-x">
+        <table class="rp-table">
+          <thead><tr><th>Phrase &amp; quote</th><th style="width:4.5rem">At</th><th style="width:6rem">Speaker</th><th style="width:30%">Violation</th></tr></thead>
+          <tbody>
+            {% for p in af.get('phrases', []) %}
+              {#  Only an asserted, agent-spoken phrase is styled as a miss. A
+                  client's words, or a disclaimer the agent read correctly, must
+                  not be dressed as a violation of theirs. #}
+              <tr {% if p.spoken_by != 'client' and p.is_violation %}class="rp-row--miss"{% endif %}>
+                <td class="qb-break">
+                  <div class="rp-req font-semibold text-ink">{{ p.phrase }}</div>
+                  {% if p.quote %}<div class="rp-evidence">{{ p.quote }}</div>{% endif %}
+                </td>
+                <td>{% if p.timestamp and p.timestamp != '—' %}<button type="button" class="rp-ts" data-ts="{{ p.timestamp }}">{{ p.timestamp }}</button>{% else %}—{% endif %}</td>
+                <td class="text-muted qb-break">
+                  {{ p.speaker or '—' }}
+                  {% if p.spoken_by == 'client' %}
+                    <span class="rp-tag rp-tag--opt">client</span>
+                  {% elif not p.is_violation %}
+                    <span class="rp-tag rp-tag--opt">disclaimed</span>
+                  {% endif %}
+                </td>
+                <td class="rp-violation qb-break">{{ p.violation or '' }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% endif %}
+
+  {# ── Working column + transcript rail ── #}
+  <div class="rp-grid">
+    <div class="min-w-0">
+
+      {# Score #}
+      <div class="rp-panel">
+        <div class="rp-panel-head">
+          <h2 class="rp-panel-title">Compliance score</h2>
+          <div class="rp-actions">
+            <form method="post" action="{{ url_for('calls.writeup', call_id=call.id) }}" data-busy-label="Generating…">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="rp-btn">Write-up (.docx)</button>
+            </form>
+            <a href="{{ url_for('calls.report_pdf', call_id=call.id) }}" class="rp-btn">PDF</a>
+            <a href="{{ url_for('calls.report_pdf', call_id=call.id, fails_only='1') }}" class="rp-btn">Fails only</a>
+          </div>
+        </div>
+        <div class="p-4">
+          <div class="rp-score">
+            <span class="rp-score-value">{{ score_pct }}%</span>
+            <span class="rp-score-of">{{ ns.covered }} of {{ ns.total }} items covered</span>
+          </div>
+          <div class="rp-meter">
+            <div class="rp-meter-fill" style="transform:scaleX({{ (score_pct / 100) if ns.total else 0 }});background:{{ '#047857' if score_pct >= 80 else '#b45309' if score_pct >= 60 else '#b91c1c' }}"></div>
+          </div>
+          {% if sections %}
+            <div class="flex flex-wrap gap-x-5 gap-y-1.5 mt-3">
+              {% for sec in sections %}
+                {% set sc = sec.get('covered_count', 0) %}{% set st = sec.get('total_count', 0) %}
+                <span class="text-xs text-muted">
+                  {{ sec.name }}
+                  <b class="rp-num {{ 'text-emerald-700' if sc == st else 'text-red-700' }}">{{ sc }}/{{ st }}</b>
+                </span>
+              {% endfor %}
+            </div>
+          {% endif %}
+          {% if r.get('summary') %}
+            <p class="text-xs text-muted mt-3 pt-3 border-t border-slate-100 leading-relaxed">{{ r.summary }}</p>
+          {% endif %}
+        </div>
+      </div>
+
+      {% if not sections %}
+        <div class="rp-panel p-6 text-center mt-4">
+          <h2 class="qb-section-title mb-1">No checklist results in this report</h2>
+          <p class="text-sm text-muted">The analysis finished without scoring any checklist sections. Check that your compliance checklist has items, then re-upload the call.</p>
+          <a href="{{ url_for('profile.view') }}" class="rp-btn mt-4">Open checklist</a>
+        </div>
+      {% endif %}
+
+      {# Items #}
+      {% for section in sections %}
+        {% set sk = section.get('key', section.name | lower | replace(' ', '_')) %}
+        {% set sc = section.get('covered_count', 0) %}{% set st = section.get('total_count', 0) %}
+        <div class="rp-panel mt-4">
+          <div class="rp-panel-head">
+            <h2 class="rp-panel-title">{{ section.name }}</h2>
+            <span class="rp-num text-xs font-semibold {{ 'text-emerald-700' if sc == st else 'text-red-700' }}">{{ sc }}/{{ st }} covered</span>
+          </div>
+          <div class="qb-scroll-x">
+            <table class="rp-table">
+              <thead>
+                <tr>
+                  <th>Requirement &amp; evidence</th>
+                  <th style="width:8.5rem">Status</th>
+                  <th style="width:4.5rem">At</th>
+                  <th style="width:11rem">Override</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for item in section.get('items', []) %}
+                  {% set ov = overrides.get(sk ~ '::' ~ item.name, '') %}
+                  <tr class="{% if item.status == 'not_assessed' %}rp-row--unknown{% elif item.status != 'covered' %}rp-row--miss{% endif %}"
+                      data-tour="{{ 'not-assessed' if item.status == 'not_assessed' else ('covered' if item.status == 'covered' else 'missed') }}">
+                    <td class="qb-break">
+                      <div class="rp-req">{{ item.name }}</div>
+                      {% if item.evidence %}<div class="rp-evidence">{{ item.evidence }}</div>{% endif %}
+                    </td>
+                    <td>
+                      {% if item.status == 'covered' %}
+                        <span class="rp-status rp-status--ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 13 4 4L19 7"/></svg>Covered</span>
+                      {% elif item.status == 'not_assessed' %}
+                        <span class="rp-status rp-status--unknown" title="The grader did not return a verdict for this requirement. Treated as not covered."><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"/></svg>Not assessed</span>
+                      {% else %}
+                        <span class="rp-status rp-status--miss"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>Missing</span>
+                      {% endif %}
+                    </td>
+                    <td>
+                      {% if item.timestamp and item.timestamp != '—' %}
+                        <button type="button" class="rp-ts" data-ts="{{ item.timestamp }}">{{ item.timestamp }}</button>
+                      {% else %}<span class="text-decor">—</span>{% endif %}
+                    </td>
+                    <td>
+                      {% if ov == 'approved' %}
+                        <span class="ov-pill inline-block text-xs font-semibold px-2 py-0.5 rounded bg-green-50 text-green-700 mb-1">✓ Approved</span>
+                      {% elif ov == 'failed' %}
+                        <span class="ov-pill inline-block text-xs font-semibold px-2 py-0.5 rounded bg-red-50 text-red-700 mb-1">✗ Flagged</span>
+                      {% endif %}
+                      <div class="override-btns" data-section-key="{{ sk }}" data-item-name="{{ item.name }}">
+                        <span data-tour="override"><button type="button" class="ov-btn ov-approve {{ 'ov-active' if ov == 'approved' }}" data-idle="Approve" onclick="setOverride(this, 'approved')">Approve</button>
+                        <button type="button" class="ov-btn ov-flag {{ 'ov-active' if ov == 'failed' }}" data-idle="Flag" onclick="setOverride(this, 'failed')">Flag</button>
+                        {% if ov %}
+                          <button type="button" class="ov-btn ov-clear" data-idle="Clear" onclick="setOverride(this, '')">Clear</button>
+                        {% endif %}
+                      </span></div>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+
+    {# ── Transcript rail: evidence, adjacent to the finding ── #}
+    <div class="rp-rail">
+      <div class="rp-panel">
+        <div class="rp-panel-head">
+          <h2 class="rp-panel-title">Transcript</h2>
+          <label class="flex items-center gap-1.5 text-xs text-muted cursor-pointer select-none">
+            <input type="checkbox" id="rp-follow" checked>Follow playback
+          </label>
+        </div>
+        {% if vm.lines %}
+          <div class="rp-transcript" id="rp-transcript">
+            {% for line in vm.lines %}
+              <div class="rp-line" data-start="{{ line.start_ms }}" data-end="{{ line.end_ms }}">
+                <button type="button" class="rp-line-ts" data-ts="{{ line.ts }}" aria-label="Play from {{ line.ts }}">{{ line.ts }}</button>
+                <div>
+                  <span class="rp-spk rp-spk--{{ line.slot }}">{{ line.speaker }}</span>
+                  <span class="rp-line-text">{{ line.text }}</span>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="p-4 text-xs text-muted">No transcript is available for this call.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <p class="qb-sr-only" id="override-status" role="status" aria-live="polite"></p>
+
+  {# The decision comes last, after the evidence it should be based on. #}
+  {% include "calls/_signoff.html" %}
+
+  <p class="mt-5 text-xs"><a href="{{ url_for('calls.review_queue') }}" class="text-muted no-underline hover:text-ink">← Review queue</a>
+    <span class="text-decor mx-1">·</span>
+    <a href="{{ url_for('calls.history') }}" class="text-muted no-underline hover:text-ink">Call history</a></p>
+</div>
