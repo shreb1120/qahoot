@@ -197,6 +197,9 @@ def normalize_report(raw: dict | None, checklist: dict | None) -> dict:
             "timestamp": hit.get("timestamp") or None,
             "speaker": hit.get("speaker") or "",
             "spoken_by": _spoken_by(hit),
+            # Absent means true: an unmarked phrase must keep failing the call,
+            # so a grader that omits the field cannot quietly excuse anything.
+            "is_violation": hit.get("is_violation") is not False,
             "quote": hit.get("quote") or "",
             "violation": hit.get("violation") or "",
         })
@@ -216,7 +219,19 @@ def normalize_report(raw: dict | None, checklist: dict | None) -> dict:
     # Client-spoken phrases stay in the report: a reviewer may well want to know
     # the framing was used and the agent let it stand. They just cannot fail
     # anyone.
-    agent_hits = [h for h in kept if h["spoken_by"] != "client"]
+    # Two conditions, and the second was learned the hard way. Compliance
+    # scripts are full of mandatory disclaimers that contain the prohibited
+    # words in order to deny them — "this program is not a 0% payment plan",
+    # "I do want to inform you, it's not guaranteed", "we are not making your
+    # monthly payments". Call 888454 was failed three times over for reading
+    # those correctly.
+    #
+    # The grader had already worked this out on its own and written "Not a
+    # violation — the agent is reading a required negating disclosure" into the
+    # violation text. It had nowhere structured to say so, so the verdict could
+    # not act on it. `is_violation` is that place.
+    agent_hits = [h for h in kept
+                  if h["spoken_by"] != "client" and h["is_violation"]]
 
     # Determination is derived, never trusted, so a verdict can never disagree
     # with the rows underneath it. `verdict` is the same decision in a form a
@@ -299,8 +314,15 @@ def normalize_report(raw: dict | None, checklist: dict | None) -> dict:
         "auto_fail_phrases": {
             "detected": bool(agent_hits),
             "phrases": kept,
+            # Three distinct populations, counted separately because the report
+            # says something different about each. Deriving "client" as
+            # everything-that-is-not-a-violation lumped agent-spoken disclaimers
+            # in with it and printed a plainly false sentence.
             "agent_count": len(agent_hits),
-            "client_count": len(kept) - len(agent_hits),
+            "client_count": sum(1 for h in kept if h["spoken_by"] == "client"),
+            "disclaimed_count": sum(1 for h in kept
+                                    if h["spoken_by"] != "client"
+                                    and not h["is_violation"]),
         },
         "program_flip": {
             "detected": flip_detected,

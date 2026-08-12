@@ -181,3 +181,85 @@ def test_the_prompt_teaches_the_two_distinctions_that_cause_false_alarms():
                              "auto_fail_phrases": []}).lower()
     assert "asking is not a finding" in p
     assert "expense" in p and "enrolled" in p
+
+
+# ═══════════════ the words alone are not the violation ═══════════════
+
+def test_the_prompt_distinguishes_asserting_from_disclaiming():
+    """Call 888454 was marked CRITICAL FAIL twice over for phrases the agent
+    used to *deny* the very claims they name:
+
+        "I do want to inform you, it's not guaranteed"
+        "this program ... is not a 0% payment plan"
+
+    Both are required disclaimers. Compliance scripts in this industry are full
+    of them, often word for word — which is precisely why the literal prohibited
+    words appear in a well-run call. Matching on the words alone inverts the
+    meaning of the call and fails the agents who are doing it right."""
+    from prompt_builder import build_system_prompt
+    p = build_system_prompt({"sections": [{"name": "S", "items": [{"name": "i"}]}],
+                             "auto_fail_phrases": [{"phrase": "guaranteed"}]}).lower()
+    assert "asserts" in p
+    assert "not a 0% payment plan" in p
+    assert "it's not guaranteed" in p
+    assert "is_violation = false" in p, \
+        "the grader needs a structured way to say a disclaimer is not a violation"
+
+
+# ═══════════════ a disclaimer is not a violation ═══════════════
+
+def _phrase(**kw):
+    base = {"phrase": "guaranteed", "timestamp": "35:25", "speaker": "A",
+            "spoken_by": "agent", "quote": "it's not guaranteed",
+            "violation": "Not a violation — explicit disclaimer",
+            "is_violation": False}
+    base.update(kw)
+    return base
+
+
+def _with_phrases(phrases):
+    r = _raw()
+    r["auto_fail_phrases"] = {"detected": True, "phrases": phrases}
+    return r
+
+
+def test_a_disclaimed_phrase_does_not_fail_the_call():
+    """Call 888454 was failed three times over for reading required disclaimers:
+    "this program is not a 0% payment plan", "it's not guaranteed", "we are not
+    making your monthly payments". Every one is the agent doing their job."""
+    out = normalize_report(_with_phrases([_phrase()]), CHECKLIST)
+    assert out["verdict"] == "pass"
+    assert out["auto_fail_phrases"]["agent_count"] == 0
+
+
+def test_the_disclaimer_still_appears_on_the_report():
+    """A reviewer may well want to confirm the disclosure was read."""
+    out = normalize_report(_with_phrases([_phrase()]), CHECKLIST)
+    assert len(out["auto_fail_phrases"]["phrases"]) == 1
+    assert out["auto_fail_phrases"]["phrases"][0]["is_violation"] is False
+
+
+def test_an_asserted_phrase_still_fails_the_call():
+    """The whole point of the tool. Do not fix false positives by going blind."""
+    out = normalize_report(
+        _with_phrases([_phrase(quote="this is guaranteed to work", is_violation=True)]),
+        CHECKLIST)
+    assert out["verdict"] == "critical"
+
+
+def test_a_missing_is_violation_still_fails():
+    """Absent means true. A grader that omits the field must not quietly excuse
+    a real violation."""
+    p = _phrase()
+    del p["is_violation"]
+    out = normalize_report(_with_phrases([p]), CHECKLIST)
+    assert out["verdict"] == "critical"
+
+
+def test_a_real_violation_among_disclaimers_still_fails():
+    out = normalize_report(_with_phrases([
+        _phrase(quote="not a 0% payment plan", is_violation=False),
+        _phrase(quote="your rate will be 0%", is_violation=True),
+    ]), CHECKLIST)
+    assert out["verdict"] == "critical"
+    assert out["auto_fail_phrases"]["agent_count"] == 1

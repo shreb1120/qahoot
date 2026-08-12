@@ -227,11 +227,22 @@
     <div class="rp-panel mt-4" style="border-color:{{ '#fecaca' if crit else '#fcd34d' }}">
       <div class="rp-panel-head" style="background:{{ '#fef2f2' if crit else '#fffbeb' }};border-color:{{ '#fecaca' if crit else '#fcd34d' }}">
         <h2 class="rp-panel-title" style="color:{{ '#b91c1c' if crit else '#92400e' }}">
-          {{ 'Auto-fail phrase detected' if crit else 'Prohibited phrase heard — not spoken by the agent' }}
+          {{ 'Auto-fail phrase detected' if crit else 'Prohibited phrases heard — none count against the agent' }}
         </h2>
+        {#  Three populations, counted separately, because the report says
+            something different about each: the agent asserted it, the client
+            said it, or the agent named it in order to deny it. Deriving
+            "client" as everything-that-is-not-a-violation lumped the third in
+            with the second and printed a plainly false sentence. #}
+        {%- set af_disc = af.get('disclaimed_count', 0) %}
         <span class="text-xs font-semibold" style="color:{{ '#991b1b' if crit else '#92400e' }}">
-          {%- if crit %}{{ af_agent }} by the agent{% if af_client %}, {{ af_client }} by the client{% endif %}
-          {%- else %}{{ af_client }} by the client — the agent's score is unaffected{% endif %}
+          {%- if crit %}{{ af_agent }} by the agent
+            {%- if af_client %}, {{ af_client }} by the client{% endif %}
+            {%- if af_disc %}, {{ af_disc }} disclaimed{% endif %}
+          {%- else %}heard
+            {%- if af_client %} {{ af_client }}× from the client{% endif %}
+            {%- if af_disc %}{{ ',' if af_client }} {{ af_disc }}× disclaimed by the agent{% endif %}
+          {%- endif %}
         </span>
       </div>
       <div class="qb-scroll-x">
@@ -239,13 +250,23 @@
           <thead><tr><th>Phrase &amp; quote</th><th style="width:4.5rem">At</th><th style="width:6rem">Speaker</th><th style="width:30%">Violation</th></tr></thead>
           <tbody>
             {% for p in af.get('phrases', []) %}
-              <tr class="rp-row--miss">
+              {#  Only an asserted, agent-spoken phrase is styled as a miss. A
+                  client's words, or a disclaimer the agent read correctly, must
+                  not be dressed as a violation of theirs. #}
+              <tr {% if p.spoken_by != 'client' and p.is_violation %}class="rp-row--miss"{% endif %}>
                 <td class="qb-break">
                   <div class="rp-req font-semibold text-ink">{{ p.phrase }}</div>
                   {% if p.quote %}<div class="rp-evidence">{{ p.quote }}</div>{% endif %}
                 </td>
                 <td>{% if p.timestamp and p.timestamp != '—' %}<button type="button" class="rp-ts" data-ts="{{ p.timestamp }}">{{ p.timestamp }}</button>{% else %}—{% endif %}</td>
-                <td class="text-muted">{{ p.speaker or '—' }}</td>
+                <td class="text-muted qb-break">
+                  {{ p.speaker or '—' }}
+                  {% if p.spoken_by == 'client' %}
+                    <span class="rp-tag rp-tag--opt">client</span>
+                  {% elif not p.is_violation %}
+                    <span class="rp-tag rp-tag--opt">disclaimed</span>
+                  {% endif %}
+                </td>
                 <td class="rp-violation qb-break">{{ p.violation or '' }}</td>
               </tr>
             {% endfor %}
