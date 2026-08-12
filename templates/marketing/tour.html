@@ -110,11 +110,13 @@
     }
     var r = el.getBoundingClientRect();
     var pad = 8;
+    // Translated rather than repositioned: the CSS animates transform only, so
+    // moving the ring between steps never triggers layout.
     spot.style.opacity = '1';
-    spot.style.top = (r.top - pad + window.scrollY) + 'px';
-    spot.style.left = (r.left - pad + window.scrollX) + 'px';
     spot.style.width = (r.width + pad * 2) + 'px';
     spot.style.height = (r.height + pad * 2) + 'px';
+    spot.style.transform = 'translate(' + (r.left - pad + window.scrollX) + 'px,'
+                         + (r.top - pad + window.scrollY) + 'px)';
 
     card.style.position = 'absolute';
     card.style.transform = 'none';

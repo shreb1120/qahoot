@@ -1427,23 +1427,31 @@ html { scroll-behavior: smooth; }
   text-transform: uppercase; color: var(--spk-a); margin: 0 0 .625rem;
 }
 .tour-h1 {
-  font-size: clamp(1.75rem, 4vw, 2.5rem); font-weight: 800; line-height: 1.1;
+  font-size: var(--mk-fs-h1-sm); font-weight: 800; line-height: 1.1;
   letter-spacing: -.02em; color: var(--ink); margin: 0 0 .75rem; text-wrap: balance;
 }
-.tour-lede { color: var(--muted); font-size: 1.0625rem; line-height: 1.6; margin: 0; }
+.tour-lede { color: var(--muted); font-size: var(--mk-fs-lede); line-height: 1.6; margin: 0; }
 .tour-stage { padding-bottom: 5rem; }
 
 /* The spotlight is a ring plus an outward shadow rather than a full-page mask:
    a mask would dim the report, and the report is the thing being demonstrated. */
 .tour-spot {
-  position: absolute; border-radius: 10px; pointer-events: none; z-index: 60;
+  position: absolute; border-radius: var(--radius); pointer-events: none; z-index: 60;
   border: 2px solid var(--spk-a);
   box-shadow: 0 0 0 4px rgba(67, 56, 202, .16), 0 8px 28px rgba(15, 23, 42, .10);
-  transition: top .22s ease, left .22s ease, width .22s ease, height .22s ease, opacity .2s;
+  /* Only transform and opacity are animated. Transitioning top/left/width/
+     height re-runs layout on every frame of the move; the ring is positioned at
+     the origin and translated instead, so the browser can composite it. Size is
+     set without a transition — it snaps while the position glides, which reads
+     as deliberate rather than as a stretch. */
+  top: 0; left: 0;
+  transition: transform .22s ease, opacity .2s ease;
+  will-change: transform;
 }
 .tour-card {
   position: absolute; z-index: 61; width: 22.5rem; max-width: calc(100vw - 2rem);
-  background: var(--ink); color: #fff; border-radius: 12px; padding: 1rem 1.125rem 0.875rem;
+  background: var(--ink); color: #fff; border-radius: var(--radius);
+  padding: 1rem 1.125rem 0.875rem;
   box-shadow: 0 12px 34px rgba(15, 23, 42, .28);
 }
 .tour-narrator {
