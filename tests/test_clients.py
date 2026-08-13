@@ -131,3 +131,34 @@ def test_the_client_page_is_gated(anon, tenants, db):
           statuses={"Disclose fees": "covered"})
     assert anon.get("/clients/5550009999").status_code in (302, 401, 403)
     assert tenants.a_admin.get("/clients/5550009999").status_code == 200
+
+
+def test_history_shows_when_a_client_has_other_calls(tenants, db):
+    """The gap that made the roll-up feel like it did not exist.
+
+    History listed two calls for one client as two unrelated rows, with nothing
+    to say they were related or that a combined view existed. The client page
+    was unreachable from the screen people actually start on, so from the
+    outside it looked as though nothing had been built.
+    """
+    from datetime import date
+    _call(db, tenants, phone="5551230000", day=date(2026, 8, 11),
+          statuses={"Disclose fees": "covered"}, name="Ray Ortiz")
+    _call(db, tenants, phone="5551230000", day=date(2026, 8, 12),
+          statuses={"Disclose fees": "missed"}, name="Ray Ortiz")
+
+    body = tenants.a_admin.get("/calls/").get_data(as_text=True)
+    assert "/clients/5551230000" in body, "history does not link to the client roll-up"
+    assert "2 calls with this client" in body
+    assert "Ray Ortiz" in body, "the client's name should be the label, not the number"
+
+
+def test_a_lone_call_is_not_labelled_as_a_group(tenants, db):
+    """"1 calls with this client" on every row would be noise that people learn
+    to stop reading."""
+    from datetime import date
+    _call(db, tenants, phone="5554560000", day=date(2026, 8, 11),
+          statuses={"Disclose fees": "covered"})
+    body = tenants.a_admin.get("/calls/").get_data(as_text=True)
+    assert "/clients/5554560000" in body
+    assert "1 calls with this client" not in body

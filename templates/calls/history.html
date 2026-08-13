@@ -102,7 +102,7 @@
             <tr>
               <th>Agent</th>
               <th>Recording</th>
-              <th style="width:8rem">Phone</th>
+              <th style="width:10rem">Client</th>
               <th style="width:9rem">Call date</th>
               <th style="width:5.5rem">Length</th>
               <th style="width:9rem">Status</th>
@@ -127,7 +127,22 @@
                   {% endif %}
                   {% if call.internal_id %}<span class="rp-num text-xs text-faint">{{ call.internal_id }}</span>{% endif %}
                 </td>
-                <td class="rp-num text-muted">{{ call.client_phone or '—' }}</td>
+                {#  A call is rarely the only one with its client, and the others
+                    are usually not on this page. Saying so here — and linking to
+                    the roll-up — is what connects a single report to the client's
+                    whole history; without it the client view is unreachable from
+                    the place people actually start. #}
+                <td class="rp-num text-muted">
+                  {% set ck = client_key(call.client_phone) %}
+                  {% if ck %}
+                    <a class="rp-link" href="{{ url_for('clients.detail', key=ck) }}">
+                      {{ call.client_name or call.client_phone }}</a>
+                    {% set n = client_counts.get(ck, 1) %}
+                    {% if n > 1 %}
+                      <div class="text-xs" style="color:var(--spk-a)">{{ n }} calls with this client</div>
+                    {% endif %}
+                  {% else %}—{% endif %}
+                </td>
                 <td class="rp-num whitespace-nowrap text-muted">
                   {% if call.call_date %}
                     {{ call.call_date.strftime('%b %d, %Y') }}

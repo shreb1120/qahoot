@@ -906,6 +906,19 @@ def history():
     # references `reports`, and Postgres answers that with a cross join — every
     # count multiplied by the number of reports in the set.
     counts_q = q if joined_report else q.outerjoin(Report, Report.call_id == Call.id)
+    # How many calls each client on this page has in total, so a row can say
+    # "1 of 3" and link to the roll-up. Counted across the whole org, not the
+    # page: the other calls for that client are usually not on this screen,
+    # which is the entire reason the client view exists.
+    import clients as clients_mod
+    client_counts = {}
+    for row in (g.db.query(Call.client_phone, func.count(Call.id))
+                .filter(Call.org_id == g.org.id, Call.client_phone.isnot(None))
+                .group_by(Call.client_phone).all()):
+        key = clients_mod.client_key(row[0])
+        if key:
+            client_counts[key] = client_counts.get(key, 0) + row[1]
+
     summary = stats.verdict_counts(counts_q)
     total_calls = summary["total"]
 
@@ -937,6 +950,8 @@ def history():
         active_ids_json=json.dumps(active_ids),
         summary=summary,
         total_calls=total_calls,
+        client_counts=client_counts,
+        client_key=clients_mod.client_key,
         page=page,
         total_pages=total_pages,
         page_start=start + 1 if page_calls else 0,
