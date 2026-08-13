@@ -279,15 +279,15 @@ def upload_form():
 def upload():
     from datetime import date
 
-    f = request.files.get("file")
-    if f is None or not f.filename:
-        return _upload_error("Choose a call recording to upload.")
-
-    if not _allowed(f.filename):
-        return _upload_error(
-            "That file type is not supported. Upload an audio or video "
-            "recording (MP3, MP4, WAV, M4A, OGG, WEBM, and similar)."
-        )
+    # `files` is the batch field; `file` is kept because it is the name the
+    # single-file form used and an old open tab should not 400.
+    files = [f for f in request.files.getlist("files") if f and f.filename]
+    if not files:
+        one = request.files.get("file")
+        if one is not None and one.filename:
+            files = [one]
+    if not files:
+        return _upload_error("Choose at least one call recording to upload.")
 
     from models import ComplianceProfile
     profile = (
@@ -318,7 +318,7 @@ def upload():
     # against it. Checked before any row is written or file saved, so being
     # refused costs nothing.
     try:
-        ratelimit.check_upload(g.db, g.org, g.user)
+        ratelimit.check_upload(g.db, g.org, g.user, count=len(files))
         g.db.commit()
     except ratelimit.RateLimited as limited:
         g.db.commit()          # keep the counter increment that tripped it
@@ -327,46 +327,58 @@ def upload():
             form=_submitted_upload_form(),
         )), 429
 
-    # Read metadata from form
-    agent_id = request.form.get("agent_id", "").strip() or None
-    internal_id = request.form.get("internal_id", "").strip() or None
-    call_date_str = request.form.get("call_date", "").strip()
-    client_phone = request.form.get("client_phone", "").strip() or None
+    # ── Per-file metadata ──
+    #
+    # The wizard always sends one set of fields per file, indexed. Whether the
+    # user answered "same client" once or filled each row individually is a
+    # question the *form* resolves; by the time it reaches here every file
+    # carries its own values. That keeps the branching in the one place a
+    # person can see it and leaves this handler with a single shape to read.
+    def field(name, i):
+        return (request.form.get(f"{name}_{i}") or request.form.get(name) or "").strip()
 
-    # Every metadata field is optional — a reviewer can upload now and attribute
-    # later from the report page. Only length and validity are enforced, because
-    # those produce a raw DataError rather than a message the user can act on.
-    if internal_id and len(internal_id) > 50:
-        return _upload_error("That internal ID is too long (50 characters maximum).")
-    if client_phone and len(client_phone) > 30:
-        return _upload_error("That phone number is too long (30 characters maximum).")
+    # Validate the whole batch before writing any of it. A partially-accepted
+    # import — six calls in, four rejected, no clear boundary — is far worse to
+    # unpick than a rejection that names the file at fault.
+    planned = []
+    for i, fh in enumerate(files):
+        if not _allowed(fh.filename):
+            return _upload_error(
+                f"“{fh.filename}” is not a supported file type. Upload audio or "
+                "video recordings (MP3, MP4, WAV, M4A, OGG, WEBM, and similar)."
+            )
 
-    call_date = None
-    if call_date_str:
-        try:
-            call_date = date.fromisoformat(call_date_str)
-        except ValueError:
-            return _upload_error("That call date is not a valid date.")
-        if call_date > date.today():
-            return _upload_error("A call cannot have happened in the future.")
+        internal_id = field("internal_id", i) or None
+        client_phone = field("client_phone", i) or None
+        agent_id = field("agent_id", i) or None
+        call_date_str = field("call_date", i)
 
-    # Only when an agent was actually submitted. This is a tenant-isolation
-    # control, not a required-field check.
-    if agent_id:
-        valid_agent = g.db.query(Agent).filter_by(id=agent_id, org_id=g.org.id).first()
-        if not valid_agent:
-            return _upload_error("That agent is no longer available. Pick another.")
+        if internal_id and len(internal_id) > 50:
+            return _upload_error(f"The internal ID for “{fh.filename}” is too long "
+                                 "(50 characters maximum).")
+        if client_phone and len(client_phone) > 30:
+            return _upload_error(f"The phone number for “{fh.filename}” is too long "
+                                 "(30 characters maximum).")
 
-    # Save file to disk. secure_filename() strips non-ASCII, so a recording named
-    # entirely in a non-Latin script can come back empty — fall back to the
-    # extension we already validated rather than writing a nameless file.
-    safe_name = secure_filename(f.filename)
-    if not safe_name or safe_name.startswith("."):
-        safe_name = f"recording.{f.filename.rsplit('.', 1)[1].lower()}"
+        call_date = None
+        if call_date_str:
+            try:
+                call_date = date.fromisoformat(call_date_str)
+            except ValueError:
+                return _upload_error(f"The call date for “{fh.filename}” is not a valid date.")
+            if call_date > date.today():
+                return _upload_error(f"“{fh.filename}” is dated in the future.")
 
-    upload_dir = os.path.join(
-        current_app.config["UPLOAD_FOLDER"], g.org.id
-    )
+        # Tenant isolation, not a required-field check.
+        if agent_id:
+            if not g.db.query(Agent).filter_by(id=agent_id, org_id=g.org.id).first():
+                return _upload_error("One of those agents is no longer available. "
+                                     "Pick another.")
+
+        planned.append({"file": fh, "agent_id": agent_id, "internal_id": internal_id,
+                        "call_date": call_date, "client_phone": client_phone})
+
+    upload_dir = os.path.join(current_app.config["UPLOAD_FOLDER"], g.org.id)
     os.makedirs(upload_dir, exist_ok=True)
     # 0750, not whatever the umask happens to be. These are customers' raw call
     # recordings — consumer PII and financial detail — and this host runs other
@@ -374,56 +386,89 @@ def upload():
     # default; nobody chose it.
     os.chmod(upload_dir, 0o750)
 
-    # Create Call record first so we have the ID for the filename
-    call = Call(
-        org_id=g.org.id,
-        compliance_profile_id=profile.id,
-        uploaded_by_user_id=g.user.id,
-        agent_id=agent_id,
-        internal_id=internal_id,
-        call_date=call_date,
-        client_phone=client_phone,
-        filename=safe_name,
-        status="pending",
-    )
-    g.db.add(call)
-    g.db.flush()  # populate call.id
+    saved, failed = [], []
+    for plan in planned:
+        fh = plan["file"]
+        # secure_filename() strips non-ASCII, so a recording named entirely in a
+        # non-Latin script can come back empty — fall back to the extension we
+        # already validated rather than writing a nameless file.
+        safe_name = secure_filename(fh.filename)
+        if not safe_name or safe_name.startswith("."):
+            safe_name = f"recording.{fh.filename.rsplit('.', 1)[1].lower()}"
 
-    file_path = os.path.join(upload_dir, f"{call.id}_{safe_name}")
-    try:
-        f.save(file_path)
-        os.chmod(file_path, 0o640)
-    except OSError:
-        current_app.logger.exception("Upload failed to write %s", file_path)
-        g.db.rollback()
-        return _upload_error(
-            "We could not save that recording. Try again, and contact support "
-            "if it keeps happening."
+        call = Call(
+            org_id=g.org.id,
+            compliance_profile_id=profile.id,
+            uploaded_by_user_id=g.user.id,
+            agent_id=plan["agent_id"],
+            internal_id=plan["internal_id"],
+            call_date=plan["call_date"],
+            client_phone=plan["client_phone"],
+            filename=safe_name,
+            status="pending",
         )
+        g.db.add(call)
+        g.db.flush()                      # populate call.id for the path
 
-    if os.path.getsize(file_path) == 0:
-        os.remove(file_path)
-        g.db.rollback()
-        return _upload_error("That file is empty. Check the recording and try again.")
+        file_path = os.path.join(upload_dir, f"{call.id}_{safe_name}")
+        try:
+            fh.save(file_path)
+            os.chmod(file_path, 0o640)
+            if os.path.getsize(file_path) == 0:
+                raise OSError("empty file")
+        except OSError:
+            # One bad file does not discard the rest of the batch. Everything
+            # already written stays written; this one is named in the message.
+            current_app.logger.exception("Upload failed to write %s", file_path)
+            # delete(), not expunge(): the row was already flushed to get its
+            # id for the filename, so removing it from the session would leave
+            # the INSERT in the transaction and commit a call with no audio.
+            g.db.delete(call)
+            g.db.flush()
+            if os.path.exists(file_path):
+                os.remove(file_path)
+            failed.append(fh.filename)
+            continue
 
-    call.audio_file_url = file_path
+        call.audio_file_url = file_path
+        saved.append((call, file_path))
+
     g.db.commit()
 
-    # Spawn background pipeline. If it cannot start, the call would otherwise sit
-    # in "pending" forever with nothing working on it — mark it failed instead so
-    # history shows the truth.
-    try:
-        pipeline_module.spawn(
-            call_id=call.id,
-            file_path=file_path,
-            assemblyai_key=current_app.config["ASSEMBLYAI_API_KEY"],
-            anthropic_key=current_app.config["ANTHROPIC_API_KEY"],
+    if not saved:
+        return _upload_error(
+            "We could not save "
+            + ("that recording." if len(failed) == 1 else "those recordings.")
+            + " Try again, and contact support if it keeps happening."
         )
-    except Exception:
-        current_app.logger.exception("Pipeline failed to start for call %s", call.id)
-        call.status = "error"
-        call.error_message = "Analysis could not be started. Re-upload the call to retry."
-        g.db.commit()
+
+    # Spawn after the commit, so a call is never queued for work that has not
+    # been persisted. If it cannot start, the call would otherwise sit in
+    # "pending" forever with nothing working on it — mark it failed instead so
+    # history shows the truth.
+    for call, file_path in saved:
+        try:
+            pipeline_module.spawn(
+                call_id=call.id,
+                file_path=file_path,
+                assemblyai_key=current_app.config["ASSEMBLYAI_API_KEY"],
+                anthropic_key=current_app.config["ANTHROPIC_API_KEY"],
+            )
+        except Exception:
+            current_app.logger.exception("Pipeline failed to start for call %s", call.id)
+            call.status = "error"
+            call.error_message = "Analysis could not be started. Re-upload the call to retry."
+    g.db.commit()
+
+    if failed:
+        flash(
+            f"{len(saved)} recording{'s' if len(saved) != 1 else ''} uploaded. "
+            f"{len(failed)} could not be saved: {', '.join(failed[:3])}"
+            + (" and others." if len(failed) > 3 else ""),
+            "error",
+        )
+    elif len(saved) > 1:
+        flash(f"{len(saved)} recordings uploaded and queued for grading.", "success")
 
     return redirect(url_for("calls.history"))
 

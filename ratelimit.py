@@ -46,7 +46,8 @@ class RateLimited(Exception):
         self.retry_after = retry_after
 
 
-def _bump(db, scope_key: str, window: timedelta, *, now: datetime | None = None) -> int:
+def _bump(db, scope_key: str, window: timedelta, *, amount: int = 1,
+          now: datetime | None = None) -> int:
     """Increment a fixed-window counter and return the new count.
 
     One statement, so the read-modify-write race cannot happen. Windows are
@@ -60,17 +61,18 @@ def _bump(db, scope_key: str, window: timedelta, *, now: datetime | None = None)
 
     row = db.execute(
         pg_insert(RateLimitCounter)
-        .values(scope_key=scope_key, window_start=window_start, count=1)
+        .values(scope_key=scope_key, window_start=window_start, count=amount)
         .on_conflict_do_update(
             index_elements=["scope_key", "window_start"],
-            set_={"count": RateLimitCounter.__table__.c.count + 1},
+            set_={"count": RateLimitCounter.__table__.c.count + amount},
         )
         .returning(RateLimitCounter.count)
     ).scalar_one()
     return row
 
 
-def check_upload(db, org, user, *, now: datetime | None = None) -> None:
+def check_upload(db, org, user, *, count: int = 1,
+                 now: datetime | None = None) -> None:
     """Raise RateLimited if this upload should be refused.
 
     Called before any row is created or any file written, so a refusal costs
@@ -90,9 +92,14 @@ def check_upload(db, org, user, *, now: datetime | None = None) -> None:
             retry_after=300,
         )
 
+    # `count` is the size of the batch, not the number of requests.
+    #
+    # Bulk upload made one request carry many recordings, and a limiter that
+    # counted requests would have let a hundred calls through on a single tick —
+    # the cap exists to bound vendor spend, and spend follows recordings.
     hour = timedelta(hours=1)
-    org_count = _bump(db, f"org:{org.id}:upload", hour, now=now)
-    user_count = _bump(db, f"user:{user.id}:upload", hour, now=now)
+    org_count = _bump(db, f"org:{org.id}:upload", hour, amount=count, now=now)
+    user_count = _bump(db, f"user:{user.id}:upload", hour, amount=count, now=now)
 
     if org_count > UPLOADS_PER_HOUR_PER_ORG or user_count > UPLOADS_PER_HOUR_PER_USER:
         logger.warning(

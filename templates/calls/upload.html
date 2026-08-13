@@ -49,102 +49,63 @@
       <div class="rp-flash rp-flash--err mb-3" role="alert">{{ error }}</div>
     {% endif %}
 
+    {#  Three steps, one form.
+        1. choose files — nothing else on screen
+        2. only when there is more than one: same client, or different?
+        3. the fields we could not read off the filenames
+
+        The branching is client-side and the POST is a single multipart submit,
+        so there is no half-finished batch sitting on the server if someone
+        closes the tab. The handler receives one indexed set of fields per file
+        either way — which answer was given in step 2 is the form's problem,
+        not the server's. #}
     <form method="post" action="{{ url_for('calls.upload') }}" enctype="multipart/form-data"
-          id="upload-form" novalidate data-busy-label="Uploading…"
-          class="grid grid-cols-1 lg:grid-cols-5 gap-4 items-start">
+          id="upload-form" novalidate data-busy-label="Uploading…">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-      {# ── Recording ── #}
-      <div class="lg:col-span-3 rp-panel">
-        <div class="rp-panel-head"><h2 class="rp-panel-title">Recording</h2></div>
-        <div class="p-4">
-          {# The input is visually hidden but focusable and validated. Tailwind's
-             `hidden` would drop it from the tab order, leaving keyboard users
-             with no way to reach the file picker at all. #}
-          <label id="drop-zone" class="rp-drop">
-            <span class="rp-drop-icon" aria-hidden="true">
-              <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/></svg>
-            </span>
-            <span class="text-sm font-semibold text-ink-2" id="drop-label">Drag &amp; drop, or press Enter to browse</span>
-            <span class="text-xs text-muted" id="file-hint">MP3, MP4, WAV, M4A, OGG, WEBM and similar · up to {{ max_upload_mb }} MB</span>
-            <span class="text-xs font-medium text-indigo-800 qb-break max-w-full" id="drop-filename"></span>
-            <input type="file" id="file" name="file" accept="audio/*,video/*" class="qb-sr-only"
-                   aria-label="Call recording" aria-describedby="file-hint file-error">
-          </label>
-          <p class="qb-field-error" id="file-error" role="alert"></p>
+      {# ── Step 1 ── #}
+      <section id="up-step-1" class="up-step">
+        <label for="files" class="up-drop" id="up-drop">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 16V4m0 0L8 8m4-4 4 4"/><path d="M3 15v3a3 3 0 0 0 3 3h12a3 3 0 0 0 3-3v-3"/>
+          </svg>
+          <span class="up-drop-title">Choose recordings</span>
+          <span class="up-drop-hint">or drag them here — one call or a whole week</span>
+          <input type="file" id="files" name="files" multiple
+                 accept="audio/*,video/*" class="qb-sr-only">
+        </label>
+      </section>
 
-          <div class="mt-4 pt-3 border-t border-slate-100">
-            <div class="rp-metric-label mb-2">What happens next</div>
-            <div class="rp-pipeline">
-              {% for n, step in [(1, 'Upload'), (2, 'Transcribe'), (3, 'Grade'), (4, 'Report')] %}
-                <span class="rp-pipe-step"><span class="rp-pipe-n" aria-hidden="true">{{ n }}</span>{{ step }}</span>
-                {% if not loop.last %}<span class="rp-pipe-arrow" aria-hidden="true">→</span>{% endif %}
-              {% endfor %}
-            </div>
-            <p class="text-xs text-muted mt-2">Usually 1–3 minutes. You can leave this page — the call appears in history either way.</p>
-          </div>
+      {# ── Step 2 ── #}
+      <section id="up-step-2" class="up-step" hidden>
+        <p class="up-count" id="up-count-2"></p>
+        <h2 class="up-q">Are these all for the same client?</h2>
+        <div class="up-choices">
+          <button type="button" class="up-choice" data-group="same">
+            <span class="up-choice-t">Same client</span>
+            <span class="up-choice-d">One conversation across several recordings. They share
+              the client's details.</span>
+          </button>
+          <button type="button" class="up-choice" data-group="different">
+            <span class="up-choice-t">Different clients</span>
+            <span class="up-choice-d">Unrelated calls. Each keeps its own details.</span>
+          </button>
         </div>
-      </div>
+        <button type="button" class="rp-btn mt-3" data-back="1">Back</button>
+      </section>
 
-      {# ── Call details ── #}
-      <div class="lg:col-span-2 rp-panel">
-        <div class="rp-panel-head"><h2 class="rp-panel-title">Call details</h2></div>
-        <div class="p-4 space-y-3">
-          <p class="text-xs text-muted">All optional — you can fill these in later.</p>
-          <div class="rp-field">
-            <label class="rp-field-label" for="agent_id">Agent</label>
-            {% if agents %}
-              <select class="rp-select w-full" id="agent_id" name="agent_id" aria-describedby="agent-hint">
-                <option value="">Select agent…</option>
-                {% for agent in agents %}
-                  <option value="{{ agent.id }}" {% if form.get('agent_id') == agent.id %}selected{% endif %}>{{ agent.name }}</option>
-                {% endfor %}
-              </select>
-              <p class="text-xs text-faint" id="agent-hint">You can assign an agent from the report later.</p>
-            {% else %}
-              <p class="text-xs text-ink-2 p-2 rounded" style="background:#fffbeb;border:1px solid #fcd34d">
-                No agents yet.
-                {% if g.user.role == 'admin' %}<a href="{{ url_for('agents.list_agents') }}" class="rp-link">Add agents</a> first.{% else %}Ask an admin to add them.{% endif %}
-              </p>
-              <input type="hidden" name="agent_id" value="">
-            {% endif %}
-          </div>
-
-          <div class="rp-field">
-            <label class="rp-field-label" for="internal_id">Internal ID</label>
-            <input class="rp-input w-full" type="text" id="internal_id" name="internal_id" placeholder="e.g. 88214"
-                   maxlength="50" value="{{ form.get('internal_id', '') }}">
-          </div>
-
-          <div class="rp-field">
-            <label class="rp-field-label" for="call_date">Call date</label>
-            <input class="rp-input w-full" type="date" id="call_date" name="call_date"
-                   value="{{ form.get('call_date', '') }}" max="{{ today }}" aria-describedby="date-error">
-            <p class="qb-field-error" id="date-error" role="alert"></p>
-          </div>
-
-          <div class="rp-field">
-            <label class="rp-field-label" for="client_phone">Client phone</label>
-            <input class="rp-input w-full" type="text" id="client_phone" name="client_phone"
-                   placeholder="8005551234" maxlength="30" inputmode="numeric" value="{{ form.get('client_phone', '') }}">
-          </div>
-
-          {% if profile_summary %}
-            <div class="pt-3 border-t border-slate-100">
-              <div class="rp-metric-label mb-1">Graded against</div>
-              <p class="text-xs text-ink-2 font-medium qb-break">{{ profile_summary.name }}</p>
-              <p class="text-xs text-muted rp-num">
-                {{ profile_summary.item_count }} item{{ 's' if profile_summary.item_count != 1 }} across
-                {{ profile_summary.sections }} section{{ 's' if profile_summary.sections != 1 }}{% if profile_summary.phrases %},
-                {{ profile_summary.phrases }} auto-fail phrase{{ 's' if profile_summary.phrases != 1 }}{% endif %}
-              </p>
-              <a href="{{ url_for('profile.view') }}" class="rp-link text-xs">View checklist →</a>
-            </div>
-          {% endif %}
-
-          <button type="submit" class="qb-btn-primary w-full justify-center">Upload &amp; analyze</button>
+      {# ── Step 3 ── #}
+      <section id="up-step-3" class="up-step" hidden>
+        <p class="up-count" id="up-count-3"></p>
+        <h2 class="up-q" id="up-step3-q">Anything we could not read</h2>
+        <p class="up-lede" id="up-step3-lede"></p>
+        <div id="up-rows"></div>
+        <div class="flex flex-wrap gap-2 mt-4">
+          <button type="submit" class="qb-btn-primary" id="up-submit">Upload and grade</button>
+          <button type="button" class="rp-btn" data-back="auto">Back</button>
         </div>
-      </div>
+      </section>
     </form>
   {% endif %}
 
@@ -153,6 +114,173 @@
 {% endblock %}
 
 {% block scripts %}
+<script>
+(function () {
+  var input = document.getElementById('files');
+  var form = document.getElementById('upload-form');
+  if (!input || !form) return;
+
+  var steps = [1, 2, 3].map(function (n) { return document.getElementById('up-step-' + n); });
+  var rows = document.getElementById('up-rows');
+  var grouping = 'different';
+  var picked = [];
+
+  // What was submitted last time, if this render is a rejection. The files
+  // themselves cannot be restored — no browser allows it — so they must be
+  // chosen again, at which point the filename-derived fields repopulate on
+  // their own. What genuinely would be lost is the typing: agent assignments
+  // and internal IDs across a whole batch. Those are restored from here.
+  var PRIOR = {{ (form or {}) | tojson }};
+  function prior(name, i, fallback) {
+    var v = PRIOR[name + '_' + i];
+    if (v === undefined) v = PRIOR[name];
+    return (v === undefined || v === null || v === '') ? fallback : v;
+  }
+
+  var AGENTS = {{ agents | map(attribute='id') | list | tojson }};
+  var AGENT_NAMES = {{ agents | map(attribute='name') | list | tojson }};
+
+  function show(n) {
+    steps.forEach(function (el, i) { el.hidden = (i + 1) !== n; });
+    var h = steps[n - 1].querySelector('h2, .up-drop-title');
+    if (h) h.setAttribute('tabindex', '-1'), h.focus({ preventScroll: true });
+  }
+
+  // Mirrors upload_meta.parse_filename. Kept in step with it by
+  // tests/test_upload_wizard.py, which runs the same filenames through both.
+  function parseName(name) {
+    var m = /^(\d{4})(\d{2})(\d{2})-?(\d{6})?(?:_(\d{2,6}))?_(\d{7,15})/.exec(name);
+    if (!m) return { date: '', phone: '' };
+    var y = +m[1], mo = +m[2], d = +m[3];
+    var iso = '';
+    var dt = new Date(Date.UTC(y, mo - 1, d));
+    if (dt.getUTCFullYear() === y && dt.getUTCMonth() === mo - 1 && dt.getUTCDate() === d
+        && dt <= new Date()) {
+      iso = m[1] + '-' + m[2] + '-' + m[3];
+    }
+    var phone = m[6];
+    if (phone.length === 11 && phone[0] === '1') phone = phone.slice(1);
+    if (phone.length === 12 && phone.slice(0, 2) === '91') phone = phone.slice(2);
+    return { date: iso, phone: phone };
+  }
+
+  function agentSelect(i) {
+    var o = '<option value="">— Unassigned —</option>';
+    for (var a = 0; a < AGENTS.length; a++) {
+      o += '<option value="' + AGENTS[a] + '">' + AGENT_NAMES[a] + '</option>';
+    }
+    return '<select class="rp-select w-full" name="agent_id_' + i + '" aria-label="Agent" data-prior="' + prior('agent_id', i, '') + '">' + o + '</select>';
+  }
+
+  function buildRows() {
+    rows.innerHTML = '';
+    var shared = grouping === 'same' && picked.length > 1;
+    document.getElementById('up-step3-q').textContent =
+      shared ? 'Details for this client' : (picked.length > 1 ? 'Details for each call' : 'A few details');
+    document.getElementById('up-step3-lede').textContent =
+      shared
+        ? 'These apply to all ' + picked.length + ' recordings. The date and number were read from each filename.'
+        : 'We read what we could from the filenames. Fill in anything blank — all of it is optional, and you can attribute a call later from its report.';
+
+    picked.forEach(function (f, i) {
+      var got = parseName(f.name);
+      // In "same client" mode only the first row is editable; the rest carry
+      // hidden copies of its answers, so the server still receives one set of
+      // fields per file and needs to know nothing about grouping.
+      if (shared && i > 0) {
+        rows.insertAdjacentHTML('beforeend',
+          '<input type="hidden" name="call_date_' + i + '" value="' + got.date + '">' +
+          '<input type="hidden" name="client_phone_' + i + '" value="' + got.phone + '">' +
+          '<input type="hidden" name="agent_id_' + i + '" class="up-mirror-agent" value="">' +
+          '<input type="hidden" name="internal_id_' + i + '" class="up-mirror-id" value="">');
+        return;
+      }
+      var pIid = prior('internal_id', i, '');
+      var pDate = prior('call_date', i, got.date);
+      var pPhone = prior('client_phone', i, got.phone);
+      var pAgent = prior('agent_id', i, '');
+      var known = [];
+      if (got.date) known.push(got.date);
+      if (got.phone) known.push(got.phone);
+      rows.insertAdjacentHTML('beforeend',
+        '<div class="up-row">' +
+          '<div class="up-row-file">' +
+            '<span class="up-row-name">' + (shared ? picked.length + ' recordings' : f.name) + '</span>' +
+            (known.length
+              ? '<span class="up-row-known">Read from the filename: ' + known.join(' · ') + '</span>'
+              : '<span class="up-row-known up-row-known--none">Nothing readable in the filename</span>') +
+          '</div>' +
+          '<div class="up-row-fields">' +
+            '<label class="rp-field"><span class="rp-field-label">Agent</span>' + agentSelect(i) + '</label>' +
+            '<label class="rp-field"><span class="rp-field-label">Internal ID</span>' +
+              '<input class="rp-input w-full" name="internal_id_' + i + '" value="' + pIid + '" placeholder="optional"></label>' +
+            '<label class="rp-field"><span class="rp-field-label">Call date</span>' +
+              '<input class="rp-input w-full" type="date" name="call_date_' + i + '" value="' + pDate + '"></label>' +
+            '<label class="rp-field"><span class="rp-field-label">Client phone</span>' +
+              '<input class="rp-input w-full" name="client_phone_' + i + '" value="' + pPhone + '" placeholder="optional"></label>' +
+          '</div>' +
+        '</div>');
+    });
+
+    rows.querySelectorAll('select[data-prior]').forEach(function (sel) {
+      if (sel.dataset.prior) sel.value = sel.dataset.prior;
+    });
+
+    if (shared) {
+      // Keep the hidden copies in step with the one visible row.
+      var agent = rows.querySelector('select[name="agent_id_0"]');
+      var iid = rows.querySelector('input[name="internal_id_0"]');
+      var sync = function () {
+        rows.querySelectorAll('.up-mirror-agent').forEach(function (h) { h.value = agent ? agent.value : ''; });
+        rows.querySelectorAll('.up-mirror-id').forEach(function (h) { h.value = iid ? iid.value : ''; });
+      };
+      if (agent) agent.addEventListener('change', sync);
+      if (iid) iid.addEventListener('input', sync);
+    }
+  }
+
+  function onPicked() {
+    picked = Array.prototype.slice.call(input.files);
+    if (!picked.length) return;
+    var label = picked.length + ' recording' + (picked.length === 1 ? '' : 's') + ' selected';
+    document.getElementById('up-count-2').textContent = label;
+    document.getElementById('up-count-3').textContent = label;
+    if (picked.length === 1) { grouping = 'different'; buildRows(); show(3); }
+    else { show(2); }
+  }
+
+  input.addEventListener('change', onPicked);
+
+  var drop = document.getElementById('up-drop');
+  ['dragenter', 'dragover'].forEach(function (e) {
+    drop.addEventListener(e, function (ev) { ev.preventDefault(); drop.classList.add('is-over'); });
+  });
+  ['dragleave', 'drop'].forEach(function (e) {
+    drop.addEventListener(e, function (ev) { ev.preventDefault(); drop.classList.remove('is-over'); });
+  });
+  drop.addEventListener('drop', function (ev) {
+    if (ev.dataTransfer && ev.dataTransfer.files.length) {
+      input.files = ev.dataTransfer.files;
+      onPicked();
+    }
+  });
+
+  document.querySelectorAll('[data-group]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      grouping = b.dataset.group;
+      buildRows();
+      show(3);
+    });
+  });
+  document.querySelectorAll('[data-back]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var t = b.dataset.back;
+      show(t === 'auto' ? (picked.length > 1 ? 2 : 1) : +t);
+    });
+  });
+})();
+</script>
+
 <script>
 (function() {
   const form = document.getElementById('upload-form');
