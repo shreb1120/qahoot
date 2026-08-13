@@ -168,3 +168,51 @@ def test_the_first_screen_asks_for_nothing_but_the_files(tenants):
     step1 = body.split('id="up-step-2"')[0]
     for asked in ('name="internal_id"', 'name="call_date"', 'name="client_phone"'):
         assert asked not in step1, f"step one still asks for {asked}"
+
+
+# ─────────────────── stored XSS through an agent name ───────────────────
+
+def test_an_agent_name_cannot_inject_script_into_the_upload_page(tenants, db):
+    """Found by a security review of the batch-upload work.
+
+    The wizard builds its rows with string concatenation and insertAdjacentHTML,
+    and agent names are typed by an admin or pasted in from a CSV import. An
+    agent named `<img src=x onerror=…>` would have executed for every member of
+    that org who opened the upload page — stored XSS, inside the tenant.
+    """
+    from models import Agent
+    import uuid
+
+    payload = '<img src=x onerror="alert(1)">'
+    db.add(Agent(id=str(uuid.uuid4()), org_id=tenants.a["org"], name=payload))
+    db.commit()
+
+    body = tenants.a_admin.get("/calls/upload").get_data(as_text=True)
+    assert payload not in body, "the raw agent name reached the page"
+    # It must still be *present*, escaped — dropping the agent is not the fix.
+    assert "img src=x" in body.replace("\\u003c", "<").replace("\\u003e", ">") or \
+           "alert(1)" in body, "the agent vanished instead of being escaped"
+
+
+def test_the_wizard_escapes_before_inserting_html(tenants):
+    """The values are interpolated into an HTML string, so the escaping has to
+    happen in the template's own code — `tojson` makes them safe as JS values,
+    not as markup."""
+    body = tenants.a_admin.get("/calls/upload").get_data(as_text=True)
+    assert "function esc(" in body
+    assert "esc(AGENT_NAMES[a])" in body and "esc(AGENTS[a])" in body
+
+    # Asserted as an absence rather than a presence: the point is that no
+    # untrusted value reaches insertAdjacentHTML unescaped, and checking for one
+    # particular spelling of the fix would pass the day someone rewrites the
+    # line and drops the escaping.
+    import re
+    js = body[body.index("function buildRows"):body.index("function onPicked")]
+    # Each exemption is a value that cannot carry markup, and is listed rather
+    # than pattern-matched so adding one is a visible decision:
+    #   i             — the loop index, a number
+    #   o             — markup this function built itself
+    #   picked.length — a FileList count, a number
+    SAFE = {"i", "o", "picked.length"}
+    for raw in re.findall(r"\+ ([A-Za-z_][\w.\[\]]*) \+", js):
+        assert raw in SAFE, f"{raw} is concatenated into HTML without esc()"

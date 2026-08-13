@@ -130,6 +130,18 @@
   // chosen again, at which point the filename-derived fields repopulate on
   // their own. What genuinely would be lost is the typing: agent assignments
   // and internal IDs across a whole batch. Those are restored from here.
+  // Everything below is built by string concatenation and handed to
+  // insertAdjacentHTML, so every interpolated value has to be escaped — none of
+  // these are ours. Agent names are typed by an admin or pasted in from a CSV,
+  // the prior values are whatever was POSTed, and the filename comes off the
+  // user's disk. An agent named `<img src=x onerror=…>` would otherwise run for
+  // every member of that org who opened this page.
+  function esc(v) {
+    return String(v === undefined || v === null ? '' : v)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
   var PRIOR = {{ (form or {}) | tojson }};
   function prior(name, i, fallback) {
     var v = PRIOR[name + '_' + i];
@@ -167,9 +179,10 @@
   function agentSelect(i) {
     var o = '<option value="">— Unassigned —</option>';
     for (var a = 0; a < AGENTS.length; a++) {
-      o += '<option value="' + AGENTS[a] + '">' + AGENT_NAMES[a] + '</option>';
+      o += '<option value="' + esc(AGENTS[a]) + '">' + esc(AGENT_NAMES[a]) + '</option>';
     }
-    return '<select class="rp-select w-full" name="agent_id_' + i + '" aria-label="Agent" data-prior="' + prior('agent_id', i, '') + '">' + o + '</select>';
+    return '<select class="rp-select w-full" name="agent_id_' + i + '" aria-label="Agent"'
+         + ' data-prior="' + esc(prior('agent_id', i, '')) + '">' + o + '</select>';
   }
 
   function buildRows() {
@@ -189,8 +202,8 @@
       // fields per file and needs to know nothing about grouping.
       if (shared && i > 0) {
         rows.insertAdjacentHTML('beforeend',
-          '<input type="hidden" name="call_date_' + i + '" value="' + got.date + '">' +
-          '<input type="hidden" name="client_phone_' + i + '" value="' + got.phone + '">' +
+          '<input type="hidden" name="call_date_' + i + '" value="' + esc(got.date) + '">' +
+          '<input type="hidden" name="client_phone_' + i + '" value="' + esc(got.phone) + '">' +
           '<input type="hidden" name="agent_id_' + i + '" class="up-mirror-agent" value="">' +
           '<input type="hidden" name="internal_id_' + i + '" class="up-mirror-id" value="">');
         return;
@@ -205,7 +218,7 @@
       rows.insertAdjacentHTML('beforeend',
         '<div class="up-row">' +
           '<div class="up-row-file">' +
-            '<span class="up-row-name">' + (shared ? picked.length + ' recordings' : f.name) + '</span>' +
+            '<span class="up-row-name">' + esc(shared ? picked.length + ' recordings' : f.name) + '</span>' +
             (known.length
               ? '<span class="up-row-known">Read from the filename: ' + known.join(' · ') + '</span>'
               : '<span class="up-row-known up-row-known--none">Nothing readable in the filename</span>') +
@@ -213,11 +226,11 @@
           '<div class="up-row-fields">' +
             '<label class="rp-field"><span class="rp-field-label">Agent</span>' + agentSelect(i) + '</label>' +
             '<label class="rp-field"><span class="rp-field-label">Internal ID</span>' +
-              '<input class="rp-input w-full" name="internal_id_' + i + '" value="' + pIid + '" placeholder="optional"></label>' +
+              '<input class="rp-input w-full" name="internal_id_' + i + '" value="' + esc(pIid) + '" placeholder="optional"></label>' +
             '<label class="rp-field"><span class="rp-field-label">Call date</span>' +
-              '<input class="rp-input w-full" type="date" name="call_date_' + i + '" value="' + pDate + '"></label>' +
+              '<input class="rp-input w-full" type="date" name="call_date_' + i + '" value="' + esc(pDate) + '"></label>' +
             '<label class="rp-field"><span class="rp-field-label">Client phone</span>' +
-              '<input class="rp-input w-full" name="client_phone_' + i + '" value="' + pPhone + '" placeholder="optional"></label>' +
+              '<input class="rp-input w-full" name="client_phone_' + i + '" value="' + esc(pPhone) + '" placeholder="optional"></label>' +
           '</div>' +
         '</div>');
     });
