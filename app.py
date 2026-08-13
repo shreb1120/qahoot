@@ -193,6 +193,7 @@ def create_app(config_class: type = Config) -> Flask:
     from blueprints.calls_bp import calls_bp
     from blueprints.profile_bp import profile_bp
     from blueprints.agents_bp import agents_bp
+    from blueprints.clients_bp import clients_bp
     from blueprints.billing_bp import billing_bp
     from blueprints.marketing_bp import marketing_bp
 
@@ -202,6 +203,7 @@ def create_app(config_class: type = Config) -> Flask:
     app.register_blueprint(calls_bp)
     app.register_blueprint(profile_bp)
     app.register_blueprint(agents_bp)
+    app.register_blueprint(clients_bp)
     app.register_blueprint(billing_bp)
     app.register_blueprint(marketing_bp)
 

@@ -227,11 +227,12 @@
       // hidden copies of its answers, so the server still receives one set of
       // fields per file and needs to know nothing about grouping.
       if (shared && i > 0) {
+        var mName = hidden('client_name_' + i, '');
         var mAgent = hidden('agent_id_' + i, '');
         var mId = hidden('internal_id_' + i, '');
-        mirrors.push({ agent: mAgent, id: mId });
+        mirrors.push({ agent: mAgent, id: mId, name: mName });
         [hidden('call_date_' + i, got.date), hidden('client_phone_' + i, got.phone),
-         mAgent, mId].forEach(function (n) { rows.appendChild(n); });
+         mAgent, mId, mName].forEach(function (n) { rows.appendChild(n); });
         return;
       }
 
@@ -240,6 +241,8 @@
       if (got.phone) known.push(got.phone);
 
       var agent = agentSelect(i, prior('agent_id', i, ''));
+      var cname = el('input', { class: 'rp-input w-full', name: 'client_name_' + i,
+                                value: prior('client_name', i, ''), placeholder: 'optional' });
       var iid = el('input', { class: 'rp-input w-full', name: 'internal_id_' + i,
                               value: prior('internal_id', i, ''), placeholder: 'optional' });
 
@@ -259,6 +262,7 @@
           field('Call date', el('input', {
             class: 'rp-input w-full', type: 'date', name: 'call_date_' + i,
             value: prior('call_date', i, got.date) })),
+          field('Client name', cname),
           field('Client phone', el('input', {
             class: 'rp-input w-full', name: 'client_phone_' + i,
             value: prior('client_phone', i, got.phone), placeholder: 'optional' })),
@@ -270,6 +274,7 @@
           mirrors.forEach(function (m) {
             m.agent.value = agent.value;
             m.id.value = iid.value;
+            m.name.value = cname.value;
           });
         };
         agent.addEventListener('change', sync);

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Clients — Qaboom{% endblock %}
+{% block content %}
+<div class="mb-4">
+  <h1 class="qb-page-title">Clients</h1>
+  <p class="text-xs text-muted mt-1.5">
+    Grouped by the number in each recording's filename. A client with more than
+    one call gets a roll-up showing every requirement across all of them.
+  </p>
+</div>
+
+{% if not clients %}
+  <div class="rp-panel p-4">
+    <p class="text-sm text-muted">No graded calls carry a client number yet.
+      The number is read from the filename at upload.</p>
+  </div>
+{% else %}
+  <div class="rp-panel">
+    <div class="qb-scroll-x">
+      <table class="rp-table">
+        <thead><tr><th>Client</th><th>Calls</th><th>Minutes</th><th>Agents</th><th>Results</th></tr></thead>
+        <tbody>
+          {% for cl in clients %}
+            <tr>
+              <td>
+                <a class="rp-link" href="{{ url_for('clients.detail', key=cl.key) }}">{{ cl.name or cl.phone }}</a>
+                {% if cl.name %}<div class="rp-num text-xs text-faint">{{ cl.phone }}</div>{% endif %}
+              </td>
+              <td class="rp-num">{{ cl.calls }}</td>
+              <td class="rp-num">{{ cl.seconds // 60 }}</td>
+              <td class="text-muted qb-break">{{ cl.agents | join(', ') if cl.agents else '—' }}</td>
+              <td>
+                {% for v in cl.verdicts %}
+                  <span class="rp-tag {{ 'rp-tag--req' if v == 'pass' else 'rp-tag--opt' }}"
+                        title="{{ v }}">{{ 'P' if v == 'pass' else ('C' if v == 'critical' else 'F') }}</span>
+                {% endfor %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endif %}
+{% endblock %}

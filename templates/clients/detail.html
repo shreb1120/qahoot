@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}{{ c.phone }} — Client — Qaboom{% endblock %}
+
+{% block content %}
+{#  The matrix, not a verdict.
+
+    Each call keeps its own report and its own verdict; nothing here re-grades
+    anything. What this adds is the axis a single report cannot have: the same
+    requirement across every call the client had, in order. A disclosure missed
+    on Tuesday and made on Wednesday is a different situation from one never
+    made, and two separate FAIL reports cannot say which happened. #}
+<div class="mb-4">
+  <h1 class="qb-page-title">{{ c.name or c.phone }}</h1>
+  {% if c.name %}<p class="rp-num text-sm text-muted">{{ c.phone }}</p>{% endif %}
+  <p class="text-xs text-muted mt-1.5">
+    {{ c.calls | length }} call{{ 's' if c.calls | length != 1 }} ·
+    {{ c.total_seconds // 60 }} minutes ·
+    {% set names = c.calls | map(attribute='agent') | select | map(attribute='name') | unique | list %}
+    {{ names | join(', ') if names else 'no agent assigned' }}
+  </p>
+</div>
+
+{% if c.fixed or c.outstanding %}
+  <div class="grid gap-3 sm:grid-cols-2 mb-4">
+    {% if c.outstanding %}
+      <div class="rp-panel p-3.5" style="background:#fef2f2;border-color:#fecaca">
+        <p class="text-sm" style="color:#b91c1c">
+          <b>{{ c.outstanding | length }} requirement{{ 's' if c.outstanding | length != 1 }}
+          still outstanding.</b> Missed on the most recent call this client had.
+        </p>
+      </div>
+    {% endif %}
+    {% if c.fixed %}
+      <div class="rp-panel p-3.5" style="background:#ecfdf5;border-color:#a7f3d0">
+        <p class="text-sm" style="color:#065f46">
+          <b>{{ c.fixed | length }} put right on a later call.</b>
+          Missed once, then covered — the shape of coaching that worked.
+        </p>
+      </div>
+    {% endif %}
+  </div>
+{% endif %}
+
+{% if c.program_flips %}
+  <div class="rp-panel mb-4 p-3.5" style="background:#eef2ff;border-color:#c7d2fe" role="note">
+    <p class="text-sm" style="color:#3730a3"><b>Possible program flip.</b>
+      Raised on {{ c.program_flips | length }} of this client's calls.</p>
+  </div>
+{% endif %}
+
+<div class="rp-panel">
+  <div class="rp-panel-head"><h2 class="rp-panel-title">Every requirement, every call</h2></div>
+  <div class="qb-scroll-x">
+    <table class="rp-table">
+      <thead>
+        <tr>
+          <th style="min-width:16rem">Requirement</th>
+          {% for call in c.calls %}
+            <th style="min-width:8rem">
+              <a class="rp-link" href="{{ url_for('calls.report', call_id=call.id) }}">
+                {{ call.call_date.strftime('%b %d') if call.call_date else 'Call ' ~ loop.index }}
+              </a>
+              <div class="text-xs font-normal text-faint">
+                {{ call.agent.name if call.agent else 'unassigned' }}
+              </div>
+            </th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in c.rows %}
+          <tr class="{% if row.outstanding %}rp-row--miss{% endif %}">
+            <td class="qb-break">
+              <div class="rp-req">{{ row.name }}</div>
+              <div class="text-xs text-faint">{{ row.section }}</div>
+            </td>
+            {% for cell in row.cells %}
+              <td>
+                {% if cell.status == 'covered' %}
+                  <span class="text-pass font-semibold">✓</span>
+                  {% if cell.timestamp %}<span class="rp-num text-xs text-muted">{{ cell.timestamp }}</span>{% endif %}
+                {% elif cell.status == 'missed' %}
+                  <span class="text-fail font-semibold">✗</span>
+                {% elif cell.status == 'not_assessed' %}
+                  <span class="text-warn" title="The grader returned no verdict">?</span>
+                {% else %}
+                  <span class="text-faint" title="Not on this call's checklist">—</span>
+                {% endif %}
+              </td>
+            {% endfor %}
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<p class="mt-4 text-xs"><a href="{{ url_for('clients.index') }}" class="text-muted no-underline hover:text-ink">← All clients</a></p>
+{% endblock %}

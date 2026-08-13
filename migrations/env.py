@@ -59,6 +59,15 @@ def run_migrations_online() -> None:
         # idle_in_transaction_session_timeout means the blocker clears itself.
         lock_timeout = os.environ.get("PG_MIGRATION_LOCK_TIMEOUT", "10s")
         connection.exec_driver_sql(f"SET lock_timeout = '{lock_timeout}'")
+        # Commit it. Executing anything here autobegins a transaction in
+        # SQLAlchemy 2.0, and alembic's own begin_transaction() then nests
+        # inside that one rather than owning it — so the migration ran, said
+        # "Running upgrade", and rolled back on the way out. Every migration
+        # silently did nothing until this line was added.
+        #
+        # SET without LOCAL is session-scoped, so committing here keeps the
+        # timeout in force for the migration that follows.
+        connection.commit()
 
         context.configure(connection=connection, target_metadata=target_metadata)
         with context.begin_transaction():

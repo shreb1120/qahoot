@@ -247,6 +247,11 @@ class Call(Base):
     internal_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
     call_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     client_phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    # The client's name, as the reviewer knows them. Recorded per call rather
+    # than on a client record, because there is no client table: a client is
+    # the phone number the dialer writes into the filename. Names get spelled
+    # differently across calls, and the phone stays the stable key.
+    client_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
     audio_file_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(
         String(20), nullable=False, default="pending"

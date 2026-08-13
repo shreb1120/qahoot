@@ -76,3 +76,32 @@ def test_migrations_bound_their_lock_wait_but_not_their_runtime():
         "migrations do not bound their lock wait — DDL can block the whole site"
     assert "SET statement_timeout" not in src, \
         "a statement timeout would abort legitimately long DDL"
+
+
+def test_migrations_actually_commit():
+    """A regression that hid for two days and would have surfaced at the worst
+    possible moment.
+
+    The lock_timeout SET added to migrations/env.py executes on the connection
+    *before* alembic's own begin_transaction(). In SQLAlchemy 2.0 that
+    autobegins a transaction, so alembic's nests inside it rather than owning
+    it, nothing commits, and the connection rolls back on the way out. Every
+    migration printed "Running upgrade" and changed nothing — including the
+    version table, so re-running it looked equally successful.
+
+    Found only because a column added by a migration was missing afterwards.
+    """
+    whole = open("migrations/env.py").read()
+    # Scoped to the online path: run_migrations_offline() has its own
+    # begin_transaction() earlier in the file, and anchoring on the first
+    # occurrence compared positions in two different functions.
+    src = whole[whole.index("def run_migrations_online"):]
+    set_at = src.index("SET lock_timeout")
+    begin_at = src.index("context.begin_transaction")
+    commit_at = src.find("connection.commit()")
+
+    assert commit_at != -1, "the SET is never committed — migrations will roll back"
+    assert set_at < commit_at < begin_at, (
+        "the commit must sit between the SET and begin_transaction(), or "
+        "alembic's transaction nests inside an already-open one"
+    )

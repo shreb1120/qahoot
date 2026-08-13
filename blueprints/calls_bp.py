@@ -350,12 +350,16 @@ def upload():
 
         internal_id = field("internal_id", i) or None
         client_phone = field("client_phone", i) or None
+        client_name = field("client_name", i) or None
         agent_id = field("agent_id", i) or None
         call_date_str = field("call_date", i)
 
         if internal_id and len(internal_id) > 50:
             return _upload_error(f"The internal ID for “{fh.filename}” is too long "
                                  "(50 characters maximum).")
+        if client_name and len(client_name) > 120:
+            return _upload_error(f"The client name for “{fh.filename}” is too long "
+                                 "(120 characters maximum).")
         if client_phone and len(client_phone) > 30:
             return _upload_error(f"The phone number for “{fh.filename}” is too long "
                                  "(30 characters maximum).")
@@ -376,7 +380,8 @@ def upload():
                                      "Pick another.")
 
         planned.append({"file": fh, "agent_id": agent_id, "internal_id": internal_id,
-                        "call_date": call_date, "client_phone": client_phone})
+                        "call_date": call_date, "client_phone": client_phone,
+                        "client_name": client_name})
 
     upload_dir = os.path.join(current_app.config["UPLOAD_FOLDER"], g.org.id)
     os.makedirs(upload_dir, exist_ok=True)
@@ -404,6 +409,7 @@ def upload():
             internal_id=plan["internal_id"],
             call_date=plan["call_date"],
             client_phone=plan["client_phone"],
+            client_name=plan["client_name"],
             filename=safe_name,
             status="pending",
         )

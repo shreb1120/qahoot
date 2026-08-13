@@ -1553,4 +1553,4 @@ html { scroll-behavior: smooth; }
 .up-row-known { font-size: var(--fs-meta); color: var(--pass, #059669); }
 .up-row-known--none { color: var(--faint); }
 .up-row-fields { display: grid; gap: .625rem; grid-template-columns: 1fr; }
-@media (min-width: 48rem) { .up-row-fields { grid-template-columns: repeat(4, 1fr); } }
+@media (min-width: 48rem) { .up-row-fields { grid-template-columns: repeat(5, 1fr); } }
