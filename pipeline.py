@@ -213,6 +213,46 @@ def _transcribe_with_deadline(transcriber, file_path, config, call_id: str):
     return transcript
 
 
+def merge_transcripts(parts: list[dict]) -> dict:
+    """Join several recordings of one conversation into a single transcript.
+
+    Each part is transcribed on its own — there is no ffmpeg on this host, so
+    the audio cannot be concatenated first — and the timestamps then have to be
+    rebased. A phrase 40 seconds into the second recording is at 40s in that
+    part's transcript and at (part one's length + 40s) in the conversation.
+
+    Getting this wrong is worse than not doing it: every timestamp in the report
+    is a claim about where the evidence is, and a reviewer clicking one lands on
+    silence or on the wrong sentence. So the offset is the running sum of the
+    *audio* durations, not of the last utterance's end — a recording that ends
+    with ten seconds of hold music is ten seconds long that the transcript does
+    not mention.
+
+    Returns the same shape a single transcript has, so nothing downstream needs
+    to know a call had parts.
+    """
+    utterances, texts, offset_ms = [], [], 0
+    for part in parts:
+        for u in (part.get("utterances") or []):
+            utterances.append({
+                "speaker": u.get("speaker"),
+                "start": (u.get("start") or 0) + offset_ms,
+                "end": (u.get("end") or 0) + offset_ms,
+                "text": u.get("text", ""),
+            })
+        if part.get("text"):
+            texts.append(part["text"])
+        # audio_duration is seconds and may be absent; fall back to the last
+        # utterance so a missing duration shifts the next part rather than
+        # collapsing it onto this one.
+        secs = part.get("audio_duration")
+        if secs:
+            offset_ms += int(secs * 1000)
+        elif part.get("utterances"):
+            offset_ms = max(u["end"] for u in utterances)
+    return {"utterances": utterances, "text": " ".join(texts)}
+
+
 def _format_transcript(utterances) -> str:
     lines = []
     for utt in utterances:

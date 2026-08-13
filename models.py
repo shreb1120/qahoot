@@ -252,6 +252,13 @@ class Call(Base):
     # the phone number the dialer writes into the filename. Names get spelled
     # differently across calls, and the phone stays the stable key.
     client_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+
+    # Ordered file paths when one conversation arrived as several recordings —
+    # a transfer, a callback, a dropped line. NULL for the ordinary single-file
+    # case, and `audio_file_url` still points at the first part either way, so
+    # the retention job, the backup mirror and every existing query are
+    # unaffected.
+    audio_parts: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     audio_file_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(
         String(20), nullable=False, default="pending"
