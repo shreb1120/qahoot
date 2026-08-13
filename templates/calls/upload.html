@@ -220,7 +220,7 @@
           '<div class="up-row-file">' +
             '<span class="up-row-name">' + esc(shared ? picked.length + ' recordings' : f.name) + '</span>' +
             (known.length
-              ? '<span class="up-row-known">Read from the filename: ' + known.join(' · ') + '</span>'
+              ? '<span class="up-row-known">Read from the filename: ' + esc(known.join(' · ')) + '</span>'
               : '<span class="up-row-known up-row-known--none">Nothing readable in the filename</span>') +
           '</div>' +
           '<div class="up-row-fields">' +

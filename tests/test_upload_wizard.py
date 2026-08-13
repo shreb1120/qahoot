@@ -214,5 +214,14 @@ def test_the_wizard_escapes_before_inserting_html(tenants):
     #   o             — markup this function built itself
     #   picked.length — a FileList count, a number
     SAFE = {"i", "o", "picked.length"}
-    for raw in re.findall(r"\+ ([A-Za-z_][\w.\[\]]*) \+", js):
-        assert raw in SAFE, f"{raw} is concatenated into HTML without esc()"
+    # Matches any expression between concatenated string literals, not just
+    # bare identifiers. The first version of this guard only matched
+    # `word.word` and so missed `known.join(' · ')` — which a second security
+    # review caught and this did not.
+    for m in re.finditer(r"'\s*\+\s*([^+]+?)\s*\+\s*'", js):
+        expr = m.group(1).strip()
+        if expr.startswith("'") or expr.startswith('"'):
+            continue                      # a literal fragment of our own markup
+        if expr.startswith("esc(") or expr in SAFE or expr == "agentSelect(i)":
+            continue                      # escaped, provably safe, or already-built markup
+        assert False, f"{expr} is concatenated into HTML without esc()"
