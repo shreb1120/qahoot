@@ -194,34 +194,28 @@ def test_an_agent_name_cannot_inject_script_into_the_upload_page(tenants, db):
            "alert(1)" in body, "the agent vanished instead of being escaped"
 
 
-def test_the_wizard_escapes_before_inserting_html(tenants):
-    """The values are interpolated into an HTML string, so the escaping has to
-    happen in the template's own code — `tojson` makes them safe as JS values,
-    not as markup."""
-    body = tenants.a_admin.get("/calls/upload").get_data(as_text=True)
-    assert "function esc(" in body
-    assert "esc(AGENT_NAMES[a])" in body and "esc(AGENTS[a])" in body
+def test_the_wizard_builds_no_html_from_strings(tenants):
+    """The structural fix, replacing an escaping rule nobody could be trusted to
+    remember.
 
-    # Asserted as an absence rather than a presence: the point is that no
-    # untrusted value reaches insertAdjacentHTML unescaped, and checking for one
-    # particular spelling of the fix would pass the day someone rewrites the
-    # line and drops the escaping.
+    Three values reached insertAdjacentHTML unescaped across two security
+    reviews — an agent name, a filename, and the parsed date and number — and
+    each was fixed by adding one more esc() call. The rows are DOM nodes now, so
+    .value and .textContent cannot interpret markup and there is nothing left to
+    forget.
+
+    Asserted on the property rather than on the fix: any reintroduction of
+    string-built markup fails this, whatever it ends up being called.
+    """
     import re
-    js = body[body.index("function buildRows"):body.index("function onPicked")]
-    # Each exemption is a value that cannot carry markup, and is listed rather
-    # than pattern-matched so adding one is a visible decision:
-    #   i             — the loop index, a number
-    #   o             — markup this function built itself
-    #   picked.length — a FileList count, a number
-    SAFE = {"i", "o", "picked.length"}
-    # Matches any expression between concatenated string literals, not just
-    # bare identifiers. The first version of this guard only matched
-    # `word.word` and so missed `known.join(' · ')` — which a second security
-    # review caught and this did not.
-    for m in re.finditer(r"'\s*\+\s*([^+]+?)\s*\+\s*'", js):
-        expr = m.group(1).strip()
-        if expr.startswith("'") or expr.startswith('"'):
-            continue                      # a literal fragment of our own markup
-        if expr.startswith("esc(") or expr in SAFE or expr == "agentSelect(i)":
-            continue                      # escaped, provably safe, or already-built markup
-        assert False, f"{expr} is concatenated into HTML without esc()"
+    body = tenants.a_admin.get("/calls/upload").get_data(as_text=True)
+    js = body[body.index('id="upload-form"'):]
+
+    assert ".innerHTML" not in js, "markup is being assigned as a string again"
+
+    # insertAdjacentHTML survives in exactly one place, for a constant SVG with
+    # nothing interpolated into it. Any other argument is a regression.
+    for call in re.findall(r"insertAdjacentHTML\(([^)]*)\)", js):
+        assert "ALERT_ICON" in call, f"insertAdjacentHTML({call}) builds markup from data"
+
+    assert "textContent" in js, "rows are not being built through the DOM API"

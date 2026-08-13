@@ -130,18 +130,6 @@
   // chosen again, at which point the filename-derived fields repopulate on
   // their own. What genuinely would be lost is the typing: agent assignments
   // and internal IDs across a whole batch. Those are restored from here.
-  // Everything below is built by string concatenation and handed to
-  // insertAdjacentHTML, so every interpolated value has to be escaped — none of
-  // these are ours. Agent names are typed by an admin or pasted in from a CSV,
-  // the prior values are whatever was POSTed, and the filename comes off the
-  // user's disk. An agent named `<img src=x onerror=…>` would otherwise run for
-  // every member of that org who opened this page.
-  function esc(v) {
-    return String(v === undefined || v === null ? '' : v)
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-  }
-
   var PRIOR = {{ (form or {}) | tojson }};
   function prior(name, i, fallback) {
     var v = PRIOR[name + '_' + i];
@@ -153,7 +141,7 @@
   var AGENT_NAMES = {{ agents | map(attribute='name') | list | tojson }};
 
   function show(n) {
-    steps.forEach(function (el, i) { el.hidden = (i + 1) !== n; });
+    steps.forEach(function (section, idx) { section.hidden = (idx + 1) !== n; });
     var h = steps[n - 1].querySelector('h2, .up-drop-title');
     if (h) h.setAttribute('tabindex', '-1'), h.focus({ preventScroll: true });
   }
@@ -176,17 +164,52 @@
     return { date: iso, phone: phone };
   }
 
-  function agentSelect(i) {
-    var o = '<option value="">— Unassigned —</option>';
-    for (var a = 0; a < AGENTS.length; a++) {
-      o += '<option value="' + esc(AGENTS[a]) + '">' + esc(AGENT_NAMES[a]) + '</option>';
+  // Rows are built as DOM nodes, never as markup.
+  //
+  // The previous version concatenated HTML strings and handed them to
+  // insertAdjacentHTML. Three separate values reached it unescaped over two
+  // security reviews — an agent name (typed by an admin or pasted from a CSV,
+  // so stored XSS across everyone in the org), the filename off the user's
+  // disk, and the parsed date and number. Each was fixed by adding another
+  // esc() call, which only works for as long as everyone remembers.
+  //
+  // Setting .value and .textContent cannot interpret markup, so the class of
+  // bug is gone rather than patched. It is also less code.
+  function el(tag, props, children) {
+    var node = document.createElement(tag);
+    for (var k in (props || {})) {
+      if (k === 'class') node.className = props[k];
+      else if (k === 'text') node.textContent = props[k];
+      else if (props[k] !== undefined && props[k] !== null) node.setAttribute(k, props[k]);
     }
-    return '<select class="rp-select w-full" name="agent_id_' + i + '" aria-label="Agent"'
-         + ' data-prior="' + esc(prior('agent_id', i, '')) + '">' + o + '</select>';
+    (children || []).forEach(function (c) { if (c) node.appendChild(c); });
+    return node;
+  }
+
+  function field(labelText, control) {
+    return el('label', { class: 'rp-field' }, [
+      el('span', { class: 'rp-field-label', text: labelText }),
+      control,
+    ]);
+  }
+
+  function agentSelect(i, selected) {
+    var sel = el('select', { class: 'rp-select w-full', name: 'agent_id_' + i,
+                             'aria-label': 'Agent' });
+    sel.appendChild(el('option', { value: '', text: '— Unassigned —' }));
+    for (var a = 0; a < AGENTS.length; a++) {
+      sel.appendChild(el('option', { value: AGENTS[a], text: AGENT_NAMES[a] }));
+    }
+    if (selected) sel.value = selected;
+    return sel;
+  }
+
+  function hidden(name, value) {
+    return el('input', { type: 'hidden', name: name, value: value || '' });
   }
 
   function buildRows() {
-    rows.innerHTML = '';
+    rows.textContent = '';
     var shared = grouping === 'same' && picked.length > 1;
     document.getElementById('up-step3-q').textContent =
       shared ? 'Details for this client' : (picked.length > 1 ? 'Details for each call' : 'A few details');
@@ -195,61 +218,64 @@
         ? 'These apply to all ' + picked.length + ' recordings. The date and number were read from each filename.'
         : 'We read what we could from the filenames. Fill in anything blank — all of it is optional, and you can attribute a call later from its report.';
 
+    var mirrors = [];
+
     picked.forEach(function (f, i) {
       var got = parseName(f.name);
+
       // In "same client" mode only the first row is editable; the rest carry
       // hidden copies of its answers, so the server still receives one set of
       // fields per file and needs to know nothing about grouping.
       if (shared && i > 0) {
-        rows.insertAdjacentHTML('beforeend',
-          '<input type="hidden" name="call_date_' + i + '" value="' + esc(got.date) + '">' +
-          '<input type="hidden" name="client_phone_' + i + '" value="' + esc(got.phone) + '">' +
-          '<input type="hidden" name="agent_id_' + i + '" class="up-mirror-agent" value="">' +
-          '<input type="hidden" name="internal_id_' + i + '" class="up-mirror-id" value="">');
+        var mAgent = hidden('agent_id_' + i, '');
+        var mId = hidden('internal_id_' + i, '');
+        mirrors.push({ agent: mAgent, id: mId });
+        [hidden('call_date_' + i, got.date), hidden('client_phone_' + i, got.phone),
+         mAgent, mId].forEach(function (n) { rows.appendChild(n); });
         return;
       }
-      var pIid = prior('internal_id', i, '');
-      var pDate = prior('call_date', i, got.date);
-      var pPhone = prior('client_phone', i, got.phone);
-      var pAgent = prior('agent_id', i, '');
+
       var known = [];
       if (got.date) known.push(got.date);
       if (got.phone) known.push(got.phone);
-      rows.insertAdjacentHTML('beforeend',
-        '<div class="up-row">' +
-          '<div class="up-row-file">' +
-            '<span class="up-row-name">' + esc(shared ? picked.length + ' recordings' : f.name) + '</span>' +
-            (known.length
-              ? '<span class="up-row-known">Read from the filename: ' + esc(known.join(' · ')) + '</span>'
-              : '<span class="up-row-known up-row-known--none">Nothing readable in the filename</span>') +
-          '</div>' +
-          '<div class="up-row-fields">' +
-            '<label class="rp-field"><span class="rp-field-label">Agent</span>' + agentSelect(i) + '</label>' +
-            '<label class="rp-field"><span class="rp-field-label">Internal ID</span>' +
-              '<input class="rp-input w-full" name="internal_id_' + i + '" value="' + esc(pIid) + '" placeholder="optional"></label>' +
-            '<label class="rp-field"><span class="rp-field-label">Call date</span>' +
-              '<input class="rp-input w-full" type="date" name="call_date_' + i + '" value="' + esc(pDate) + '"></label>' +
-            '<label class="rp-field"><span class="rp-field-label">Client phone</span>' +
-              '<input class="rp-input w-full" name="client_phone_' + i + '" value="' + esc(pPhone) + '" placeholder="optional"></label>' +
-          '</div>' +
-        '</div>');
-    });
 
-    rows.querySelectorAll('select[data-prior]').forEach(function (sel) {
-      if (sel.dataset.prior) sel.value = sel.dataset.prior;
-    });
+      var agent = agentSelect(i, prior('agent_id', i, ''));
+      var iid = el('input', { class: 'rp-input w-full', name: 'internal_id_' + i,
+                              value: prior('internal_id', i, ''), placeholder: 'optional' });
 
-    if (shared) {
-      // Keep the hidden copies in step with the one visible row.
-      var agent = rows.querySelector('select[name="agent_id_0"]');
-      var iid = rows.querySelector('input[name="internal_id_0"]');
-      var sync = function () {
-        rows.querySelectorAll('.up-mirror-agent').forEach(function (h) { h.value = agent ? agent.value : ''; });
-        rows.querySelectorAll('.up-mirror-id').forEach(function (h) { h.value = iid ? iid.value : ''; });
-      };
-      if (agent) agent.addEventListener('change', sync);
-      if (iid) iid.addEventListener('input', sync);
-    }
+      rows.appendChild(el('div', { class: 'up-row' }, [
+        el('div', { class: 'up-row-file' }, [
+          el('span', { class: 'up-row-name',
+                       text: shared ? picked.length + ' recordings' : f.name }),
+          known.length
+            ? el('span', { class: 'up-row-known',
+                           text: 'Read from the filename: ' + known.join(' · ') })
+            : el('span', { class: 'up-row-known up-row-known--none',
+                           text: 'Nothing readable in the filename' }),
+        ]),
+        el('div', { class: 'up-row-fields' }, [
+          field('Agent', agent),
+          field('Internal ID', iid),
+          field('Call date', el('input', {
+            class: 'rp-input w-full', type: 'date', name: 'call_date_' + i,
+            value: prior('call_date', i, got.date) })),
+          field('Client phone', el('input', {
+            class: 'rp-input w-full', name: 'client_phone_' + i,
+            value: prior('client_phone', i, got.phone), placeholder: 'optional' })),
+        ]),
+      ]));
+
+      if (shared && i === 0) {
+        var sync = function () {
+          mirrors.forEach(function (m) {
+            m.agent.value = agent.value;
+            m.id.value = iid.value;
+          });
+        };
+        agent.addEventListener('change', sync);
+        iid.addEventListener('input', sync);
+      }
+    });
   }
 
   function onPicked() {
@@ -313,9 +339,19 @@
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">' +
     '<path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"/></svg>';
 
-  function setError(el, message) {
-    if (el) el.innerHTML = message ? ALERT_ICON + '<span>' + message + '</span>' : '';
-  }
+    function setError(node, message) {
+      // The icon is a constant with nothing interpolated into it; the message
+      // goes through textContent. Same shape as the row builder above, and for
+      // the same reason: this file produced three XSS findings from building
+      // markup by hand, and none were caught by reading it.
+      if (!node) return;
+      node.textContent = '';
+      if (!message) return;
+      node.insertAdjacentHTML('afterbegin', ALERT_ICON);
+      var span = document.createElement('span');
+      span.textContent = message;
+      node.appendChild(span);
+    }
   function formatSize(bytes) {
     const mb = bytes / (1024 * 1024);
     return mb >= 1 ? mb.toFixed(1) + ' MB' : Math.max(1, Math.round(bytes / 1024)) + ' KB';
