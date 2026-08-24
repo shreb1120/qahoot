@@ -6,13 +6,16 @@ from templates_seed import TEMPLATE_LIBRARY, TEMPLATES_BY_KEY, get_template, tem
 def test_every_template_matches_the_stored_checklist_shape():
     for t in TEMPLATE_LIBRARY:
         c = t["checklist"]
-        assert set(c) == {"sections", "auto_fail_phrases"}, t["key"]
+        assert {"sections", "auto_fail_phrases"} <= set(c), t["key"]
+        assert set(c) <= {"sections", "auto_fail_phrases", "grader_extensions"}, t["key"]
         for s in c["sections"]:
             assert {"name", "key", "items"} <= set(s), t["key"]
             for i in s["items"]:
                 assert {"name", "required", "notes"} <= set(i), (t["key"], i)
         for p in c["auto_fail_phrases"]:
             assert {"phrase", "description"} <= set(p), t["key"]
+        for ext in c.get("grader_extensions") or []:
+            assert ext in {"program_flip", "ineligible_accounts"}, (t["key"], ext)
 
 
 def test_keys_are_unique_and_blank_is_last():

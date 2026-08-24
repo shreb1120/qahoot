@@ -92,7 +92,7 @@ class TranscriptionTimeout(RuntimeError):
     """
 
 
-MODEL = "claude-opus-5"
+MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-opus-5").strip() or "claude-opus-5"
 # Generous because max_tokens bounds the whole response. Reports run ~1,650
 # tokens; the headroom is what stops a long checklist truncating one.
 MAX_TOKENS = 16000
@@ -139,6 +139,54 @@ def _usage_meta(response) -> dict:
         "cache_read_input_tokens": g("cache_read_input_tokens"),
         "cache_creation_input_tokens": g("cache_creation_input_tokens"),
     }
+
+
+def _parse_model_json(raw: str) -> dict:
+    """Extract the report object from a Claude text response.
+
+    Prefers a clean JSON document. Falls back to stripping markdown fences,
+    then to the outermost brace slice. Brace-slicing alone used to accept
+    truncated mid-object text and fail later with confusing errors — or worse,
+    succeed on a partial object.
+    """
+    text = (raw or "").strip()
+    if not text:
+        raise ValueError("Empty Claude response")
+
+    candidates = [text]
+    if text.startswith("```"):
+        body = text.split("\n", 1)[-1]
+        if body.endswith("```"):
+            body = body[:-3]
+        # Drop optional language tag on the first line of a fenced block.
+        if body.lstrip().startswith("{"):
+            candidates.append(body.strip())
+        else:
+            nl = body.find("\n")
+            candidates.append((body[nl + 1:] if nl != -1 else body).strip())
+
+    start_idx = text.find("{")
+    end_idx = text.rfind("}")
+    if start_idx != -1 and end_idx > start_idx:
+        candidates.append(text[start_idx:end_idx + 1])
+
+    errors: list[str] = []
+    for candidate in candidates:
+        if not candidate:
+            continue
+        try:
+            parsed = json.loads(candidate)
+        except json.JSONDecodeError as e:
+            errors.append(str(e))
+            continue
+        if isinstance(parsed, dict):
+            return parsed
+        errors.append(f"JSON root was {type(parsed).__name__}, expected object")
+
+    raise ValueError(
+        f"No usable JSON object in Claude response: {raw[:300]!r}"
+        + (f" ({errors[-1]})" if errors else "")
+    )
 
 
 def _attempt(db, call_id: str) -> int:
@@ -428,11 +476,7 @@ def run_pipeline(call_id: str, file_path: str,
         db.commit()
 
         raw = response.content[0].text
-        start_idx = raw.find("{")
-        end_idx = raw.rfind("}") + 1
-        if start_idx == -1 or end_idx <= start_idx:
-            raise ValueError(f"No JSON found in Claude response: {raw[:300]!r}")
-        model_output = json.loads(raw[start_idx:end_idx])
+        model_output = _parse_model_json(raw)
 
         # Reconcile against the checklist that was actually in force. The model
         # is evidence; the checklist is truth. A requirement it failed to return

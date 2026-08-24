@@ -44,6 +44,31 @@ def test_a_dropped_requirement_becomes_not_assessed_rather_than_vanishing():
         {"name": "States their name", "status": "covered"}]}]}, CHECKLIST)
     assert _item(out, "opening", "States the company")["status"] == NOT_ASSESSED
     assert _item(out, "disclosures", "Says the call is recorded")["status"] == NOT_ASSESSED
+    assert out["verdict"] == "incomplete"
+    assert out["final_determination"].startswith("INCOMPLETE")
+
+
+def test_not_assessed_alone_never_fails_the_call():
+    """Model dropout must not look like the agent skipped a disclosure."""
+    out = normalize_report({"sections": [
+        {"key": "opening", "items": [
+            {"name": "States their name", "status": "covered"},
+            {"name": "States the company", "status": "not_assessed"}]},
+        {"key": "disclosures", "items": [
+            {"name": "Says the call is recorded", "status": "covered"}]}]}, CHECKLIST)
+    assert out["verdict"] == "incomplete"
+    assert "FAIL" not in out["final_determination"]
+
+
+def test_a_real_miss_still_fails_even_if_other_items_were_not_assessed():
+    out = normalize_report({"sections": [
+        {"key": "opening", "items": [
+            {"name": "States their name", "status": "covered"},
+            {"name": "States the company", "status": "not_assessed"}]},
+        {"key": "disclosures", "items": [
+            {"name": "Says the call is recorded", "status": "not_covered"}]}]}, CHECKLIST)
+    assert out["verdict"] == "fail"
+    assert out["final_determination"] == "FAIL — Disclosures"
 
 
 def test_counts_are_recomputed_not_taken_from_the_model():

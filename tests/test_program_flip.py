@@ -177,10 +177,24 @@ def test_the_prompt_teaches_the_two_distinctions_that_cause_false_alarms():
     call 888454, which would otherwise have produced two confident false
     alarms on a call that was clean."""
     from prompt_builder import build_system_prompt
-    p = build_system_prompt({"sections": [{"name": "S", "items": [{"name": "i"}]}],
-                             "auto_fail_phrases": []}).lower()
+    p = build_system_prompt({
+        "sections": [{"name": "S", "items": [{"name": "i"}]}],
+        "auto_fail_phrases": [],
+        "grader_extensions": ["program_flip", "ineligible_accounts"],
+    }).lower()
     assert "asking is not a finding" in p
     assert "expense" in p and "enrolled" in p
+
+
+def test_horizontal_prompts_omit_debt_relief_screening_language():
+    from prompt_builder import build_system_prompt
+    p = build_system_prompt({
+        "sections": [{"name": "S", "items": [{"name": "i"}]}],
+        "auto_fail_phrases": [],
+    }).lower()
+    assert "asking is not a finding" not in p
+    assert "program flip" not in p
+    assert "prior_settlement" not in p
 
 
 # ═══════════════ the words alone are not the violation ═══════════════

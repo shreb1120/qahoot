@@ -17,12 +17,30 @@ The profile dict shape (from compliance_profiles.script_sections_json):
     "auto_fail_phrases": [
         {"phrase": "...", "description": "..."},
         ...
-    ]
+    ],
+    # Optional industry extras. Debt-settlement templates set these; solar /
+    # blank / others leave them off so horizontal orgs are not graded against
+    # debt-relief program-flip logic.
+    "grader_extensions": ["program_flip", "ineligible_accounts"]
 }
 """
 
+# Known extension ids. Anything else in the profile list is ignored.
+PROGRAM_FLIP = "program_flip"
+INELIGIBLE_ACCOUNTS = "ineligible_accounts"
+KNOWN_EXTENSIONS = frozenset({PROGRAM_FLIP, INELIGIBLE_ACCOUNTS})
+
+
+def grader_extensions(profile: dict | None) -> frozenset[str]:
+    """Which informational grader extras this checklist enables."""
+    raw = (profile or {}).get("grader_extensions") or []
+    if not isinstance(raw, list):
+        return frozenset()
+    return frozenset(str(x) for x in raw if str(x) in KNOWN_EXTENSIONS)
+
 
 def build_system_prompt(profile: dict) -> str:
+    extensions = grader_extensions(profile)
     lines = [
         "You are a QA compliance analyst. You analyze call transcripts to verify that "
         "the agent communicated all required disclosures and avoided prohibited phrases.",
@@ -105,6 +123,8 @@ def build_system_prompt(profile: dict) -> str:
         "- Optional items: if the agent never mentions the topic, mark covered.",
         "  They only become required if the agent brings up the topic.",
         "- total_count in each section = number of required items (not optional).",
+        "- You MUST return a status for every required item. Omitting an item is worse",
+        "  than marking not_covered — the report will be marked incomplete and re-run.",
         "",
         "─" * 60,
         "OUTPUT FORMAT — return ONLY valid JSON, no markdown, no code fences",
@@ -122,40 +142,51 @@ def build_system_prompt(profile: dict) -> str:
         '        "timestamp": "<timestamp>",',
         '        "speaker": "<Speaker label>",',
         '        "spoken_by": "agent" | "client",',
-        '        "is_violation": <boolean — false if the phrase is negated, disclaimed or part of a required disclosure>',
+        '        "is_violation": <boolean — false if the phrase is negated, disclaimed or part of a required disclosure>,',
         '        "quote": "<exact quote from transcript>",',
         '        "violation": "<which auto-fail rule this matches>"',
         '      }',
         '    ]',
         "  },",
-        '  "program_flip": {',
-        '    "detected": <boolean>,',
-        '    "reason": "<one sentence: what suggests it, or why not>",',
-        '    "evidence": [',
-        '      {',
-        '        "timestamp": "<timestamp>",',
-        '        "speaker": "<Speaker label>",',
-        '        "quote": "<exact quote from transcript>"',
-        '      }',
-        '    ]',
-        "  },",
-        '  "ineligible_accounts": [',
-        '    {',
-        '      "reason_code": "prior_settlement" | "secured_vehicle" | "litigation",',
-        '      "account": "<the account as the client described it>",',
-        '      "timestamp": "<timestamp>",',
-        '      "speaker": "<Speaker label>",',
-        '      "quote": "<exact quote from transcript>",',
-        '      "note": "<one sentence: what makes it ineligible>"',
-        '    }',
-        "  ],",
+    ]
+
+    if PROGRAM_FLIP in extensions:
+        lines += [
+            '  "program_flip": {',
+            '    "detected": <boolean>,',
+            '    "reason": "<one sentence: what suggests it, or why not>",',
+            '    "evidence": [',
+            '      {',
+            '        "timestamp": "<timestamp>",',
+            '        "speaker": "<Speaker label>",',
+            '        "quote": "<exact quote from transcript>"',
+            '      }',
+            '    ]',
+            "  },",
+        ]
+
+    if INELIGIBLE_ACCOUNTS in extensions:
+        lines += [
+            '  "ineligible_accounts": [',
+            '    {',
+            '      "reason_code": "prior_settlement" | "secured_vehicle" | "litigation",',
+            '      "account": "<the account as the client described it>",',
+            '      "timestamp": "<timestamp>",',
+            '      "speaker": "<Speaker label>",',
+            '      "quote": "<exact quote from transcript>",',
+            '      "note": "<one sentence: what makes it ineligible>"',
+            '    }',
+            "  ],",
+        ]
+
+    lines += [
         '  "final_determination": "PASS" or "FAIL — <Section Name>" or "FAIL — Both" or "CRITICAL FAIL",',
         '  "summary": "<2-3 sentence plain-English summary of the findings>"',
         "}",
         "",
         "ASSERTED, NOT MERELY SAID — check this before flagging anything:",
         "  A prohibited phrase counts only when the agent ASSERTS it as true of",
-        "  this program. The same words inside a denial, a disclaimer or a",
+        "  this program / offer. The same words inside a denial, a disclaimer or a",
         "  required disclosure are the agent doing their job, and flagging them",
         "  inverts the meaning of the call.",
         "",
@@ -164,9 +195,9 @@ def build_system_prompt(profile: dict) -> str:
         '    "I do want to inform you, it\'s not guaranteed"',
         '    "we cannot guarantee any particular result"',
         '    "this is not a consolidation loan"',
-        "  Scripts in this industry are full of such disclaimers, often word for",
-        "  word — that is what makes them mandatory, and it is exactly why the",
-        "  literal words appear.",
+        "  Compliance scripts often include such disclaimers word for word —",
+        "  that is what makes them mandatory, and it is exactly why the literal",
+        "  words appear.",
         "",
         "  These ARE violations, because the agent asserts the claim:",
         '    "your interest is going to be 0%"',
@@ -189,52 +220,63 @@ def build_system_prompt(profile: dict) -> str:
         "  not correct it. Mark it \"agent\" if the agent adopts, repeats or",
         "  affirms it.",
         "",
-        "PROGRAM FLIP — informational only:",
-        "  Set program_flip.detected = true if the client indicates they are",
-        "  already enrolled in, or were previously enrolled in, another debt",
-        "  relief, settlement, consolidation or credit repair program — or that",
-        "  accounts being enrolled on this call were already in such a program.",
-        "  Name the other company in `reason` when the client names it.",
-        "  Be conservative: a client merely naming a creditor, a bank or an",
-        "  ordinary loan is NOT a program flip. If it is ambiguous, set detected",
-        "  = true and say plainly in `reason` what is unclear — the report",
-        "  labels this as *possible*, and a reviewer decides.",
-        "  This NEVER changes any item's status and NEVER changes the",
-        "  determination. It is context for the human, nothing more. A flip is",
-        "  not a violation; it changes which disclosures are meaningful, and",
-        "  that judgment belongs to the reviewer.",
-        "",
-        "INELIGIBLE ACCOUNTS — informational only:",
-        "  List an account when the CLIENT says something that makes it",
-        "  ineligible for enrolment:",
-        "    prior_settlement — already settled on that account through another",
-        "      company",
-        "    secured_vehicle  — the debt is secured against a vehicle (car loan,",
-        "      auto title)",
-        "    litigation       — they have already been sued on that account, or",
-        "      there is a judgment against them for it",
-        "",
-        "  Two distinctions matter more than anything else here, because getting",
-        "  them wrong produces confident false alarms that make the whole report",
-        "  untrustworthy:",
-        "",
-        "  1. The AGENT ASKING is not a finding. Agents are expected to screen",
-        "     for these — \"are there any active lawsuits or judgments?\" is the",
-        "     script working. Only the CLIENT ANSWERING YES creates an entry. If",
-        "     the client says no, or does not answer, there is nothing to list.",
-        "",
-        "  2. An account discussed as a monthly EXPENSE is not an enrolled",
-        "     account. Car payments, insurance and mortgages routinely come up",
-        "     during a budget review; that is not the same as enrolling the debt.",
-        "     Only flag a vehicle debt if it appears to be among the accounts",
-        "     being enrolled.",
-        "",
-        "  Quote the client, not the agent, in `quote`. Return an empty list when",
-        "  nothing qualifies — an empty list is the common and expected answer.",
-        "  These NEVER change an item's status and NEVER change the",
-        "  determination. Whether an ineligible account was actually enrolled is",
-        "  for the reviewer to confirm.",
-        "",
+    ]
+
+    if PROGRAM_FLIP in extensions:
+        lines += [
+            "PROGRAM FLIP — informational only:",
+            "  Set program_flip.detected = true if the client indicates they are",
+            "  already enrolled in, or were previously enrolled in, another debt",
+            "  relief, settlement, consolidation or credit repair program — or that",
+            "  accounts being enrolled on this call were already in such a program.",
+            "  Name the other company in `reason` when the client names it.",
+            "  Be conservative: a client merely naming a creditor, a bank or an",
+            "  ordinary loan is NOT a program flip. If it is ambiguous, set detected",
+            "  = true and say plainly in `reason` what is unclear — the report",
+            "  labels this as *possible*, and a reviewer decides.",
+            "  This NEVER changes any item's status and NEVER changes the",
+            "  determination. It is context for the human, nothing more. A flip is",
+            "  not a violation; it changes which disclosures are meaningful, and",
+            "  that judgment belongs to the reviewer.",
+            "",
+        ]
+
+    if INELIGIBLE_ACCOUNTS in extensions:
+        lines += [
+            "INELIGIBLE ACCOUNTS — informational only:",
+            "  List an account when the CLIENT says something that makes it",
+            "  ineligible for enrolment:",
+            "    prior_settlement — already settled on that account through another",
+            "      company",
+            "    secured_vehicle  — the debt is secured against a vehicle (car loan,",
+            "      auto title)",
+            "    litigation       — they have already been sued on that account, or",
+            "      there is a judgment against them for it",
+            "",
+            "  Two distinctions matter more than anything else here, because getting",
+            "  them wrong produces confident false alarms that make the whole report",
+            "  untrustworthy:",
+            "",
+            "  1. The AGENT ASKING is not a finding. Agents are expected to screen",
+            "     for these — \"are there any active lawsuits or judgments?\" is the",
+            "     script working. Only the CLIENT ANSWERING YES creates an entry. If",
+            "     the client says no, or does not answer, there is nothing to list.",
+            "",
+            "  2. An account discussed as a monthly EXPENSE is not an enrolled",
+            "     account. Car payments, insurance and mortgages routinely come up",
+            "     during a budget review; that is not the same as enrolling the debt.",
+            "     Only flag a vehicle debt if it appears to be among the accounts",
+            "     being enrolled.",
+            "",
+            "  Quote the client, not the agent, in `quote`. Return an empty list when",
+            "  nothing qualifies — an empty list is the common and expected answer.",
+            "  These NEVER change an item's status and NEVER change the",
+            "  determination. Whether an ineligible account was actually enrolled is",
+            "  for the reviewer to confirm.",
+            "",
+        ]
+
+    lines += [
         "DETERMINATION LOGIC:",
         "- PASS — all required items covered in every section, no auto-fail phrases detected",
         "- FAIL — <Section Name> — one or more required items missing from that section only",

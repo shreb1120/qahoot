@@ -239,6 +239,10 @@ DEBT_SETTLEMENT_TEMPLATE: dict = {
             "description": "Pre-negotiated creditor deals — prohibited.",
         },
     ],
+    # Debt-settlement-specific informational signals for the grader. Other
+    # industry templates omit this so horizontal orgs are not scored against
+    # settlement program-flip / ineligibility logic.
+    "grader_extensions": ["program_flip", "ineligible_accounts"],
 }
 
 BLANK_TEMPLATE: dict = {
