@@ -171,7 +171,8 @@ def test_the_checklist_prefix_is_marked_cacheable(tenants, db, monkeypatch):
 def test_thinking_is_disabled_and_max_tokens_leaves_room(tenants, db, monkeypatch):
     """Opus 5 thinks by default and max_tokens bounds thinking + output
     together. Reports run ~1,650 tokens; 4,096 with thinking on can truncate."""
+    import pipeline as pipeline_module
     kw = _capture_request(monkeypatch, tenants, db)
-    assert kw["model"] == "claude-opus-5"
+    assert kw["model"] == pipeline_module.MODEL
     assert kw["thinking"] == {"type": "disabled"}
     assert kw["max_tokens"] >= 8000

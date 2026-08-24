@@ -43,13 +43,17 @@ in force before anything is stored:
 - every section and every requirement appears, in checklist order, whether or
   not the model returned it
 - a requirement the model omitted becomes `not_assessed` — visibly distinct from
-  "the agent did not say it", counted as not covered, and surfaced in a banner
-  so a reviewer is told rather than left to notice
+  "the agent did not say it", reported separately, and producing an
+  `incomplete` verdict (never FAIL) so a reviewer re-runs rather than coaches
+  the agent for a model dropout
 - counts are recomputed, never taken from the response
 - the determination is derived from the reconciled rows, so a verdict can never
   disagree with the table beneath it
 - sections the model invented are dropped; auto-fail phrases are filtered to the
   ones the org configured, so a hallucinated violation cannot fail a call
+- debt-settlement extras (`program_flip`, `ineligible_accounts`) are opt-in via
+  `grader_extensions` on the checklist JSON — debt-settlement templates enable
+  them; other industries do not
 
 Two structural collisions are also prevented at the point of edit: section keys
 are unique (they are half of the manager-override key), and a requirement name

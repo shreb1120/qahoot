@@ -34,7 +34,7 @@ def _model_response(status, phrases=None):
 @pytest.mark.parametrize("status,phrases,determination,verdict", [
     ("covered",     None, "PASS", "pass"),
     ("not_covered", None, "FAIL — Approval Script", "fail"),
-    ("not_assessed", None, "FAIL — Approval Script", "fail"),
+    ("not_assessed", None, "INCOMPLETE — grading gap", "incomplete"),
     ("covered", [{"phrase": "guaranteed settlement"}], "CRITICAL FAIL", "critical"),
 ])
 def test_verdict_always_agrees_with_the_prose(status, phrases, determination, verdict):

@@ -39,6 +39,9 @@ NOT_ASSESSED = "not_assessed"
 PASS = "pass"
 FAIL = "fail"
 CRITICAL = "critical"
+# Model dropped required items — a grading gap, not an agent miss. Must never
+# be folded into FAIL or a coaching miss rate.
+INCOMPLETE = "incomplete"
 
 
 def _norm(text: str) -> str:
@@ -79,7 +82,7 @@ def _clean_status(value) -> str:
     v = str(value or "").strip().lower().replace("-", "_").replace(" ", "_")
     if v in (COVERED, "yes", "true", "pass", "met"):
         return COVERED
-    if v in (NOT_COVERED, "missing", "no", "false", "fail", "not_met"):
+    if v in (NOT_COVERED, "missing", "missed", "no", "false", "fail", "not_met"):
         return NOT_COVERED
     return NOT_ASSESSED
 
@@ -129,6 +132,9 @@ def normalize_report(raw: dict | None, checklist: dict | None) -> dict:
 
         items_out = []
         covered = required_total = 0
+        # Only a genuine not_covered miss fails the section. not_assessed is a
+        # grader gap — treating it as FAIL made model dropouts look like the
+        # agent skipped disclosures (see tests/test_verdict.py history).
         section_has_miss = False
 
         for item_spec in spec.get("items") or []:
@@ -162,8 +168,9 @@ def normalize_report(raw: dict | None, checklist: dict | None) -> dict:
                 required_total += 1
                 if status == COVERED:
                     covered += 1
-                else:
+                elif status == NOT_COVERED:
                     section_has_miss = True
+                # NOT_ASSESSED: counted via unassessed_required below; not a miss.
 
         if section_has_miss:
             failed_sections.append(name)
@@ -233,22 +240,32 @@ def normalize_report(raw: dict | None, checklist: dict | None) -> dict:
     agent_hits = [h for h in kept
                   if h["spoken_by"] != "client" and h["is_violation"]]
 
+    unassessed = sum(1 for s in sections_out for i in s["items"] if i["status"] == NOT_ASSESSED)
+    unassessed_required = sum(
+        1 for s in sections_out for i in s["items"]
+        if i["status"] == NOT_ASSESSED and i.get("required", True)
+    )
+
     # Determination is derived, never trusted, so a verdict can never disagree
     # with the rows underneath it. `verdict` is the same decision in a form a
     # query can index; the prose is for the reader.
+    #
+    # Order: critical agent hits win; real misses FAIL; grading gaps alone are
+    # INCOMPLETE (re-run), never FAIL; only then PASS.
     if agent_hits:
         determination, verdict = "CRITICAL FAIL", CRITICAL
     elif not sections_out:
         determination = raw.get("final_determination") or "FAIL — no checklist sections"
         verdict = FAIL
-    elif not failed_sections:
-        determination, verdict = "PASS", PASS
-    elif len(failed_sections) == 1:
-        determination, verdict = f"FAIL — {failed_sections[0]}", FAIL
+    elif failed_sections:
+        if len(failed_sections) == 1:
+            determination, verdict = f"FAIL — {failed_sections[0]}", FAIL
+        else:
+            determination, verdict = "FAIL — Multiple sections", FAIL
+    elif unassessed_required:
+        determination, verdict = "INCOMPLETE — grading gap", INCOMPLETE
     else:
-        determination, verdict = "FAIL — Multiple sections", FAIL
-
-    unassessed = sum(1 for s in sections_out for i in s["items"] if i["status"] == NOT_ASSESSED)
+        determination, verdict = "PASS", PASS
     if missing_from_response or discarded:
         logger.warning(
             "Report reconciliation: %d checklist item(s) absent from the model "

@@ -332,7 +332,8 @@ class Report(Base):
     report_json: Mapped[dict] = mapped_column(JSONB, nullable=False)
     # Human-readable determination, e.g. "FAIL — Approval Script". Display only.
     pass_fail_status: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    # The same verdict, machine-readable: "pass" | "fail" | "critical".
+    # The same verdict, machine-readable: "pass" | "fail" | "critical" | "incomplete".
+    # incomplete = grader gap (not_assessed required items), not an agent miss.
     # Every pass-rate query used to scan pass_fail_status with ILIKE '%…%',
     # which can never use an index, and free text drifts — production still
     # holds a pre-normalizer "FAIL — Both" that no current code path emits.

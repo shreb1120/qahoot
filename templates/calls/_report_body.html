@@ -20,7 +20,8 @@
 {% endfor %}
 {% set score_pct = (ns.covered / ns.total * 100) | round | int if ns.total else 0 %}
 {% set is_crit = 'CRITICAL' in det %}
-{% set is_pass = 'PASS' in det and 'FAIL' not in det %}
+{% set is_incomplete = det.startswith('INCOMPLETE') %}
+{% set is_pass = 'PASS' in det and 'FAIL' not in det and not is_incomplete %}
 
 <div>
 
@@ -143,6 +144,8 @@
         <span class="rp-verdict rp-verdict--pass"><span class="rp-verdict-dot" aria-hidden="true"></span>PASS</span>
       {% elif is_crit %}
         <span class="rp-verdict rp-verdict--crit"><span class="rp-verdict-dot" aria-hidden="true"></span>CRITICAL FAIL</span>
+      {% elif is_incomplete %}
+        <span class="rp-verdict rp-verdict--fail" style="background:#fffbeb;color:#92400e;border-color:#fcd34d"><span class="rp-verdict-dot" aria-hidden="true" style="background:#d97706"></span>INCOMPLETE</span>
       {% else %}
         <span class="rp-verdict rp-verdict--fail"><span class="rp-verdict-dot" aria-hidden="true"></span>FAIL</span>
       {% endif %}
@@ -270,9 +273,10 @@
     <div class="rp-panel mt-4 p-3.5" style="background:#fffbeb;border-color:#fcd34d">
       <p class="text-sm text-ink-2">
         <strong>{{ recon.items_not_assessed }} requirement{{ 's' if recon.items_not_assessed != 1 }}</strong>
-        came back without a verdict from the grader and {{ 'are' if recon.items_not_assessed != 1 else 'is' }}
-        counted as not covered. They are marked <em>Not assessed</em> below —
-        re-run the call if you need a determination on {{ 'them' if recon.items_not_assessed != 1 else 'it' }}.
+        came back without a verdict from the grader.
+        They are marked <em>Not assessed</em> below — this is a grading gap, not
+        an agent miss{% if is_incomplete %}, and the call is marked
+        <strong>INCOMPLETE</strong> until you re-run it{% endif %}.
       </p>
     </div>
   {% endif %}
@@ -419,7 +423,7 @@
                       {% if item.status == 'covered' %}
                         <span class="rp-status rp-status--ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 13 4 4L19 7"/></svg>Covered</span>
                       {% elif item.status == 'not_assessed' %}
-                        <span class="rp-status rp-status--unknown" title="The grader did not return a verdict for this requirement. Treated as not covered."><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"/></svg>Not assessed</span>
+                        <span class="rp-status rp-status--unknown" title="The grader did not return a verdict for this requirement. Not counted as an agent miss."><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"/></svg>Not assessed</span>
                       {% else %}
                         <span class="rp-status rp-status--miss"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>Missing</span>
                       {% endif %}
