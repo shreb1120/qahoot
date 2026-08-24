@@ -5,7 +5,9 @@
 
 ### Implementation progress
 
-- **Phase 1 (grader trust) — landed in this workspace:** `not_assessed` → `incomplete` (not FAIL); debt-relief `grader_extensions` opt-in on debt-settlement template only; `ANTHROPIC_MODEL` env; safer Claude JSON parse; report UI copy updated.
+- **Phase 1 (grader trust) — on GitHub:** branch `cursor/phase1-grader-trust-b892` / PR #1.
+- **Phase 2 (UI unify) — in progress / this branch:** steel-teal action, unified radius, Plus Jakarta display, risk-first dashboard, brand-first marketing hero.
+- **Phase 1 detail:** `not_assessed` → `incomplete` (not FAIL); debt-relief `grader_extensions` opt-in on debt-settlement template only; `ANTHROPIC_MODEL` env; safer Claude JSON parse; report UI copy updated.
 
 ---
 

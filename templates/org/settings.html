@@ -39,7 +39,7 @@
               <td>
                 {# Same admin/member hues as the dashboard badge — the role read
                    violet here and indigo there before the canon rollout. #}
-                <span class="rp-tag {{ 'rp-tag--req' if member.role == 'admin' else 'rp-tag--opt' }}">{{ member.role }}</span>
+                <span class="rp-tag {{ 'rp-tag--req' if member.role == 'admin' else 'rp-tag--opt' }}">{% if member.role == 'admin' %}Admin{% else %}Member{% endif %}</span>
               </td>
               <td class="rp-num text-muted">{{ member.created_at.strftime('%b %d, %Y') }}</td>
             </tr>

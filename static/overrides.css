@@ -1,19 +1,18 @@
 /* ============================================================================
-   Qaboom design system — Direction A: "Indigo Enterprise"
+   Qaboom design system — unified tokens (Phase 2)
    ----------------------------------------------------------------------------
-   Tailwind config (base.html) holds the color palette. This file holds the
-   design tokens as CSS variables + the reusable component classes that give
-   every page a consistent rhythm.
+   One radius/elevation language across .qb-* and .rp-*. Action colour is
+   steel-teal (not indigo/purple). Indigo/teal remain as *speaker data* only.
    ============================================================================ */
 
 :root {
-  /* ── Brand (indigo) ── */
-  --brand-50:  #eef2ff;
-  --brand-100: #e0e7ff;
-  --brand-500: #6366f1;
-  --brand-600: #4f46e5;   /* primary action */
-  --brand-700: #4338ca;   /* primary hover / gradient end */
-  --brand-900: #312e81;
+  /* ── Brand (steel-teal action) ── */
+  --brand-50:  #ecfeff;
+  --brand-100: #cffafe;
+  --brand-500: #06b6d4;
+  --brand-600: #0e7490;   /* primary action */
+  --brand-700: #155e75;   /* primary hover */
+  --brand-900: #164e63;
 
   /* ── Neutral text ramp (slate) ──
      Four legible tiers plus one explicitly decorative tier. Every tier that
@@ -27,7 +26,7 @@
                              which cleared 4.5:1 on white but only reached 4.40:1
                              on the page ground, where much of this text sits. */
   --decor:     #94a3b8;   /* NON-TEXT ONLY           2.6:1 — icons, rules */
-  --border:    #e5e7eb;
+  --border:    #e4e7ec;
   --card:      #ffffff;
 
   /* ── Semantic ── */
@@ -73,26 +72,34 @@
   --mk-fs-lede:  1.125rem;
   --mk-fs-body:  1rem;
   --mk-fs-price: 2rem;
+  --mk-fs-brand: clamp(2.75rem, 7vw, 4.25rem);
 
   /* ── Spacing rhythm ── */
   --pad-card:   1.25rem;  /* 20px — standard card padding */
   --gap:        1rem;     /* grid gap between cards */
   --gap-lg:     1.25rem;  /* gap between major content blocks */
-  --radius:     0.75rem;
+  /* Unified with --c-radius: one language across qb + rp surfaces. */
+  --radius:     6px;
 
-  --shadow-sm: 0 1px 2px rgba(15,23,42,.06), 0 1px 3px rgba(15,23,42,.04);
-  --shadow-md: 0 4px 16px rgba(49,46,129,.08);
+  --shadow-sm: 0 0 0 transparent; /* hairlines carry elevation, not soft shadows */
+  --shadow-md: 0 0 0 transparent;
+  --font-display: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
 }
 
 /* ── Typography helpers ──
    .qb-display carries size only, so it can sit on the dark auth panel;
    .qb-page-title is the same step plus the page-title colour. */
 .qb-display, .qb-page-title {
+  font-family: var(--font-display);
   font-size: var(--fs-display); font-weight: 800;
-  letter-spacing: -0.02em; line-height: 1.1;
+  letter-spacing: -0.03em; line-height: 1.1;
 }
 .qb-page-title { color: var(--ink); }
-.qb-section-title { font-size: var(--fs-title); font-weight: 700; color: var(--ink); line-height: 1.25; margin: 0; }
+.qb-section-title {
+  font-family: var(--font-display);
+  font-size: var(--fs-title); font-weight: 700; color: var(--ink); line-height: 1.25; margin: 0;
+}
 
 /* ── Card primitives ── */
 .qb-card {
@@ -209,10 +216,15 @@
   margin-top: auto;
   padding-top: 3rem;
   text-align: center;
+  font-family: var(--font-display);
   font-size: var(--fs-meta);
-  font-weight: 500;
-  letter-spacing: .08em;
-  color: var(--faint);
+  font-weight: 600;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--decor); /* decorative only — faint watermark, not chrome */
+  opacity: .55;
+  pointer-events: none;
+  user-select: none;
 }
 
 /* ── Global polish: fade-in for main content ── */
@@ -391,16 +403,16 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   /* Values the build reuses and DESIGN.md now records, rather than literals
      scattered through component rules. */
   --c-radius-micro: 2px;      /* marks under 8px tall: bars, sparks, markers */
-  --c-track:    var(--c-track);      /* meter / timeline groove */
+  --c-track:    #eef1f4;      /* meter / timeline groove */
   --c-line-3:   #b8c0cc;      /* control border on hover */
   --nav-idle:   #a5b0c7;      /* sidebar link at rest */
   --nav-hover:  #e6eaf3;      /* sidebar link hovered */
-  --nav-mid:    #172554;      /* sidebar gradient midpoint */
-  --busy:       #6d28d9;      /* analysing — the one status that is neither */
-  --busy-soft:  #f5f3ff;      /* pending-neutral nor a verdict */
-  --busy-line:  #ddd6fe;
-  --show-1:     #1e2a52;      /* auth panel field */
-  --show-2:     #241d52;
+  --nav-mid:    #1e293b;      /* sidebar gradient midpoint — slate, not indigo */
+  --busy:       #b45309;      /* analysing — amber, not purple */
+  --busy-soft:  #fffbeb;
+  --busy-line:  #fcd34d;
+  --show-1:     #0f172a;      /* auth panel field */
+  --show-2:     #1e293b;
 }
 
 .rp-num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
@@ -1074,17 +1086,28 @@ label:has(> input[type="checkbox"]), label:has(> input[type="radio"]) {
 }
 
 /* ── Type scale, one step up from the app's ── */
+.mk-brand {
+  font-family: var(--font-display);
+  font-size: var(--mk-fs-brand);
+  font-weight: 800;
+  letter-spacing: -.04em;
+  line-height: .95;
+  color: var(--ink);
+  margin: 0 0 .75rem;
+}
 .mk-eyebrow {
   font-size: var(--fs-meta); font-weight: 700; letter-spacing: .1em;
-  text-transform: uppercase; color: var(--spk-a); margin: 0 0 1rem;
+  text-transform: uppercase; color: var(--brand-700); margin: 0 0 .75rem;
 }
 .mk-h1 {
+  font-family: var(--font-display);
   font-size: var(--mk-fs-h1); line-height: 1.06;
-  letter-spacing: -.033em; font-weight: 750; color: var(--ink);
-  margin: 0 0 1.25rem; max-width: 20ch; text-wrap: balance;
+  letter-spacing: -.033em; font-weight: 700; color: var(--ink);
+  margin: 0 0 1.25rem; max-width: 22ch; text-wrap: balance;
 }
 .mk-h1--sm { font-size: var(--mk-fs-h1-sm); max-width: 24ch; }
 .mk-h2 {
+  font-family: var(--font-display);
   font-size: var(--mk-fs-h2); line-height: 1.15;
   letter-spacing: -.022em; font-weight: 700; color: var(--ink);
   margin: 0 0 1rem; text-wrap: balance;
