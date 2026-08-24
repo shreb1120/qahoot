@@ -18,12 +18,13 @@
   <link rel="icon" href="{{ static_url('favicon-16.png') }}" sizes="16x16" type="image/png">
   <link rel="apple-touch-icon" href="{{ static_url('apple-touch-icon.png') }}">
   <link rel="manifest" href="{{ static_url('site.webmanifest') }}">
-  <meta name="theme-color" content="#4338ca">
+  <meta name="theme-color" content="#0e7490">
 
   {# Fonts and CSS are all same-origin: no third-party request blocks the
      first paint. Tailwind is built ahead of time by `npm run build:css`
      (config in tailwind.config.js) instead of compiled in the browser. #}
   <link rel="preload" href="{{ static_url('fonts/inter-latin.woff2') }}" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="{{ static_url('fonts/plus-jakarta-display.woff2') }}" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="{{ static_url('fonts.css') }}">
   <link rel="stylesheet" href="{{ static_url('tailwind.css') }}">
   <link rel="stylesheet" href="{{ static_url('overrides.css') }}">
@@ -33,7 +34,7 @@
        universal selector forced Inter onto <code> too, which mattered most on
        the auto-fail phrases where exact wording is the point. Form controls do
        not inherit font by default, so they opt in explicitly. */
-    body { font-family: 'Inter', system-ui, sans-serif; margin: 0; background: var(--c-bg); }
+    body { font-family: var(--font-body); margin: 0; background: var(--c-bg); }
     button, input, select, textarea { font-family: inherit; font-size: 100%; }
   </style>
 
@@ -83,7 +84,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
   {# ── Sidebar ── #}
   <aside id="sidebar" class="fixed top-0 left-0 z-50 h-full w-64 flex flex-col transform -translate-x-full lg:translate-x-0 transition-transform duration-200 ease-in-out shadow-xl"
-         style="background:linear-gradient(180deg,#0f172a 0%,var(--nav-mid) 55%,#312e81 100%)">
+         style="background:linear-gradient(180deg,#0f172a 0%,var(--nav-mid) 60%,#020617 100%)">
     {# Brand header #}
     <div class="flex items-center justify-between px-5 h-14 lg:h-16">
       <a href="{{ url_for('dashboard.index') }}" class="text-white font-bold text-lg tracking-tight no-underline flex items-center gap-2.5">
@@ -162,7 +163,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
           Sign out
         </a>
       </div>
-      <div class="mx-2 px-3 py-1.5 rounded-md bg-white/5 border border-white/10 text-xs text-indigo-200 truncate">{{ g.org.name }}</div>
+      <div class="mx-2 px-3 py-1.5 rounded-md bg-white/5 border border-white/10 text-xs text-slate-300 truncate">{{ g.org.name }}</div>
     </div>
   </aside>
 {% endif %}
@@ -179,7 +180,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
         <div class="mb-4 px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2
           {% if category == 'error' %}bg-red-50 text-red-800 border border-red-200
           {% elif category == 'success' %}bg-green-50 text-green-800 border border-green-200
-          {% else %}bg-indigo-50 text-indigo-800 border border-indigo-200{% endif %}">
+          {% else %}bg-cyan-50 text-cyan-900 border border-cyan-200{% endif %}">
           {% if category == 'error' %}
             <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"/></svg>
           {% elif category == 'success' %}

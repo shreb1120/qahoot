@@ -10,7 +10,7 @@
       <p class="text-xs text-muted mt-1.5">
         {{ user.email }}
         <span class="ml-1 inline-block px-1.5 py-0.5 rounded text-xs font-semibold border
-          {% if user.role == 'admin' %}bg-indigo-50 text-indigo-700 border-indigo-200{% else %}bg-sky-50 text-sky-800 border-sky-200{% endif %}">{{ user.role }}</span>
+          {% if user.role == 'admin' %}bg-cyan-50 text-cyan-900 border-cyan-200{% else %}bg-slate-50 text-slate-700 border-slate-200{% endif %}">{% if user.role == 'admin' %}Admin{% else %}Member{% endif %}</span>
       </p>
     </div>
     <a href="{{ url_for('calls.upload_form') }}" class="qb-btn-primary">
@@ -19,12 +19,12 @@
     </a>
   </div>
 
-  {# ── Metric strip ── #}
+  {# ── Metric strip — risk / work first, then volume ── #}
   <div class="rp-metrics">
     <div class="rp-metric">
-      <div class="rp-metric-label">Total calls</div>
-      <div class="rp-metric-value">{{ stats.total }}</div>
-      <div class="rp-metric-note">all time</div>
+      <div class="rp-metric-label">Needs review</div>
+      <div class="rp-metric-value {% if review_counts.needs_judgment > 0 %}!text-red-700{% endif %}">{{ review_counts.needs_judgment }}</div>
+      <div class="rp-metric-note">{% if review_counts.needs_judgment %}waiting on a decision{% else %}queue clear{% endif %}</div>
     </div>
 
     <div class="rp-metric">
@@ -39,15 +39,15 @@
     </div>
 
     <div class="rp-metric">
-      <div class="rp-metric-label">This week</div>
-      <div class="rp-metric-value">{{ stats.this_week }}</div>
-      <div class="rp-metric-note">calls uploaded</div>
-    </div>
-
-    <div class="rp-metric">
       <div class="rp-metric-label">Processing</div>
       <div class="rp-metric-value {% if stats.processing > 0 %}!text-amber-700{% endif %}">{{ stats.processing }}</div>
       <div class="rp-metric-note">{{ 'in progress' if stats.processing > 0 else 'all done' }}</div>
+    </div>
+
+    <div class="rp-metric">
+      <div class="rp-metric-label">Total calls</div>
+      <div class="rp-metric-value">{{ stats.total }}</div>
+      <div class="rp-metric-note">{{ stats.this_week }} this week</div>
     </div>
   </div>
 

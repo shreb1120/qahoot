@@ -7,11 +7,14 @@ module.exports = {
   corePlugins: { preflight: false },   // browser defaults are load-bearing here
   theme: {
     extend: {
-      fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+      fontFamily: {
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+        display: ['Plus Jakarta Sans', 'Inter', 'system-ui', 'sans-serif'],
+      },
       colors: {
-        /* Design system: Direction A — Indigo Enterprise */
-        brand: { 50:'#eef2ff', 100:'#e0e7ff', 200:'#c7d2fe', 500:'#6366f1', 600:'#4f46e5', 700:'#4338ca', 800:'#3730a3', 900:'#312e81' },
-        surface: { DEFAULT:'#f5f6fa', card:'#ffffff', ink:'#0f172a', muted:'#475569', border:'#e2e8f0' },
+        /* Steel-teal action brand (Phase 2). Speaker indigo stays in CSS vars. */
+        brand: { 50:'#ecfeff', 100:'#cffafe', 200:'#a5f3fc', 500:'#06b6d4', 600:'#0e7490', 700:'#155e75', 800:'#155e75', 900:'#164e63' },
+        surface: { DEFAULT:'#f5f6f8', card:'#ffffff', ink:'#0f172a', muted:'#475569', border:'#e4e7ec' },
         sidebar: { DEFAULT:'#0f172a', hover:'rgba(255,255,255,0.06)' },
         /* The documented text ramp, resolved from the CSS custom properties so
            there is exactly one source of truth. Templates previously reached for

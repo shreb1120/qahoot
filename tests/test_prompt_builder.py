@@ -83,6 +83,41 @@ def test_blank_checklist_still_produces_a_coherent_prompt():
     p = build_system_prompt({"sections": [], "auto_fail_phrases": []})
     assert "OUTPUT FORMAT" in p and "final_determination" in p
     assert "AUTO-FAIL PHRASES" not in p, "an empty phrase list should not print a header"
+    assert "program_flip" not in p
+    assert "INELIGIBLE ACCOUNTS" not in p
+
+
+def test_debt_relief_extensions_are_opt_in():
+    """Horizontal orgs must not inherit debt-settlement program-flip grading."""
+    plain = build_system_prompt(CUSTOM)
+    assert "program_flip" not in plain
+    assert "prior_settlement" not in plain
+
+    debt = build_system_prompt({
+        **CUSTOM,
+        "grader_extensions": ["program_flip", "ineligible_accounts"],
+    })
+    assert '"program_flip"' in debt
+    assert "prior_settlement" in debt
+    assert "PROGRAM FLIP" in debt
+    assert "INELIGIBLE ACCOUNTS" in debt
+
+
+def test_debt_settlement_template_enables_extensions():
+    from templates_seed import TEMPLATES_BY_KEY
+    checklist = TEMPLATES_BY_KEY["debt_settlement"]["checklist"]
+    assert "program_flip" in checklist.get("grader_extensions", [])
+    p = build_system_prompt(checklist)
+    assert "PROGRAM FLIP" in p
+
+
+def test_solar_template_does_not_enable_debt_extensions():
+    from templates_seed import TEMPLATES_BY_KEY
+    checklist = TEMPLATES_BY_KEY["solar"]["checklist"]
+    assert not checklist.get("grader_extensions")
+    p = build_system_prompt(checklist)
+    assert "PROGRAM FLIP" not in p
+    assert "program_flip" not in p
 
 
 @pytest.mark.parametrize("name", [
